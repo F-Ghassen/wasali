@@ -6,7 +6,7 @@ import {
   TextInput,
   TouchableOpacity,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -18,7 +18,6 @@ import { getAuthErrorMessage } from '@/utils/errorMessages';
 const RESEND_COOLDOWN = 60;
 
 export default function VerifyOtpScreen() {
-  const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
   const { verifyOtp, resendVerification, isLoading } = useAuthStore();
   const { showToast } = useUIStore();
@@ -67,7 +66,7 @@ export default function VerifyOtpScreen() {
     }
     try {
       await verifyOtp(email, token);
-      router.replace('/(tabs)');
+      // navigation handled by SIGNED_IN event in _layout.tsx
     } catch (error) {
       showToast(getAuthErrorMessage(error), 'error');
       setOtp(['', '', '', '', '', '']);

@@ -23,7 +23,7 @@ import { getAuthErrorMessage } from '@/utils/errorMessages';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { signUp, isLoading } = useAuthStore();
+  const { signUp, signIn, isLoading } = useAuthStore();
   const { showToast } = useUIStore();
 
   const { control, handleSubmit, formState: { errors } } = useForm<SignUpData>({
@@ -35,6 +35,23 @@ export default function SignUpScreen() {
       await signUp(data.email, data.password, data.fullName);
       router.push({ pathname: '/(auth)/verify-otp', params: { email: data.email } });
     } catch (error) {
+      const msg = (error as { message?: string }).message ?? '';
+      if (msg.includes('User already registered')) {
+        if (__DEV__) {
+          // Dev mode: skip re-registration, sign in directly
+          try {
+            await signIn(data.email, data.password);
+            // navigation handled by SIGNED_IN event in _layout.tsx
+          } catch {
+            showToast('Dev auto-login failed — sign in manually.', 'warning');
+            router.push('/(auth)/login');
+          }
+        } else {
+          showToast('An account with this email already exists.', 'error');
+          router.push('/(auth)/login');
+        }
+        return;
+      }
       showToast(getAuthErrorMessage(error), 'error');
     }
   };

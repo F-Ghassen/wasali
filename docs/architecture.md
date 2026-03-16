@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-16_
+_Last updated: 2026-03-17_
 
 ---
 
@@ -156,8 +156,17 @@ signUp()
 
 verifyOtp() / detectSessionInUrl (web)
   └─▶ session created → JWT stored in SecureStore / AsyncStorage
-  └─▶ onAuthStateChange fires in _layout.tsx
-  └─▶ setSession + loadProfile → redirect to (tabs)
+  └─▶ onAuthStateChange fires SIGNED_IN in _layout.tsx
+  └─▶ setSession + loadProfile → router.replace('/(tabs)')
+
+signOut()
+  └─▶ Supabase clears session
+  └─▶ onAuthStateChange fires SIGNED_OUT in _layout.tsx
+  └─▶ router.replace('/(auth)/welcome')
+
+Duplicate email on sign-up
+  └─▶ __DEV__: auto-calls signIn() → SIGNED_IN → tabs (unblocks testing)
+  └─▶ prod:    toast "account already exists" + redirect to login
 ```
 
 ---
@@ -184,6 +193,22 @@ Client                     Edge Function              Stripe
 
 ---
 
+## Email (Transactional)
+
+Supabase's built-in mailer is limited to 2 emails/hour. Production and development use **Resend** as the custom SMTP provider.
+
+| Setting | Value |
+|---|---|
+| Host | `smtp.resend.com` |
+| Port | `465` |
+| Username | `resend` |
+| Password | Resend API key (`re_...`) — found in Resend dashboard → API Keys |
+| Sender | `onboarding@resend.dev` (dev) / verified domain (prod) |
+
+Configure in: **Supabase Dashboard → Project Settings → Authentication → SMTP Settings**
+
+---
+
 ## Web-Specific Adaptations
 
 | Issue | Solution |
@@ -191,5 +216,5 @@ Client                     Edge Function              Stripe
 | `@stripe/stripe-react-native` crashes on web | `metro.config.js` resolves it to `lib/stripe-native-stub.ts` |
 | Session from email confirmation link | `detectSessionInUrl: true` on web |
 | Token storage | `AsyncStorage` on web, `SecureStore` on native |
-| `Alert.alert` | Replaced with `useUIStore().showToast` across auth screens |
+| `Alert.alert` | Replaced with `useUIStore().showToast` across auth screens and profile |
 | SSR mode errors | `app.json` web output set to `"single"` (SPA) |

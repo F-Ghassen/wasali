@@ -1,6 +1,6 @@
 # Wasali — User Flow
 
-_Last updated: 2026-03-16_
+_Last updated: 2026-03-17_
 
 ---
 
@@ -25,16 +25,19 @@ Sign-Up Flow:
   (auth)/sign-up
       │  fill name / email / password
       ▼
-  Supabase signUp()  →  confirmation email sent
+  Supabase signUp()
       │
-      ▼
-  (auth)/verify-otp
-      │  enter 6-digit code  OR  click email link
-      ▼
-  verifyOtp() / detectSessionInUrl
+      ├── email already registered?
+      │       ├── __DEV__  →  auto signIn()  →  SIGNED_IN  →  (tabs)/index
+      │       └── prod     →  toast + redirect to (auth)/login
       │
-      ▼
-  (tabs)/index  ✓
+      └── new email  →  confirmation email sent (via Resend SMTP)
+              │
+              ▼
+          (auth)/verify-otp
+              │  enter 6-digit code  OR  click email link
+              ▼
+          verifyOtp()  →  SIGNED_IN event  →  (tabs)/index  ✓
 
 Login Flow:
   (auth)/login
@@ -153,5 +156,5 @@ Offer accepted  →  booking created  →  Booking Flow (review-pay)
 ├── Saved Addresses   →  profile/addresses    (list)
 │       └── Add       →  profile/add-address
 ├── Notifications     →  profile/notifications
-└── Sign Out          →  (auth)/welcome
+└── Sign Out          →  signOut() → SIGNED_OUT event → (auth)/welcome
 ```

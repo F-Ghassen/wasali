@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ const StripeProvider = isStripeReady
 
 export default function RootLayout() {
   const { setSession, loadProfile } = useAuthStore();
+  const router = useRouter();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -29,9 +30,11 @@ export default function RootLayout() {
       if (session?.user) loadProfile(session.user.id);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session?.user) loadProfile(session.user.id);
+      if (event === 'SIGNED_OUT') router.replace('/(auth)/welcome');
+      if (event === 'SIGNED_IN') router.replace('/(tabs)');
     });
 
     return () => listener.subscription.unsubscribe();

@@ -34,7 +34,7 @@ export default function LoginScreen() {
   const onSubmit = async (data: LoginData) => {
     try {
       await signIn(data.email, data.password);
-      router.replace('/(tabs)');
+      // navigation handled by SIGNED_IN event in _layout.tsx
     } catch (error) {
       showToast(getAuthErrorMessage(error), 'error');
     }

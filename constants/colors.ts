@@ -1,37 +1,50 @@
 export const Colors = {
-  primary: '#00e0b8',
-  primaryLight: 'rgba(0,224,184,0.08)',
-  primaryDark: '#00b896',
-  secondary: '#f5a623',
-  secondaryLight: 'rgba(245,166,35,0.08)',
-  success: '#00e0b8',
-  successLight: 'rgba(0,224,184,0.08)',
-  warning: '#f5a623',
-  warningLight: 'rgba(245,166,35,0.08)',
-  error: '#ff5c5c',
-  errorLight: 'rgba(255,92,92,0.08)',
-  gold: '#d4a843',
+  // Primary brand — Uber-style pure black
+  primary: '#000000',
+  primaryLight: 'rgba(0,0,0,0.06)',
+  primaryDark: '#1A1A1A',
+
+  // Secondary accent — Uber blue
+  secondary: '#276EF1',
+  secondaryLight: 'rgba(39,110,241,0.08)',
+
+  // Semantic
+  success: '#05944F',
+  successLight: 'rgba(5,148,79,0.08)',
+  warning: '#FFC043',
+  warningLight: 'rgba(255,192,67,0.08)',
+  error: '#E11900',
+  errorLight: 'rgba(225,25,0,0.08)',
+  gold: '#C9A227',
+
+  // Text — high contrast on white
   text: {
-    primary: '#f2f2f2',
-    secondary: '#e0e0e0',
-    tertiary: '#888888',
-    inverse: '#080808',
+    primary: '#000000',
+    secondary: '#545454',
+    tertiary: '#ADADAD',
+    inverse: '#FFFFFF',
   },
+
+  // Backgrounds — white + light grays
   background: {
-    primary: '#080808',
-    secondary: '#111111',
-    tertiary: '#161616',
+    primary: '#FFFFFF',
+    secondary: '#F6F6F6',
+    tertiary: '#EBEBEB',
   },
+
+  // Borders — subtle on white
   border: {
-    light: '#222222',
-    medium: '#2a2a2a',
-    dark: '#555555',
+    light: '#E5E5E5',
+    medium: '#CCCCCC',
+    dark: '#999999',
   },
-  surface: '#111111',
-  surface2: '#161616',
-  surface3: '#1c1c1c',
-  white: '#f2f2f2',
-  black: '#080808',
+
+  surface: '#F6F6F6',
+  surface2: '#EBEBEB',
+  surface3: '#E0E0E0',
+
+  white: '#FFFFFF',
+  black: '#000000',
   transparent: 'transparent',
-  overlay: 'rgba(0, 0, 0, 0.7)',
+  overlay: 'rgba(0, 0, 0, 0.5)',
 };

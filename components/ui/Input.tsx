@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.border.light,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.background.primary,
+    backgroundColor: Colors.background.secondary,
     minHeight: 52,
   },
   focused: { borderColor: Colors.primary },

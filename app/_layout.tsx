@@ -54,7 +54,7 @@ export default function RootLayout() {
         <Stack.Screen name="profile" />
       </Stack>
       <ToastContainer />
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </>
   );
 

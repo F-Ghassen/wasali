@@ -10,6 +10,7 @@ export default function AuthLayout() {
         headerTintColor: Colors.text.primary,
         headerBackTitle: '',
         headerTitle: '',
+        contentStyle: { backgroundColor: Colors.background.primary },
       }}
     />
   );

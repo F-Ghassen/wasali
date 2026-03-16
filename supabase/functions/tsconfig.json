@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": true,
+    "lib": ["es2021"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["deno.ns"]
+  }
+}

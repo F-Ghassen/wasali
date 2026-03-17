@@ -69,7 +69,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="p2p"
+        name="p2p/index"
         options={{
           title: 'Ship Docs Fast',
           tabBarIcon: ({ color }) => <SendHorizonal size={iconSize} color={color} strokeWidth={2} />,

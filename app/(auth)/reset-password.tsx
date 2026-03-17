@@ -18,6 +18,7 @@ import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useUIStore } from '@/stores/uiStore';
+import { useAuthStore } from '@/stores/authStore';
 import { getAuthErrorMessage } from '@/utils/errorMessages';
 
 const schema = z
@@ -35,6 +36,7 @@ type ResetData = z.infer<typeof schema>;
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const { showToast } = useUIStore();
+  const { loadProfile } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -46,10 +48,12 @@ export default function ResetPasswordScreen() {
   const onSubmit = async (data: ResetData) => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({ password: data.password });
+      const { data: updateData, error } = await supabase.auth.updateUser({ password: data.password });
       if (error) throw error;
       showToast('Password updated successfully', 'success');
-      router.replace('/(tabs)');
+      if (updateData.user) await loadProfile(updateData.user.id);
+      const { profile } = useAuthStore.getState();
+      router.replace(profile?.role === 'driver' ? '/(driver-tabs)' as any : '/(tabs)');
     } catch (error) {
       const msg = (error as { message?: string }).message ?? '';
       if (msg.includes('expired') || msg.includes('invalid')) {

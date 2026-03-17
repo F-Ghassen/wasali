@@ -1,22 +1,74 @@
-import { Tabs, Redirect } from 'expo-router';
-import { View, useWindowDimensions } from 'react-native';
+import { Tabs, Redirect, useRouter } from 'expo-router';
+import { View, Text, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, Package, User, SendHorizonal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Footer } from '@/components/ui/Footer';
 import { useAuthStore } from '@/stores/authStore';
+import { Button } from '@/components/ui/Button';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;
+
+function WrongRoleScreen({ targetRole }: { targetRole: 'driver' | 'sender' }) {
+  const router = useRouter();
+  const { signOut } = useAuthStore();
+
+  const isDriverArea = targetRole === 'driver';
+
+  return (
+    <SafeAreaView style={styles.center}>
+      <Text style={styles.icon}>{isDriverArea ? '🚛' : '📦'}</Text>
+      <Text style={styles.title}>
+        {isDriverArea ? 'Driver Area' : 'Sender Area'}
+      </Text>
+      <Text style={styles.message}>
+        {isDriverArea
+          ? 'This section is for registered drivers only. Your account is set up as a sender.'
+          : 'This section is for senders. Your account is set up as a driver.'}
+      </Text>
+      <Button
+        label={isDriverArea ? 'Go to Sender App' : 'Go to Driver Dashboard'}
+        onPress={() => router.replace(isDriverArea ? '/(tabs)' : ('/(driver-tabs)' as any))}
+        size="lg"
+      />
+      <Button
+        label="Sign Out"
+        onPress={signOut}
+        variant="ghost"
+        size="lg"
+      />
+    </SafeAreaView>
+  );
+}
 
 export default function TabsLayout() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const iconSize = isWide ? ICON_SIZE_WIDE : ICON_SIZE_MOBILE;
-  const { session } = useAuthStore();
+  const { session, profile, isInitialized } = useAuthStore();
 
+  // 1. Still bootstrapping — show spinner
+  if (!isInitialized) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
+  // Profile failed to load (timed out or error) — force re-auth
+  if (session && !profile) return <Redirect href="/(auth)/welcome" />;
+
+  // 2. No session → send to welcome
   if (!session) return <Redirect href="/(auth)/welcome" />;
+
+  // 3. Wrong role → guided message
+  if (profile?.role !== 'sender') {
+    return <WrongRoleScreen targetRole="sender" />;
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -99,3 +151,32 @@ export default function TabsLayout() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing['2xl'],
+    backgroundColor: Colors.background.primary,
+  },
+  icon: { fontSize: 56, marginBottom: Spacing.lg },
+  title: {
+    fontSize: FontSize['2xl'],
+    fontWeight: '800',
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+  },
+  message: {
+    fontSize: FontSize.base,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: Spacing['2xl'],
+  },
+  loadingText: {
+    marginTop: Spacing.md,
+    fontSize: FontSize.sm,
+    color: Colors.text.tertiary,
+  },
+});

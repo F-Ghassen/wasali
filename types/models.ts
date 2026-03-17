@@ -28,6 +28,13 @@ export type ShippingRequestWithOffers = ShippingRequest & {
   })[];
 };
 
+export type UserRole = 'sender' | 'driver';
+
+export type BookingWithSender = Booking & {
+  route?: RouteWithStops;
+  sender?: Partial<Profile>;
+};
+
 export type BookingStatus =
   | 'pending'
   | 'confirmed'

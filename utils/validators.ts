@@ -75,6 +75,39 @@ export const disputeSchema = z.object({
   description: z.string().min(20, 'Please provide a detailed description'),
 });
 
+export const routeStopSchema = z.object({
+  city: z.string().min(1, 'City is required'),
+  country: z.string().min(1, 'Country is required'),
+  arrival_date: z.string().optional(),
+  is_pickup_available: z.boolean(),
+  is_dropoff_available: z.boolean(),
+});
+
+export const createRouteSchema = z.object({
+  origin_city: z.string().min(1, 'Origin city is required'),
+  origin_country: z.string().min(1, 'Origin country is required'),
+  destination_city: z.string().min(1, 'Destination city is required'),
+  destination_country: z.string().min(1, 'Destination country is required'),
+  departure_date: z.string().min(1, 'Departure date is required').refine(
+    (d) => new Date(d) >= new Date(new Date().toDateString()),
+    'Departure date must be today or in the future'
+  ),
+  estimated_arrival_date: z.string().optional(),
+  available_weight_kg: z
+    .number()
+    .min(1, 'Minimum 1 kg')
+    .max(200, 'Maximum 200 kg'),
+  price_per_kg_eur: z
+    .number()
+    .min(0.5, 'Minimum €0.50/kg')
+    .max(100, 'Maximum €100/kg'),
+  notes: z.string().max(500).optional(),
+  stops: z.array(routeStopSchema).optional(),
+});
+
+export type CreateRouteData = z.infer<typeof createRouteSchema>;
+export type RouteStopData = z.infer<typeof routeStopSchema>;
+
 export type SignUpData = z.infer<typeof signUpSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
 export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;

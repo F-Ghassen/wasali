@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { supabase } from '@/lib/supabase';
 import { ToastContainer } from '@/components/ui/Toast';
+import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
 
 const isStripeReady = Boolean(
@@ -20,27 +21,51 @@ const StripeProvider = isStripeReady
   ? require('@stripe/stripe-react-native').StripeProvider
   : null;
 
+function roleRoute(role?: string) {
+  return (role === 'driver' ? '/(driver-tabs)' : '/(tabs)') as any;
+}
+
 export default function RootLayout() {
-  const { setSession, loadProfile, setInitialized, isInitialized } = useAuthStore();
+  const { setSession, loadProfile, setInitialized, isInitialized, profile, session } = useAuthStore();
   const router = useRouter();
 
+  // Session bootstrap — always call setInitialized so the spinner never hangs
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) loadProfile(session.user.id);
-      setInitialized();
-    });
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
 
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session);
-      if (session?.user) loadProfile(session.user.id);
-      if (event === 'SIGNED_OUT') router.replace('/(auth)/welcome');
-      if (event === 'SIGNED_IN') router.replace('/(tabs)');
-      if (event === 'PASSWORD_RECOVERY') router.replace('/(auth)/reset-password');
+    Promise.race([supabase.auth.getSession(), timeout])
+      .then(async ({ data: { session: s } }) => {
+        setSession(s);
+        if (s?.user) {
+          await loadProfile(s.user.id);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { setInitialized(); });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
+      setSession(s);
+      if (event === 'SIGNED_OUT') { router.replace('/(auth)/welcome'); return; }
+      if (event === 'PASSWORD_RECOVERY') { router.replace('/(auth)/reset-password'); return; }
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s?.user) {
+        await loadProfile(s.user.id);
+      }
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Role-based redirect: fires once profile loads after a sign-in
+  useEffect(() => {
+    if (!isInitialized || !session || !profile) return;
+    // Only redirect from the index screen — deep links like /dev stay untouched
+    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+    if (currentPath === '/' || currentPath === '') {
+      router.replace(roleRoute(profile.role));
+    }
+  }, [isInitialized, session, profile]);
 
   if (!isInitialized) {
     return (
@@ -54,8 +79,11 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="dev" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(driver-tabs)" />
+        <Stack.Screen name="driver" />
         <Stack.Screen name="routes" />
         <Stack.Screen name="booking" />
         <Stack.Screen name="bookings" />
@@ -65,6 +93,7 @@ export default function RootLayout() {
       </Stack>
       <ToastContainer />
       <StatusBar style="dark" />
+      {__DEV__ && <DevRoleSwitcher />}
     </>
   );
 

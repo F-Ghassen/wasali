@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
@@ -34,8 +34,14 @@ export default function WelcomeScreen() {
 
       <View style={styles.actions}>
         <Button
-          label="Get Started"
+          label="Get Started — Ship a Package"
           onPress={() => router.push('/(auth)/sign-up')}
+          size="lg"
+        />
+        <Button
+          label="I'm a traveller — Earn by carrying"
+          onPress={() => router.push('/(auth)/sign-up-driver' as any)}
+          variant="outline"
           size="lg"
         />
         <Button
@@ -44,6 +50,11 @@ export default function WelcomeScreen() {
           variant="ghost"
           size="lg"
         />
+        {__DEV__ && (
+          <TouchableOpacity onPress={() => router.push('/dev' as any)} style={styles.devLink}>
+            <Text style={styles.devLinkText}>🛠 Dev Navigator</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -75,4 +86,6 @@ const styles = StyleSheet.create({
   featureIcon: { fontSize: 24 },
   featureText: { fontSize: FontSize.base, color: Colors.text.primary, fontWeight: '500' },
   actions: { gap: Spacing.sm, paddingBottom: Spacing['2xl'] },
+  devLink: { alignItems: 'center', paddingVertical: Spacing.xs },
+  devLinkText: { fontSize: FontSize.sm, color: Colors.text.tertiary, textDecorationLine: 'underline' },
 });

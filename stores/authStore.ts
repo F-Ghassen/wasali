@@ -18,7 +18,7 @@ interface AuthActions {
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setInitialized: () => void;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, role?: 'sender' | 'driver') => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -40,7 +40,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   setProfile: (profile) => set({ profile }),
   setInitialized: () => set({ isInitialized: true }),
 
-  signUp: async (email, password, fullName) => {
+  signUp: async (email, password, fullName, role = 'sender') => {
     set({ isLoading: true });
     try {
       const redirectTo = Platform.OS === 'web'
@@ -50,7 +50,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: { full_name: fullName, role },
           emailRedirectTo: redirectTo,
         },
       });
@@ -115,11 +115,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   loadProfile: async (userId) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+    const query = supabase.from('profiles').select('*').eq('id', userId).single();
+    const result = await Promise.race([query, timeout]);
+    if (!result) return;
+    const { data, error } = result as Awaited<typeof query>;
     if (!error && data) set({ profile: data as Profile });
   },
 

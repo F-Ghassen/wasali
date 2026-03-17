@@ -1,0 +1,261 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  SafeAreaView,
+  RefreshControl,
+} from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { format } from 'date-fns';
+import { ArrowLeft, MapPin, Package } from 'lucide-react-native';
+import { Colors } from '@/constants/colors';
+import { BorderRadius, Spacing } from '@/constants/spacing';
+import { FontSize } from '@/constants/typography';
+import { useAuthStore } from '@/stores/authStore';
+import { useDriverRouteStore } from '@/stores/driverRouteStore';
+import { useDriverBookingStore } from '@/stores/driverBookingStore';
+import { useUIStore } from '@/stores/uiStore';
+import { Button } from '@/components/ui/Button';
+import { DriverBookingCard } from '@/components/driver/DriverBookingCard';
+import type { RouteWithStops } from '@/types/models';
+
+export default function DriverRouteDetailScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { profile } = useAuthStore();
+  const { routes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
+  const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered } = useDriverBookingStore();
+  const { showToast } = useUIStore();
+
+  const route = routes.find((r) => r.id === id) as RouteWithStops | undefined;
+  const routeBookings = bookings.filter((b) => b.route_id === id);
+  const hasActiveBookings = routeBookings.some((b) => ['confirmed', 'in_transit'].includes(b.status));
+
+  const load = () => {
+    if (profile) fetchBookings(profile.id);
+  };
+
+  useEffect(() => { load(); }, [id]);
+
+  const handleCancel = () => {
+    if (hasActiveBookings) {
+      Alert.alert(
+        'Cannot Cancel',
+        'This route has confirmed or in-transit bookings. Please resolve them before cancelling.'
+      );
+      return;
+    }
+    Alert.alert(
+      'Cancel Route',
+      'Are you sure you want to cancel this route? This cannot be undone.',
+      [
+        { text: 'Keep Route', style: 'cancel' },
+        {
+          text: 'Cancel Route',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cancelRoute(id);
+              showToast('Route cancelled', 'info');
+              router.back();
+            } catch {
+              showToast('Failed to cancel route', 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleMarkFull = () => {
+    Alert.alert('Mark as Full', 'No new bookings will be accepted.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Mark Full',
+        onPress: async () => {
+          try {
+            await markRouteFull(id);
+            showToast('Route marked as full', 'success');
+          } catch {
+            showToast('Failed to update route', 'error');
+          }
+        },
+      },
+    ]);
+  };
+
+  if (!route) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.navBar}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <ArrowLeft size={24} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.navTitle}>Route Detail</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centered}>
+          <Text style={styles.notFoundText}>Route not found</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isActive = route.status === 'active';
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.navBar}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ArrowLeft size={24} color={Colors.text.primary} />
+        </TouchableOpacity>
+        <Text style={styles.navTitle}>Route Detail</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={load} />}
+        contentContainerStyle={styles.content}
+      >
+        {/* Route summary card */}
+        <View style={styles.card}>
+          <View style={styles.routeHeader}>
+            <MapPin size={18} color={Colors.text.secondary} />
+            <Text style={styles.routeTitle}>
+              {route.origin_city} → {route.destination_city}
+            </Text>
+          </View>
+          <Text style={styles.routeSubtitle}>
+            {route.origin_country} → {route.destination_country}
+          </Text>
+
+          <View style={styles.metaGrid}>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Departure</Text>
+              <Text style={styles.metaValue}>{format(new Date(route.departure_date), 'MMM d, yyyy')}</Text>
+            </View>
+            {route.estimated_arrival_date && (
+              <View style={styles.metaItem}>
+                <Text style={styles.metaLabel}>Est. Arrival</Text>
+                <Text style={styles.metaValue}>{format(new Date(route.estimated_arrival_date), 'MMM d, yyyy')}</Text>
+              </View>
+            )}
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Capacity</Text>
+              <Text style={styles.metaValue}>{route.available_weight_kg} kg</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Price/kg</Text>
+              <Text style={styles.metaValue}>€{route.price_per_kg_eur}</Text>
+            </View>
+          </View>
+
+          {route.notes ? (
+            <View style={styles.notes}>
+              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.notesText}>{route.notes}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Actions (only for active routes) */}
+        {isActive && (
+          <View style={styles.actionsCard}>
+            <Button
+              label="Mark as Full"
+              onPress={handleMarkFull}
+              variant="outline"
+              size="md"
+            />
+            <Button
+              label="Cancel Route"
+              onPress={handleCancel}
+              variant="destructive"
+              size="md"
+            />
+          </View>
+        )}
+
+        {/* Bookings on this route */}
+        <Text style={styles.sectionTitle}>
+          Bookings ({routeBookings.length})
+        </Text>
+
+        {routeBookings.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Package size={32} color={Colors.text.tertiary} />
+            <Text style={styles.emptyText}>No bookings yet</Text>
+          </View>
+        ) : (
+          routeBookings.map((booking) => (
+            <DriverBookingCard
+              key={booking.id}
+              booking={booking}
+              onConfirm={booking.status === 'pending' ? () => confirmBooking(booking.id) : undefined}
+              onReject={booking.status === 'pending' ? () => rejectBooking(booking.id) : undefined}
+              onPress={() => router.push({ pathname: '/driver/bookings/[id]' as any, params: { id: booking.id } })}
+            />
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background.primary },
+  navBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+  content: { padding: Spacing.base, paddingBottom: Spacing['4xl'] },
+  card: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
+  routeHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  routeTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary },
+  routeSubtitle: { fontSize: FontSize.sm, color: Colors.text.secondary },
+  metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: Spacing.sm },
+  metaItem: { minWidth: '40%' },
+  metaLabel: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: 2 },
+  metaValue: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
+  notes: { marginTop: Spacing.sm },
+  notesLabel: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: 2 },
+  notesText: { fontSize: FontSize.sm, color: Colors.text.secondary },
+  actionsCard: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    padding: Spacing['2xl'],
+    gap: Spacing.sm,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+  },
+  emptyText: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  notFoundText: { fontSize: FontSize.base, color: Colors.text.secondary },
+});

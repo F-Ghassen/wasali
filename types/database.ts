@@ -21,6 +21,8 @@ export type Database = {
           phone_verified: boolean;
           avatar_url: string | null;
           stripe_customer_id: string | null;
+          role: string;
+          stripe_connect_account_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -31,6 +33,8 @@ export type Database = {
           phone_verified?: boolean;
           avatar_url?: string | null;
           stripe_customer_id?: string | null;
+          role?: string;
+          stripe_connect_account_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -41,6 +45,8 @@ export type Database = {
           phone_verified?: boolean;
           avatar_url?: string | null;
           stripe_customer_id?: string | null;
+          role?: string;
+          stripe_connect_account_id?: string | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -133,6 +139,7 @@ export type Database = {
           stripe_payment_intent_id: string | null;
           payment_status: string;
           status: string;
+          notes: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -152,6 +159,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null;
           payment_status?: string;
           status?: string;
+          notes?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -162,6 +170,7 @@ export type Database = {
           stripe_payment_intent_id?: string | null;
           payment_status?: string;
           status?: string;
+          notes?: string | null;
           updated_at?: string;
         };
         Relationships: [];

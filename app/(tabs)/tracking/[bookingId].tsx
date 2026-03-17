@@ -331,9 +331,9 @@ export default function TrackingScreen() {
           <TouchableOpacity
             style={s.homeBtn}
             activeOpacity={0.85}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace('/(tabs)/bookings')}
           >
-            <Text style={s.homeBtnText}>Go to home</Text>
+            <Text style={s.homeBtnText}>My bookings</Text>
           </TouchableOpacity>
 
         </View>

@@ -66,19 +66,18 @@ app/
 │   ├── verify-otp.tsx
 │   ├── login.tsx
 │   └── forgot-password.tsx
-├── (tabs)/                    ← main tab bar
+├── (tabs)/                    ← main tab bar (persistent nav)
 │   ├── index.tsx              (Search routes)
 │   ├── bookings.tsx
 │   ├── requests.tsx
-│   └── profile.tsx
-├── booking/                   ← booking wizard stack
-│   ├── package-details.tsx
-│   ├── logistics.tsx
-│   └── review-pay.tsx
+│   ├── profile.tsx
+│   ├── routes/
+│   │   └── results.tsx        (hidden tab — href:null)
+│   ├── booking/
+│   │   └── index.tsx          (hidden tab — 5-step accordion)
+│   └── tracking/
+│       └── [bookingId].tsx    (hidden tab — shipment timeline)
 ├── bookings/[id].tsx          ← booking detail
-├── routes/
-│   ├── results.tsx
-│   └── [id].tsx
 ├── shipping-requests/
 │   ├── new.tsx
 │   └── [id].tsx

@@ -76,54 +76,66 @@ Tab Bar
     │  select origin city (EU) + destination city (TN)
     │  tap Search
     ▼
-routes/results  [Route List]
+(tabs)/routes/results  [Route List]
     │  tap a route card
     ▼
-routes/[id]  [Route Detail]
-    │  tap "Book this route"
-    ▼
-── Booking Flow (Stack) ──────────────────────────────
+(tabs)/booking/index  [Book Shipment — 5-step accordion]
     │
-    ▼
-booking/package-details
-    │  weight, category, photos, declared value
-    ▼
-booking/logistics
-    │  pickup type (driver pickup / drop-off point)
-    │  delivery type (home delivery / recipient pickup)
-    │  address fields (if applicable)
-    ▼
-booking/review-pay
-    │  summary + price
-    │  [Pay Now]  →  Stripe PaymentIntent (manual capture / escrow)
-    ▼
-── Booking confirmed ─────────────────────────────────
+    │  Step 1 — Details
+    │    sender: "My details" (name, phone, address) OR "On behalf"
+    │    toggle: update my profile / save to recipients
     │
+    │  Step 2 — Logistics
+    │    collection method: driver pickup (+€8) | drop-off point
+    │    delivery method:   home (+€10) | collect | post (+€6)
+    │    city + date pickers for collection & drop-off
+    │
+    │  Step 3 — Package
+    │    weight (kg), type (document/clothing/electronics/…), photos
+    │
+    │  Step 4 — Recipient
+    │    name, phone (+WhatsApp toggle), toggle: save to recipients
+    │    drop-off city shown read-only (from Step 2)
+    │
+    │  Step 5 — Payment
+    │    options: Cash to driver | Bank transfer | Online (Stripe)
+    │    live OrderSummary sidebar (wide) / bottom bar (mobile)
+    │    [Confirm & pay →]
     ▼
-(tabs)/bookings  [My Bookings]
+── Booking submitted ─────────────────────────────────
+    │  (backend: create booking, send push to driver, lock escrow)
+    ▼
+(tabs)/tracking/[bookingId]  [Shipment Tracking]
 ```
 
 ---
 
-## 4. Booking Lifecycle
+## 4. Booking Lifecycle / Tracking
 
 ```
-pending_payment
-    │  payment captured
+awaiting_payment
+    │  payment confirmed
     ▼
-confirmed
-    │  driver picks up
+confirmed         ◀── current step highlighted in timeline
+    │  driver collects package
+    ▼
+collected
+    │  en route
     ▼
 in_transit
     │  delivered
     ▼
 delivered
-    │
-    ├──▶ post-delivery/rate/[bookingId]    (rate driver 1–5 ⭐)
-    └──▶ post-delivery/dispute/[bookingId] (open dispute)
+    │  [Rate your driver] button shown on tracking screen
+    ▼
+rated  →  escrow released to driver
 ```
 
-Booking detail at any stage: `bookings/[id]`
+Tracking screen: `(tabs)/tracking/[bookingId]`
+  - Vertical timeline with done / current / pending dot states
+  - Booking summary card (route, dates, weight, total)
+  - Green escrow banner
+  - "Rate your driver" action card appears at `delivered` status
 
 ---
 

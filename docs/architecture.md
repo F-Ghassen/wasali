@@ -75,8 +75,13 @@ app/
 │   │   └── results.tsx        (hidden tab — href:null)
 │   ├── booking/
 │   │   └── index.tsx          (hidden tab — 5-step accordion)
-│   └── tracking/
-│       └── [bookingId].tsx    (hidden tab — shipment timeline)
+│   ├── tracking/
+│   │   └── [bookingId].tsx    (hidden tab — shipment timeline)
+│   └── p2p/
+│       ├── index.tsx          (P2P hub — visible tab)
+│       ├── send.tsx           (hidden — send a document form)
+│       ├── carry.tsx          (hidden — browse & offer to carry)
+│       └── leaderboard.tsx    (hidden — carrier points board)
 ├── bookings/[id].tsx          ← booking detail
 ├── shipping-requests/
 │   ├── new.tsx
@@ -133,6 +138,10 @@ profiles ───────────────────────�
     ├──▶ shipping_requests (sender_id)                 │
     │       └──▶ shipping_request_offers (driver_id) ──┘
     │
+    ├──▶ p2p_requests (sender_id)
+    │       └──▶ p2p_carries (carrier_id → profiles.id)
+    │               └── on delivery: points credited to carrier
+    │
     └──▶ saved_addresses (user_id)
 ```
 
@@ -141,6 +150,8 @@ profiles ───────────────────────�
 - `routes`: public read; drivers insert/update own
 - `bookings`: sender reads own; driver reads where route_id matches
 - `shipping_requests`: public read (open); sender manages own
+- `p2p_requests`: public read (open); sender manages own
+- `p2p_carries`: carrier inserts own; sender reads offers on their requests
 - All tables: `service_role` bypasses RLS (Edge Functions)
 
 ---

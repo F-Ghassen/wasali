@@ -1,6 +1,6 @@
 # Wasali — User Flow
 
-_Last updated: 2026-03-17_
+_Last updated: 2026-03-17 (P2P added)_
 
 ---
 
@@ -64,7 +64,8 @@ Tab Bar
 ├── 🔍 Search      →  (tabs)/index
 ├── 📦 Bookings    →  (tabs)/bookings
 ├── 📋 Requests    →  (tabs)/requests
-└── 👤 Profile     →  (tabs)/profile
+├── 👤 Profile     →  (tabs)/profile
+└── ↔️  P2P         →  (tabs)/p2p
 ```
 
 ---
@@ -160,7 +161,68 @@ Offer accepted  →  booking created  →  Booking Flow (review-pay)
 
 ---
 
-## 6. Profile
+## 6. P2P Document Network
+
+```
+(tabs)/p2p  [Hub]
+├── "Send a document"   →  (tabs)/p2p/send
+└── "Carry a document"  →  (tabs)/p2p/carry
+    Trophy button       →  (tabs)/p2p/leaderboard
+```
+
+### Send flow
+
+```
+(tabs)/p2p/send
+    │  from city (EU) + to city (TN)
+    │  earliest / latest date window
+    │  document type: Passport/ID | Letter | Contract | Medical | Other
+    │  description (optional)
+    │  urgency: Normal (10 pts) | Soon (25 pts) | Urgent (50 pts)
+    │  offer payment toggle + amount (optional)
+    │  [Post request]
+    ▼
+p2p_requests row created  →  visible to all travellers on corridor
+```
+
+### Carry flow
+
+```
+(tabs)/p2p/carry  [Open requests]
+    │  filter: All | 🇪🇺→🇹🇳 only | 🔥 Urgent first
+    │  tap "Offer to carry" on a request card
+    ▼
+Offer modal
+    │  Free carry  →  earn points (added to leaderboard)
+    │  For a fee   →  set amount, sender accepts
+    │  optional message to sender
+    │  [Send offer]
+    ▼
+p2p_carries record created
+    │  sender accepts offer
+    ▼
+Document hand-off  →  delivery confirmed
+    │
+    └── Free carry: points credited to carrier profile
+```
+
+### Points & Leaderboard
+
+```
+Points earned per delivery (free carry):
+  Normal urgency  → +10 pts
+  Soon            → +25 pts
+  Urgent          → +50 pts
+
+(tabs)/p2p/leaderboard
+  ├── Gold / Silver / Bronze podium (top 3)
+  ├── Ranked list — own row highlighted in blue
+  └── Points redeemable for gifts, discounts, partner rewards
+```
+
+---
+
+## 7. Profile
 
 ```
 (tabs)/profile

@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { format } from 'date-fns';
-import { ArrowLeft, MapPin, Package } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Package, ExternalLink } from 'lucide-react-native';
+import { Linking } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -22,6 +23,13 @@ import { useUIStore } from '@/stores/uiStore';
 import { Button } from '@/components/ui/Button';
 import { DriverBookingCard } from '@/components/driver/DriverBookingCard';
 import type { RouteWithStops } from '@/types/models';
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  cash_sender: 'Cash on collection',
+  cash_recipient: 'Cash on delivery',
+  paypal: 'PayPal',
+  bank_transfer: 'Bank transfer',
+};
 
 export default function DriverRouteDetailScreen() {
   const router = useRouter();
@@ -161,7 +169,100 @@ export default function DriverRouteDetailScreen() {
               <Text style={styles.notesText}>{route.notes}</Text>
             </View>
           ) : null}
+
+          {/* Payment methods */}
+          {(route as any).payment_methods?.length > 0 && (
+            <View style={styles.notes}>
+              <Text style={styles.notesLabel}>Payment methods</Text>
+              <Text style={styles.notesText}>
+                {((route as any).payment_methods as string[])
+                  .map((m) => PAYMENT_METHOD_LABELS[m] ?? m)
+                  .join(' · ')}
+              </Text>
+            </View>
+          )}
+
+          {/* Promo */}
+          {(route as any).promo_discount_pct != null &&
+            ((route as any).promo_expires_at == null ||
+              new Date((route as any).promo_expires_at) >= new Date()) && (
+            <View style={styles.promoCard}>
+              <Text style={styles.promoBadge}>
+                {(route as any).promo_label || `${(route as any).promo_discount_pct}% off`}
+              </Text>
+              <Text style={styles.promoDetail}>
+                Discounted price: €{(route.price_per_kg_eur * (1 - (route as any).promo_discount_pct / 100)).toFixed(2)}/kg
+              </Text>
+              {(route as any).promo_expires_at && (
+                <Text style={styles.promoExpiry}>
+                  Expires: {format(new Date((route as any).promo_expires_at), 'MMM d, yyyy')}
+                </Text>
+              )}
+            </View>
+          )}
         </View>
+
+        {/* Collection stops */}
+        {route.route_stops?.filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type).length > 0 && (
+          <View>
+            <Text style={styles.sectionTitle}>Collection Stops</Text>
+            {route.route_stops
+              .filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type)
+              .map((stop, idx) => (
+                <View key={stop.id ?? idx} style={styles.stopRow}>
+                  <MapPin size={14} color={Colors.text.tertiary} />
+                  <View style={styles.stopInfo}>
+                    <Text style={styles.stopCity}>{stop.city}, {stop.country}</Text>
+                    {(stop as any).arrival_date && (
+                      <Text style={styles.stopDate}>
+                        {format(new Date((stop as any).arrival_date), 'MMM d, yyyy')}
+                      </Text>
+                    )}
+                    {(stop as any).meeting_point_url && (
+                      <TouchableOpacity
+                        style={styles.locationLink}
+                        onPress={() => Linking.openURL((stop as any).meeting_point_url)}
+                      >
+                        <ExternalLink size={11} color={Colors.secondary} />
+                        <Text style={styles.locationLinkText}>View location →</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+          </View>
+        )}
+
+        {/* Drop-off stops */}
+        {route.route_stops?.filter((s) => (s as any).stop_type === 'dropoff').length > 0 && (
+          <View>
+            <Text style={styles.sectionTitle}>Drop-off Stops</Text>
+            {route.route_stops
+              .filter((s) => (s as any).stop_type === 'dropoff')
+              .map((stop, idx) => (
+                <View key={stop.id ?? idx} style={styles.stopRow}>
+                  <MapPin size={14} color={Colors.text.tertiary} />
+                  <View style={styles.stopInfo}>
+                    <Text style={styles.stopCity}>{stop.city}, {stop.country}</Text>
+                    {(stop as any).arrival_date && (
+                      <Text style={styles.stopDate}>
+                        Est. arrival: {format(new Date((stop as any).arrival_date), 'MMM d, yyyy')}
+                      </Text>
+                    )}
+                    {(stop as any).meeting_point_url && (
+                      <TouchableOpacity
+                        style={styles.locationLink}
+                        onPress={() => Linking.openURL((stop as any).meeting_point_url)}
+                      >
+                        <ExternalLink size={11} color={Colors.secondary} />
+                        <Text style={styles.locationLinkText}>View location →</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+          </View>
+        )}
 
         {/* Actions (only for active routes) */}
         {isActive && (
@@ -258,4 +359,35 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: FontSize.base, color: Colors.text.tertiary },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFoundText: { fontSize: FontSize.base, color: Colors.text.secondary },
+
+  // Stops
+  stopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  stopInfo: { flex: 1 },
+  stopCity: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary },
+  stopDate: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
+  locationLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 4,
+  },
+  locationLinkText: { fontSize: FontSize.xs, color: Colors.secondary, fontWeight: '600' },
+
+  // Promo card
+  promoCard: {
+    backgroundColor: 'rgba(255,140,0,0.08)',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  promoBadge: { fontSize: FontSize.sm, fontWeight: '700', color: '#D97706', marginBottom: 2 },
+  promoDetail: { fontSize: FontSize.xs, color: Colors.text.secondary },
+  promoExpiry: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
 });

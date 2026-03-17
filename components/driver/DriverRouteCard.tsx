@@ -22,6 +22,10 @@ interface DriverRouteCardProps {
 
 export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRouteCardProps) {
   const statusCfg = STATUS_CONFIG[route.status] ?? STATUS_CONFIG.active;
+  const r = route as any;
+  const promoActive =
+    r.promo_discount_pct != null &&
+    (r.promo_expires_at == null || new Date(r.promo_expires_at) >= new Date());
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -48,6 +52,15 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
         <Text style={styles.dot}>·</Text>
         <Text style={styles.metaText}>{bookingCount} booking{bookingCount !== 1 ? 's' : ''}</Text>
       </View>
+
+      {/* Promo badge */}
+      {promoActive && (
+        <View style={styles.promoBadge}>
+          <Text style={styles.promoBadgeText}>
+            {(route as any).promo_label || `${(route as any).promo_discount_pct}% off`}
+          </Text>
+        </View>
+      )}
 
       {/* Capacity bar */}
       <View style={styles.capacityRow}>
@@ -110,4 +123,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   footerHint: { fontSize: FontSize.xs, color: Colors.text.tertiary },
+  promoBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,140,0,0.12)',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+  },
+  promoBadgeText: { fontSize: FontSize.xs, fontWeight: '600', color: '#D97706' },
 });

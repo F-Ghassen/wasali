@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-17_
+_Last updated: 2026-03-18_
 
 ---
 
@@ -30,7 +30,8 @@ _Last updated: 2026-03-17_
           │  │         PostgreSQL DB          │            │
           │  │  profiles, routes, bookings,   │            │
           │  │  shipping_requests, disputes,  │            │
-          │  │  ratings, saved_addresses      │            │
+          │  │  ratings, saved_addresses,     │            │
+          │  │  route_templates               │            │
           │  └───────────────────────────────┘            │
           │                                                │
           │  ┌──────────────┐  ┌────────────────────────┐ │

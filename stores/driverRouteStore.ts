@@ -1,9 +1,21 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import type { RouteWithStops, RouteStatus } from '@/types/models';
-import type { Insert, Update } from '@/types/database';
+import type { RouteWithStops, RouteStatus, RouteTemplate } from '@/types/models';
+import type { Update } from '@/types/database';
+import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
 
 type RouteFilter = 'active' | 'completed' | 'cancelled' | 'all';
+
+interface StopInput {
+  city: string;
+  country: string;
+  stop_order: number;
+  stop_type: 'collection' | 'dropoff';
+  arrival_date?: string | null;
+  meeting_point_url?: string | null;
+  is_pickup_available: boolean;
+  is_dropoff_available: boolean;
+}
 
 interface CreateRouteInput {
   origin_city: string;
@@ -15,18 +27,18 @@ interface CreateRouteInput {
   available_weight_kg: number;
   price_per_kg_eur: number;
   notes?: string | null;
-  stops?: Array<{
-    city: string;
-    country: string;
-    stop_order: number;
-    arrival_date?: string | null;
-    is_pickup_available: boolean;
-    is_dropoff_available: boolean;
-  }>;
+  payment_methods?: string[];
+  promo_discount_pct?: number | null;
+  promo_expires_at?: string | null;
+  promo_label?: string | null;
+  stops?: StopInput[];
+  save_as_template?: boolean;
+  template_name?: string;
 }
 
 interface DriverRouteState {
   routes: RouteWithStops[];
+  templates: RouteTemplate[];
   isLoading: boolean;
   error: string | null;
 }
@@ -38,11 +50,15 @@ interface DriverRouteActions {
   cancelRoute: (id: string) => Promise<void>;
   markRouteFull: (id: string) => Promise<void>;
   completeRoute: (id: string) => Promise<void>;
+  fetchTemplates: (driverId: string) => Promise<void>;
+  applyTemplate: (templateId: string) => Partial<WizardStep1Values & WizardStep4Values> | null;
+  deleteTemplate: (templateId: string) => Promise<void>;
   clearError: () => void;
 }
 
 export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>((set, get) => ({
   routes: [],
+  templates: [],
   isLoading: false,
   error: null,
 
@@ -74,7 +90,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
   createRoute: async (driverId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const routeInsert: Insert<'routes'> = {
+      const routeInsert = {
         driver_id: driverId,
         origin_city: data.origin_city,
         origin_country: data.origin_country,
@@ -86,6 +102,10 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         price_per_kg_eur: data.price_per_kg_eur,
         notes: data.notes ?? null,
         status: 'active',
+        payment_methods: data.payment_methods ?? ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'],
+        promo_discount_pct: data.promo_discount_pct ?? null,
+        promo_expires_at: data.promo_expires_at ?? null,
+        promo_label: data.promo_label ?? null,
       };
 
       const { data: route, error: routeError } = await supabase
@@ -102,15 +122,32 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           city: stop.city,
           country: stop.country,
           stop_order: stop.stop_order,
+          stop_type: stop.stop_type,
           arrival_date: stop.arrival_date ?? null,
-          is_pickup_available: stop.is_pickup_available,
-          is_dropoff_available: stop.is_dropoff_available,
+          meeting_point_url: stop.meeting_point_url ?? null,
+          is_pickup_available: stop.stop_type === 'collection',
+          is_dropoff_available: stop.stop_type === 'dropoff',
         }));
         const { error: stopsError } = await supabase.from('route_stops').insert(stopsInsert);
         if (stopsError) throw stopsError;
       }
 
-      // Refresh list
+      if (data.save_as_template && data.template_name) {
+        const templateInsert = {
+          driver_id: driverId,
+          name: data.template_name,
+          origin_city: data.origin_city,
+          origin_country: data.origin_country,
+          destination_city: data.destination_city,
+          destination_country: data.destination_country,
+          available_weight_kg: data.available_weight_kg,
+          price_per_kg_eur: data.price_per_kg_eur,
+          payment_methods: data.payment_methods ?? ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'],
+          notes: data.notes ?? null,
+        };
+        await (supabase as any).from('route_templates').insert(templateInsert);
+      }
+
       await get().fetchRoutes(driverId);
       return routeId;
     } catch (err) {
@@ -208,6 +245,48 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
       throw err;
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  fetchTemplates: async (driverId) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from('route_templates')
+        .select('*')
+        .eq('driver_id', driverId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      set({ templates: (data ?? []) as RouteTemplate[] });
+    } catch (err) {
+      set({ error: (err as Error).message });
+    }
+  },
+
+  applyTemplate: (templateId) => {
+    const template = get().templates.find((t) => t.id === templateId);
+    if (!template) return null;
+    return {
+      origin_city: template.origin_city,
+      origin_country: template.origin_country,
+      destination_city: template.destination_city,
+      destination_country: template.destination_country,
+      available_weight_kg: template.available_weight_kg,
+      price_per_kg_eur: template.price_per_kg_eur,
+      payment_methods: template.payment_methods,
+      notes: template.notes ?? undefined,
+    };
+  },
+
+  deleteTemplate: async (templateId) => {
+    try {
+      const { error } = await (supabase as any).from('route_templates').delete().eq('id', templateId);
+      if (error) throw error;
+      set((state) => ({
+        templates: state.templates.filter((t) => t.id !== templateId),
+      }));
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
     }
   },
 }));

@@ -1,6 +1,6 @@
 # Wasali — User Flow
 
-_Last updated: 2026-03-17 (P2P added)_
+_Last updated: 2026-03-18 (Route wizard + promo + templates)_
 
 ---
 

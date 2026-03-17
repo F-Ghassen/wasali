@@ -108,6 +108,60 @@ export const createRouteSchema = z.object({
 export type CreateRouteData = z.infer<typeof createRouteSchema>;
 export type RouteStopData = z.infer<typeof routeStopSchema>;
 
+// ─────────────────────────────────────────
+// Route Wizard step schemas
+// ─────────────────────────────────────────
+
+export const wizardStep1Schema = z.object({
+  origin_city: z.string().min(1, 'Origin city is required'),
+  origin_country: z.string().min(1, 'Origin country is required'),
+  destination_city: z.string().min(1, 'Destination city is required'),
+  destination_country: z.string().min(1, 'Destination country is required'),
+  departure_date: z.string().min(1, 'Departure date is required').refine(
+    (d) => new Date(d) >= new Date(new Date().toDateString()),
+    'Departure date must be today or in the future'
+  ),
+  estimated_arrival_date: z.string().optional(),
+}).refine(
+  (data) => {
+    if (!data.estimated_arrival_date) return true;
+    return new Date(data.estimated_arrival_date) >= new Date(data.departure_date);
+  },
+  { message: 'Estimated arrival must be on or after departure date', path: ['estimated_arrival_date'] }
+);
+
+export const collectionStopSchema = z.object({
+  city: z.string().min(1, 'City is required'),
+  country: z.string().min(1, 'Country is required'),
+  collection_date: z.string().optional(),
+  meeting_point_url: z.string().url().optional().or(z.literal('')),
+});
+
+export const dropoffStopSchema = z.object({
+  city: z.string().min(1, 'City is required'),
+  country: z.string().min(1, 'Country is required'),
+  estimated_arrival_date: z.string().optional(),
+  meeting_point_url: z.string().url().optional().or(z.literal('')),
+});
+
+export const wizardStep4Schema = z.object({
+  available_weight_kg: z.number().min(1, 'Minimum 1 kg').max(200, 'Maximum 200 kg'),
+  price_per_kg_eur: z.number().min(0.5, 'Minimum €0.50/kg').max(100, 'Maximum €100/kg'),
+  notes: z.string().max(500).optional(),
+  promo_enabled: z.boolean(),
+  promo_discount_pct: z.number().min(1).max(99).optional(),
+  promo_expires_at: z.string().optional(),
+  promo_label: z.string().max(30).optional(),
+  payment_methods: z.array(z.string()).min(1, 'At least one payment method required'),
+  save_as_template: z.boolean(),
+  template_name: z.string().max(60).optional(),
+});
+
+export type WizardStep1Values = z.infer<typeof wizardStep1Schema>;
+export type CollectionStop = z.infer<typeof collectionStopSchema>;
+export type DropoffStop = z.infer<typeof dropoffStopSchema>;
+export type WizardStep4Values = z.infer<typeof wizardStep4Schema>;
+
 export type SignUpData = z.infer<typeof signUpSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
 export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;

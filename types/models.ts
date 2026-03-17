@@ -30,6 +30,23 @@ export type ShippingRequestWithOffers = ShippingRequest & {
 
 export type UserRole = 'sender' | 'driver';
 
+// Route template (for wizard reuse)
+// Defined inline since route_templates table is new and not yet in generated types
+export type RouteTemplate = {
+  id: string;
+  driver_id: string;
+  name: string;
+  origin_city: string;
+  origin_country: string;
+  destination_city: string;
+  destination_country: string;
+  available_weight_kg: number;
+  price_per_kg_eur: number;
+  payment_methods: string[];
+  notes?: string | null;
+  created_at: string;
+};
+
 export type BookingWithSender = Booking & {
   route?: RouteWithStops;
   sender?: Partial<Profile>;

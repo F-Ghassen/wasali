@@ -6,7 +6,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { ShieldCheck } from 'lucide-react-native';
+import { ShieldCheck, Ban } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -22,6 +22,7 @@ export type RouteCardRoute = RouteWithStops & {
   driver_rating?: number;
   driver_trip_count?: number;
   driver_verified?: boolean;
+  forbidden_items?: string[];
 };
 
 interface RouteCardProps {
@@ -37,16 +38,6 @@ function initials(name: string | null | undefined): string {
 export function RouteCard({ route, onPress }: RouteCardProps) {
   const pickupStops  = route.route_stops.filter((s) => s.is_pickup_available);
   const dropoffStops = route.route_stops.filter((s) => s.is_dropoff_available);
-
-  // Build corridor labels
-  const pickupCities  = [route.origin_city,      ...pickupStops.map((s) => s.city)];
-  const dropoffCities = [route.destination_city, ...dropoffStops.map((s) => s.city)];
-  const corridor      = `${pickupCities.join(', ')} → ${dropoffCities.join(', ')}`;
-
-  // Date window
-  const dateWindow = route.estimated_arrival_date
-    ? `${formatDateShort(route.departure_date)} – ${formatDateShort(route.estimated_arrival_date)}`
-    : formatDateShort(route.departure_date);
 
   // Capacity
   const total     = route.total_weight_kg ?? route.available_weight_kg;
@@ -86,13 +77,8 @@ export function RouteCard({ route, onPress }: RouteCardProps) {
         )}
       </View>
 
-      {/* ── Route corridor + dates ───────────────────────── */}
-      <Text style={c.corridor} numberOfLines={2}>{corridor}</Text>
-      <Text style={c.dateWindow}>{dateWindow}</Text>
-
       {/* ── Stop pills ──────────────────────────────────── */}
-      {(pickupStops.length > 0 || dropoffStops.length > 0) && (
-        <ScrollView
+      <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={c.pillsRow}
@@ -133,7 +119,6 @@ export function RouteCard({ route, onPress }: RouteCardProps) {
             </View>
           </View>
         </ScrollView>
-      )}
 
       {/* ── Capacity bar ────────────────────────────────── */}
       <View style={c.capacityRow}>
@@ -145,18 +130,37 @@ export function RouteCard({ route, onPress }: RouteCardProps) {
         </Text>
       </View>
 
+      {/* ── Min booking quantity ─────────────────────────── */}
+      {route.min_booking_kg != null && (
+        <View style={c.minKgBadge}>
+          <Text style={c.minKgText}>📦 Minimum booking: {route.min_booking_kg} kg</Text>
+        </View>
+      )}
+
+      {/* ── Forbidden items ──────────────────────────────── */}
+      {!!route.forbidden_items?.length && (
+        <View style={c.forbiddenRow}>
+          <Ban size={12} color={Colors.error} strokeWidth={2.5} />
+          <Text style={c.forbiddenLabel}>Not accepted:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={c.forbiddenScroll}>
+            {route.forbidden_items.map((item) => (
+              <View key={item} style={c.forbiddenPill}>
+                <Text style={c.forbiddenPillText}>{item}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
       {/* ── Price + CTA ─────────────────────────────────── */}
       <View style={c.footer}>
-        <View>
+        <View style={c.priceBlock}>
           <View style={c.priceRow}>
             {hasDiscount && (
               <Text style={c.originalPrice}>€{route.original_price_per_kg_eur!.toFixed(2)}</Text>
             )}
             <Text style={c.price}>from €{route.price_per_kg_eur.toFixed(2)}<Text style={c.perKg}>/kg</Text></Text>
           </View>
-          {route.min_booking_kg != null && (
-            <Text style={c.minKg}>min {route.min_booking_kg} kg</Text>
-          )}
         </View>
 
         <TouchableOpacity style={c.bookBtn} onPress={onPress} activeOpacity={0.85}>
@@ -207,10 +211,6 @@ const c = StyleSheet.create({
   },
   discountText: { fontSize: 11, fontWeight: '800', color: Colors.white },
 
-  // Corridor
-  corridor: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
-  dateWindow: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: Spacing.md },
-
   // Pills
   pillsRow: { gap: Spacing.sm, alignItems: 'center', marginBottom: Spacing.md },
   pillGroup: { flexDirection: 'row', gap: Spacing.xs },
@@ -230,8 +230,32 @@ const c = StyleSheet.create({
   capacityLabel: { fontSize: FontSize.xs, color: Colors.text.secondary },
   kgLeft: { fontWeight: '700', color: Colors.text.primary },
 
+  // Forbidden items
+  forbiddenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+    flexWrap: 'nowrap',
+  },
+  forbiddenLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.error,
+    flexShrink: 0,
+  },
+  forbiddenScroll: { gap: Spacing.xs, flexDirection: 'row' },
+  forbiddenPill: {
+    backgroundColor: 'rgba(225,25,0,0.07)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 3,
+  },
+  forbiddenPillText: { fontSize: 11, fontWeight: '600', color: Colors.error },
+
   // Footer
-  footer: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  priceBlock: { gap: 4 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: Spacing.xs },
   originalPrice: {
     fontSize: FontSize.sm,
@@ -240,7 +264,17 @@ const c = StyleSheet.create({
   },
   price: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary },
   perKg: { fontSize: FontSize.xs, fontWeight: '400', color: Colors.text.secondary },
-  minKg: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
+  minKgBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(39,110,241,0.09)',
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(39,110,241,0.25)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 5,
+    marginBottom: Spacing.sm,
+  },
+  minKgText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.secondary },
   bookBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,

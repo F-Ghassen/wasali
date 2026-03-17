@@ -9,6 +9,7 @@ import {
   ScrollView,
   TextInput,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SlidersHorizontal, X } from 'lucide-react-native';
@@ -34,6 +35,7 @@ const MOCK_ROUTES: RouteCardRoute[] = [
     total_weight_kg: 30, min_booking_kg: 5,
     discount_pct: 15, original_price_per_kg_eur: 4.10,
     driver_rating: 4.9, driver_trip_count: 47, driver_verified: true,
+    forbidden_items: ['Liquids', 'Weapons', 'Perishables'],
     driver: { id: 'd1', full_name: 'Mohamed K.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
     route_stops: [
       { id: 's1', route_id: '1', city: 'Hamburg',  country: 'Germany',  stop_order: 1, arrival_date: '2026-03-26', is_pickup_available: true,  is_dropoff_available: false },
@@ -50,6 +52,7 @@ const MOCK_ROUTES: RouteCardRoute[] = [
     available_weight_kg: 5, price_per_kg_eur: 4.00,
     total_weight_kg: 20, min_booking_kg: 3,
     driver_rating: 4.7, driver_trip_count: 23, driver_verified: true,
+    forbidden_items: ['Food', 'Weapons'],
     driver: { id: 'd2', full_name: 'Amine B.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
     route_stops: [
       { id: 's3', route_id: '2', city: 'Sousse', country: 'Tunisia', stop_order: 1, arrival_date: '2026-04-02', is_pickup_available: false, is_dropoff_available: true },
@@ -65,6 +68,7 @@ const MOCK_ROUTES: RouteCardRoute[] = [
     available_weight_kg: 22, price_per_kg_eur: 3.80,
     total_weight_kg: 25, min_booking_kg: 10,
     driver_rating: 4.8, driver_trip_count: 61, driver_verified: true,
+    forbidden_items: ['Liquids', 'Fragile items', 'Weapons'],
     driver: { id: 'd3', full_name: 'Youssef T.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
     route_stops: [
       { id: 's4', route_id: '3', city: 'Cologne', country: 'Germany', stop_order: 1, arrival_date: '2026-04-03', is_pickup_available: true,  is_dropoff_available: false },
@@ -82,6 +86,7 @@ const MOCK_ROUTES: RouteCardRoute[] = [
     total_weight_kg: 30, min_booking_kg: 5,
     discount_pct: 10, original_price_per_kg_eur: 3.55,
     driver_rating: 5.0, driver_trip_count: 12, driver_verified: true,
+    forbidden_items: ['Weapons'],
     driver: { id: 'd4', full_name: 'Karim H.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
     route_stops: [],
   },
@@ -151,6 +156,8 @@ export default function ResultsScreen() {
   const router = useRouter();
   const { fromCity, toCity, isSearching } = useSearchStore();
   const { setRoute } = useBookingStore();
+  const { width } = useWindowDimensions();
+  const isWide = width >= 768;
 
   const [sort, setSort]           = useState<SortKey>('earliest');
   const [showFilter, setShowFilter] = useState(false);
@@ -204,10 +211,117 @@ export default function ResultsScreen() {
     router.push(`/routes/${route.id}`);
   };
 
+  // ── Shared filter controls (used in both sidebar and mobile panel) ──────────
+  const FilterControls = () => (
+    <>
+      {/* Sort */}
+      <Text style={s.filterLabel}>SORT BY</Text>
+      <View style={s.sidebarSortCol}>
+        {SORT_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.key}
+            style={[s.sidebarSortItem, sort === opt.key && s.sidebarSortItemActive]}
+            onPress={() => setSort(opt.key)}
+            activeOpacity={0.75}
+          >
+            <Text style={[s.sidebarSortText, sort === opt.key && s.sidebarSortTextActive]}>
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={s.sidebarDivider} />
+
+      {/* Direction */}
+      <Text style={s.filterLabel}>DIRECTION</Text>
+      <View style={s.dirCol}>
+        {(['all', 'eu-tn', 'tn-eu'] as Direction[]).map((d) => (
+          <TouchableOpacity
+            key={d}
+            style={[s.dirChip, direction === d && s.dirChipActive]}
+            onPress={() => setDirection(d)}
+            activeOpacity={0.75}
+          >
+            <Text style={[s.dirChipText, direction === d && s.dirChipTextActive]}>
+              {d === 'all' ? 'All directions' : d === 'eu-tn' ? 'EU → TN' : 'TN → EU'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={s.sidebarDivider} />
+
+      {/* Min capacity */}
+      <Text style={s.filterLabel}>MIN CAPACITY</Text>
+      <View style={s.inputWrap}>
+        <TextInput
+          style={s.input}
+          placeholder="0"
+          placeholderTextColor={Colors.text.tertiary}
+          keyboardType="numeric"
+          value={minCapInput}
+          onChangeText={setMinCapInput}
+        />
+        <Text style={s.inputUnit}>kg</Text>
+      </View>
+
+      {/* Max price */}
+      <Text style={[s.filterLabel, { marginTop: Spacing.sm }]}>MAX PRICE</Text>
+      <View style={s.inputWrap}>
+        <Text style={s.inputUnit}>€</Text>
+        <TextInput
+          style={s.input}
+          placeholder="any"
+          placeholderTextColor={Colors.text.tertiary}
+          keyboardType="numeric"
+          value={maxPriceInput}
+          onChangeText={setMaxPriceInput}
+        />
+        <Text style={s.inputUnit}>/kg</Text>
+      </View>
+
+      {/* Reset */}
+      {activeFilterCount > 0 && (
+        <TouchableOpacity
+          style={s.resetBtn}
+          onPress={() => { setDirection('all'); setMinCapInput(''); setMaxPriceInput(''); }}
+          activeOpacity={0.7}
+        >
+          <Text style={s.resetText}>Reset filters</Text>
+        </TouchableOpacity>
+      )}
+    </>
+  );
+
+  // ── Card list ────────────────────────────────────────────────────────────────
+  const CardList = () => isSearching ? (
+    <View style={s.list}>
+      {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+    </View>
+  ) : (
+    <FlatList
+      data={displayed}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={s.list}
+      showsVerticalScrollIndicator={false}
+      renderItem={({ item }) => (
+        <RouteCard route={item} onPress={() => handleSelect(item)} />
+      )}
+      ListEmptyComponent={
+        <NoResults
+          fromCity={fromCity || 'this origin'}
+          toCity={toCity || 'this destination'}
+          onSubmitRequest={() => router.push('/shipping-requests/new')}
+        />
+      }
+    />
+  );
+
   return (
     <SafeAreaView style={s.root}>
 
-      {/* ── Header ──────────────────────────────────────── */}
+      {/* ── Header — always at top ───────────────────────── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
@@ -218,129 +332,98 @@ export default function ResultsScreen() {
             <Text style={s.headerCount}>{displayed.length} route{displayed.length !== 1 ? 's' : ''}</Text>
           )}
         </View>
-        <TouchableOpacity
-          style={[s.filterBtn, activeFilterCount > 0 && s.filterBtnActive]}
-          onPress={() => setShowFilter((v) => !v)}
-          activeOpacity={0.7}
-        >
-          {showFilter
-            ? <X size={16} color={activeFilterCount > 0 ? Colors.white : Colors.text.primary} strokeWidth={2.5} />
-            : <SlidersHorizontal size={16} color={activeFilterCount > 0 ? Colors.white : Colors.text.primary} strokeWidth={2} />
-          }
-          {activeFilterCount > 0 && (
-            <Text style={s.filterBadge}>{activeFilterCount}</Text>
-          )}
-        </TouchableOpacity>
+        {/* Filter toggle only on mobile */}
+        {!isWide && (
+          <TouchableOpacity
+            style={[s.filterBtn, activeFilterCount > 0 && s.filterBtnActive]}
+            onPress={() => setShowFilter((v) => !v)}
+            activeOpacity={0.7}
+          >
+            {showFilter
+              ? <X size={16} color={activeFilterCount > 0 ? Colors.white : Colors.text.primary} strokeWidth={2.5} />
+              : <SlidersHorizontal size={16} color={activeFilterCount > 0 ? Colors.white : Colors.text.primary} strokeWidth={2} />
+            }
+            {activeFilterCount > 0 && (
+              <Text style={s.filterBadge}>{activeFilterCount}</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* ── Sort chips ──────────────────────────────────── */}
-      <View style={s.sortRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sortScroll}>
-          {SORT_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.key}
-              style={[s.sortChip, sort === opt.key && s.sortChipActive]}
-              onPress={() => setSort(opt.key)}
-              activeOpacity={0.75}
-            >
-              <Text style={[s.sortChipText, sort === opt.key && s.sortChipTextActive]}>
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* ── Filter panel ────────────────────────────────── */}
-      {showFilter && (
-        <View style={s.filterPanel}>
-
-          {/* Direction */}
-          <Text style={s.filterLabel}>DIRECTION</Text>
-          <View style={s.dirRow}>
-            {(['all', 'eu-tn', 'tn-eu'] as Direction[]).map((d) => (
-              <TouchableOpacity
-                key={d}
-                style={[s.dirChip, direction === d && s.dirChipActive]}
-                onPress={() => setDirection(d)}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.dirChipText, direction === d && s.dirChipTextActive]}>
-                  {d === 'all' ? 'All' : d === 'eu-tn' ? 'EU → TN' : 'TN → EU'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+      {isWide ? (
+        /* ── Wide: sidebar + cards ───────────────────────── */
+        <View style={s.wideBody}>
+          <ScrollView style={s.sidebar} contentContainerStyle={s.sidebarContent} showsVerticalScrollIndicator={false}>
+            <FilterControls />
+          </ScrollView>
+          <View style={s.cardArea}>
+            <CardList />
           </View>
-
-          {/* Capacity + Price */}
-          <View style={s.inputRow}>
-            <View style={s.inputGroup}>
-              <Text style={s.filterLabel}>MIN CAPACITY</Text>
-              <View style={s.inputWrap}>
-                <TextInput
-                  style={s.input}
-                  placeholder="0"
-                  placeholderTextColor={Colors.text.tertiary}
-                  keyboardType="numeric"
-                  value={minCapInput}
-                  onChangeText={setMinCapInput}
-                />
-                <Text style={s.inputUnit}>kg</Text>
-              </View>
-            </View>
-
-            <View style={s.inputGroup}>
-              <Text style={s.filterLabel}>MAX PRICE</Text>
-              <View style={s.inputWrap}>
-                <Text style={s.inputUnit}>€</Text>
-                <TextInput
-                  style={s.input}
-                  placeholder="any"
-                  placeholderTextColor={Colors.text.tertiary}
-                  keyboardType="numeric"
-                  value={maxPriceInput}
-                  onChangeText={setMaxPriceInput}
-                />
-                <Text style={s.inputUnit}>/kg</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Reset */}
-          {activeFilterCount > 0 && (
-            <TouchableOpacity
-              style={s.resetBtn}
-              onPress={() => { setDirection('all'); setMinCapInput(''); setMaxPriceInput(''); }}
-              activeOpacity={0.7}
-            >
-              <Text style={s.resetText}>Reset filters</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* ── Results list ────────────────────────────────── */}
-      {isSearching ? (
-        <View style={s.list}>
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
         </View>
       ) : (
-        <FlatList
-          data={displayed}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={s.list}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <RouteCard route={item} onPress={() => handleSelect(item)} />
+        /* ── Mobile: stacked sort + filter + cards ───────── */
+        <>
+          <View style={s.sortRow}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sortScroll}>
+              {SORT_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[s.sortChip, sort === opt.key && s.sortChipActive]}
+                  onPress={() => setSort(opt.key)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.sortChipText, sort === opt.key && s.sortChipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+          {showFilter && (
+            <View style={s.filterPanel}>
+              {/* Direction */}
+              <Text style={s.filterLabel}>DIRECTION</Text>
+              <View style={s.dirRow}>
+                {(['all', 'eu-tn', 'tn-eu'] as Direction[]).map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[s.dirChip, direction === d && s.dirChipActive]}
+                    onPress={() => setDirection(d)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[s.dirChipText, direction === d && s.dirChipTextActive]}>
+                      {d === 'all' ? 'All' : d === 'eu-tn' ? 'EU → TN' : 'TN → EU'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {/* Capacity + Price */}
+              <View style={s.inputRow}>
+                <View style={s.inputGroup}>
+                  <Text style={s.filterLabel}>MIN CAPACITY</Text>
+                  <View style={s.inputWrap}>
+                    <TextInput style={s.input} placeholder="0" placeholderTextColor={Colors.text.tertiary} keyboardType="numeric" value={minCapInput} onChangeText={setMinCapInput} />
+                    <Text style={s.inputUnit}>kg</Text>
+                  </View>
+                </View>
+                <View style={s.inputGroup}>
+                  <Text style={s.filterLabel}>MAX PRICE</Text>
+                  <View style={s.inputWrap}>
+                    <Text style={s.inputUnit}>€</Text>
+                    <TextInput style={s.input} placeholder="any" placeholderTextColor={Colors.text.tertiary} keyboardType="numeric" value={maxPriceInput} onChangeText={setMaxPriceInput} />
+                    <Text style={s.inputUnit}>/kg</Text>
+                  </View>
+                </View>
+              </View>
+              {activeFilterCount > 0 && (
+                <TouchableOpacity style={s.resetBtn} onPress={() => { setDirection('all'); setMinCapInput(''); setMaxPriceInput(''); }} activeOpacity={0.7}>
+                  <Text style={s.resetText}>Reset filters</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
-          ListEmptyComponent={
-            <NoResults
-              fromCity={fromCity || 'this origin'}
-              toCity={toCity || 'this destination'}
-              onSubmitRequest={() => router.push('/shipping-requests/new')}
-            />
-          }
-        />
+          <CardList />
+        </>
       )}
     </SafeAreaView>
   );
@@ -351,7 +434,7 @@ export default function ResultsScreen() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background.secondary },
 
-  // Header
+  // Header — always at top, full width
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,6 +444,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
     gap: Spacing.sm,
+    zIndex: 10,
   },
   backBtn: { padding: Spacing.xs },
   backText: { fontSize: 28, color: Colors.text.primary, lineHeight: 32 },
@@ -381,7 +465,33 @@ const s = StyleSheet.create({
   filterBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterBadge: { fontSize: 11, fontWeight: '700', color: Colors.white },
 
-  // Sort
+  // Wide layout
+  wideBody: { flex: 1, flexDirection: 'row' },
+  sidebar: {
+    flex: 1,
+    backgroundColor: Colors.white,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border.light,
+  },
+  sidebarContent: { padding: Spacing.base, gap: Spacing.sm },
+  sidebarDivider: {
+    height: 1,
+    backgroundColor: Colors.border.light,
+    marginVertical: Spacing.sm,
+  },
+  sidebarSortCol: { gap: Spacing.xs },
+  sidebarSortItem: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.md,
+  },
+  sidebarSortItemActive: { backgroundColor: Colors.primaryLight },
+  sidebarSortText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text.secondary },
+  sidebarSortTextActive: { fontWeight: '700', color: Colors.text.primary },
+  dirCol: { gap: Spacing.xs },
+  cardArea: { flex: 2 },
+
+  // Mobile sort bar
   sortRow: {
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
@@ -398,7 +508,7 @@ const s = StyleSheet.create({
   sortChipText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text.secondary },
   sortChipTextActive: { color: Colors.white, fontWeight: '700' },
 
-  // Filter panel
+  // Mobile filter panel
   filterPanel: {
     backgroundColor: Colors.white,
     padding: Spacing.base,
@@ -442,10 +552,10 @@ const s = StyleSheet.create({
     ...Platform.select({ web: { outlineWidth: 0 } as any }),
   },
   inputUnit: { fontSize: FontSize.sm, color: Colors.text.tertiary, fontWeight: '500' },
-  resetBtn: { alignSelf: 'flex-end' },
+  resetBtn: { alignSelf: 'flex-start', marginTop: Spacing.xs },
   resetText: { fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
 
-  // List
+  // Card list
   list: { padding: Spacing.base, flexGrow: 1 },
 });
 

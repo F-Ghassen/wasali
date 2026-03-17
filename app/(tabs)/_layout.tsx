@@ -82,6 +82,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <User size={iconSize} color={color} strokeWidth={2} />,
         }}
       />
+      {/* Hidden screens — part of tabs layout for nav bar, not shown as tab items */}
+      <Tabs.Screen name="routes/results" options={{ href: null }} />
     </Tabs>
     {isWide && <Footer />}
     </View>

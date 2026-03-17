@@ -500,15 +500,19 @@ const s = StyleSheet.create({
     color: Colors.text.primary,
   },
 
-  // Home button
+  // My bookings button
   homeBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.secondary,
+    borderRadius: BorderRadius.xl,
     paddingVertical: Spacing.md,
   },
   homeBtnText: {
     fontSize: FontSize.base,
-    fontWeight: '600',
-    color: Colors.text.secondary,
+    fontWeight: '700',
+    color: Colors.white,
   },
 });
 

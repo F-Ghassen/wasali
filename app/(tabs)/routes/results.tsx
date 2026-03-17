@@ -208,7 +208,7 @@ export default function ResultsScreen() {
 
   const handleSelect = (route: RouteCardRoute) => {
     setRoute(route as any);
-    router.push(`/routes/${route.id}`);
+    router.push('/booking');
   };
 
   // ── Shared filter controls (used in both sidebar and mobile panel) ──────────

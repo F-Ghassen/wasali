@@ -1,10 +1,11 @@
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
 import { Search, Package, User, SendHorizonal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Footer } from '@/components/ui/Footer';
+import { useAuthStore } from '@/stores/authStore';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;
@@ -13,6 +14,9 @@ export default function TabsLayout() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const iconSize = isWide ? ICON_SIZE_WIDE : ICON_SIZE_MOBILE;
+  const { session } = useAuthStore();
+
+  if (!session) return <Redirect href="/(auth)/welcome" />;
 
   return (
     <View style={{ flex: 1 }}>

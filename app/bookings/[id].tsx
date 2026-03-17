@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
@@ -21,7 +22,7 @@ import type { BookingStatus } from '@/constants/bookingStatus';
 import { BOOKING_STATUS_CONFIG } from '@/constants/bookingStatus';
 
 const STATUS_ORDER: BookingStatus[] = [
-  'pending_payment',
+  'pending',
   'confirmed',
   'in_transit',
   'delivered',
@@ -121,6 +122,16 @@ export default function BookingDetailScreen() {
           })}
         </View>
 
+        {booking.status === 'pending' && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Driver Confirmation</Text>
+            <Text style={styles.qrHint}>Show this QR code to your driver to confirm the booking</Text>
+            <View style={styles.qrContainer}>
+              <QRCode value={booking.id} size={180} />
+            </View>
+          </View>
+        )}
+
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Package Info</Text>
           <View style={styles.infoRow}><Text style={styles.infoLabel}>Weight</Text><Text style={styles.infoValue}>{booking.package_weight_kg} kg</Text></View>
@@ -194,4 +205,6 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: FontSize.base, color: Colors.text.secondary },
   infoValue: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
   price: { color: Colors.primary },
+  qrHint: { fontSize: FontSize.sm, color: Colors.text.secondary, marginBottom: Spacing.md },
+  qrContainer: { alignItems: 'center', paddingVertical: Spacing.md },
 });

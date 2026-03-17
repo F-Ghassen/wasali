@@ -8,6 +8,7 @@ import {
   Platform,
   TouchableOpacity,
   SafeAreaView,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -111,6 +112,24 @@ export default function PackageDetailsScreen() {
               />
             )}
           />
+
+          <Text style={styles.label}>Notes — optional</Text>
+          <Controller
+            control={control}
+            name="notes"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <TextInput
+                style={styles.textarea}
+                placeholder="e.g. Fragile items, handle with care"
+                onChangeText={onChange}
+                onBlur={onBlur}
+                value={value ?? ''}
+                multiline
+                numberOfLines={3}
+                placeholderTextColor={Colors.text.tertiary}
+              />
+            )}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -144,5 +163,17 @@ const styles = StyleSheet.create({
   categoryLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary, textAlign: 'center' },
   categoryLabelSelected: { color: Colors.primary },
   error: { fontSize: FontSize.xs, color: Colors.error, marginBottom: Spacing.base },
+  textarea: {
+    borderWidth: 1.5,
+    borderColor: Colors.border.light,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    fontSize: FontSize.base,
+    color: Colors.text.primary,
+    backgroundColor: Colors.white,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: Spacing.base,
+  },
   footer: { padding: Spacing.base, borderTopWidth: 1, borderTopColor: Colors.border.light },
 });

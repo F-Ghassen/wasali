@@ -3,7 +3,6 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -12,20 +11,18 @@ import { Input } from '@/components/ui/Input';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getAuthErrorMessage } from '@/utils/errorMessages';
-
-const schema = z.object({ email: z.string().email('Invalid email') });
-type ForgotData = z.infer<typeof schema>;
+import { forgotPasswordSchema, type ForgotPasswordData } from '@/utils/validators';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { resetPassword, isLoading } = useAuthStore();
   const { showToast } = useUIStore();
 
-  const { control, handleSubmit, formState: { errors } } = useForm<ForgotData>({
-    resolver: zodResolver(schema),
+  const { control, handleSubmit, formState: { errors } } = useForm<ForgotPasswordData>({
+    resolver: zodResolver(forgotPasswordSchema),
   });
 
-  const onSubmit = async (data: ForgotData) => {
+  const onSubmit = async (data: ForgotPasswordData) => {
     try {
       await resetPassword(data.email);
       showToast('Password reset link sent — check your inbox', 'success');

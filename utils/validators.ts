@@ -11,6 +11,10 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
 export const phoneSchema = z.object({
   phone: z.string().min(8, 'Invalid phone number'),
 });
@@ -34,6 +38,11 @@ export const logisticsSchema = z.object({
   pickupAddress: z.string().optional(),
   dropoffType: z.enum(['home_delivery', 'recipient_pickup']),
   dropoffAddress: z.string().optional(),
+  recipientName: z.string().min(1, 'Recipient name is required'),
+  recipientPhoneCC: z.string(),
+  recipientPhone: z.string().min(6, 'Phone number is required'),
+  recipientPhoneIsWhatsapp: z.boolean(),
+  driverNotes: z.string().max(500).optional(),
 });
 
 export const savedAddressSchema = z.object({
@@ -68,6 +77,7 @@ export const disputeSchema = z.object({
 
 export type SignUpData = z.infer<typeof signUpSchema>;
 export type LoginData = z.infer<typeof loginSchema>;
+export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 export type PackageDetailsData = z.infer<typeof packageDetailsSchema>;
 export type LogisticsData = z.infer<typeof logisticsSchema>;
 export type SavedAddressData = z.infer<typeof savedAddressSchema>;

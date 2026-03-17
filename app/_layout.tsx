@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, ActivityIndicator, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,13 +21,14 @@ const StripeProvider = isStripeReady
   : null;
 
 export default function RootLayout() {
-  const { setSession, loadProfile } = useAuthStore();
+  const { setSession, loadProfile, setInitialized, isInitialized } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) loadProfile(session.user.id);
+      setInitialized();
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -35,10 +36,19 @@ export default function RootLayout() {
       if (session?.user) loadProfile(session.user.id);
       if (event === 'SIGNED_OUT') router.replace('/(auth)/welcome');
       if (event === 'SIGNED_IN') router.replace('/(tabs)');
+      if (event === 'PASSWORD_RECOVERY') router.replace('/(auth)/reset-password');
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  if (!isInitialized) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
 
   const stackAndToast = (
     <>

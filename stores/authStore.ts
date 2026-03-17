@@ -9,6 +9,7 @@ interface AuthState {
   session: Session | null;
   profile: Profile | null;
   isLoading: boolean;
+  isInitialized: boolean;
   isOtpPending: boolean;
   pendingEmail: string | null;
 }
@@ -16,6 +17,7 @@ interface AuthState {
 interface AuthActions {
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
+  setInitialized: () => void;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
@@ -30,11 +32,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   session: null,
   profile: null,
   isLoading: false,
+  isInitialized: false,
   isOtpPending: false,
   pendingEmail: null,
 
   setSession: (session) => set({ session }),
   setProfile: (profile) => set({ profile }),
+  setInitialized: () => set({ isInitialized: true }),
 
   signUp: async (email, password, fullName) => {
     set({ isLoading: true });
@@ -73,16 +77,21 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   resendVerification: async (email) => {
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email,
-      options: {
-        emailRedirectTo: Platform.OS === 'web'
-          ? (typeof window !== 'undefined' ? window.location.origin : '')
-          : Linking.createURL('/'),
-      },
-    });
-    if (error) throw error;
+    set({ isLoading: true });
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: Platform.OS === 'web'
+            ? (typeof window !== 'undefined' ? window.location.origin : '')
+            : Linking.createURL('/'),
+        },
+      });
+      if (error) throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   signIn: async (email, password) => {
@@ -99,7 +108,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     set({ isLoading: true });
     try {
       await supabase.auth.signOut();
-      set({ session: null, profile: null });
+      set({ session: null, profile: null, isOtpPending: false, pendingEmail: null });
     } finally {
       set({ isLoading: false });
     }

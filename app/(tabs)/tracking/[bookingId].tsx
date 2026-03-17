@@ -327,6 +327,15 @@ export default function TrackingScreen() {
             <Text style={s.labelBtnText}>Print shipment label</Text>
           </TouchableOpacity>
 
+          {/* ── Home ─────────────────────────────────────── */}
+          <TouchableOpacity
+            style={s.homeBtn}
+            activeOpacity={0.85}
+            onPress={() => router.replace('/(tabs)')}
+          >
+            <Text style={s.homeBtnText}>Go to home</Text>
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
 
@@ -489,6 +498,17 @@ const s = StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: '700',
     color: Colors.text.primary,
+  },
+
+  // Home button
+  homeBtn: {
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+  },
+  homeBtnText: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.text.secondary,
   },
 });
 

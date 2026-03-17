@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Check, Lock, MapPin, Package, Truck, Star } from 'lucide-react-native';
+import { Check, Lock, MapPin, Package, Printer, Truck, Star } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useBookingStore } from '@/stores/bookingStore';
+import { ShipmentLabelModal, type LabelData } from '@/components/tracking/ShipmentLabelModal';
 
 // ─── Status lifecycle ─────────────────────────────────────────────────────────
 
@@ -204,12 +205,35 @@ const MOCK_CONTEXT: StepContext = {
   confirmedAt: 'Mar 7',
 };
 
+const MOCK_LABEL: LabelData = {
+  trackingId: 'WSL-20483',
+  originCity: 'Berlin',
+  originFlag: '🇩🇪',
+  destCity: 'Tunis',
+  destFlag: '🇹🇳',
+  departureDate: 'Mar 10',
+  arrivalDate: 'Mar 16',
+  driverName: 'Khalil H.',
+  driverRating: 4.9,
+  driverTrips: 63,
+  senderName: 'Amira Bensalem',
+  senderPhone: '+49 176 4821 0033',
+  recipientName: 'Mohamed Bensalem',
+  recipientPhone: '+216 98 123 456',
+  recipientAddressLine1: '12 Rue de la République',
+  recipientAddressLine2: 'Tunis 1001',
+  weightKg: 7,
+  deliveryMethod: 'Home delivery',
+};
+
 export default function TrackingScreen() {
   const router             = useRouter();
   const { bookingId }      = useLocalSearchParams<{ bookingId: string }>();
   const { selectedRoute }  = useBookingStore();
   const { width }          = useWindowDimensions();
   const isWide             = width >= 768;
+
+  const [labelVisible, setLabelVisible] = useState(false);
 
   // In production: fetch booking + status from Supabase by bookingId
   const currentStatus = MOCK_STATUS;
@@ -293,8 +317,24 @@ export default function TrackingScreen() {
             </View>
           )}
 
+          {/* ── Label ────────────────────────────────────── */}
+          <TouchableOpacity
+            style={s.labelBtn}
+            activeOpacity={0.85}
+            onPress={() => setLabelVisible(true)}
+          >
+            <Printer size={16} color={Colors.text.primary} strokeWidth={2} />
+            <Text style={s.labelBtnText}>Print shipment label</Text>
+          </TouchableOpacity>
+
         </View>
       </ScrollView>
+
+      <ShipmentLabelModal
+        visible={labelVisible}
+        onClose={() => setLabelVisible(false)}
+        data={MOCK_LABEL}
+      />
     </SafeAreaView>
   );
 }
@@ -427,6 +467,29 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   actionBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+
+  // Label button
+  labelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xl,
+    paddingVertical: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: Colors.border.medium,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  labelBtnText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
 });
 
 // Status badge

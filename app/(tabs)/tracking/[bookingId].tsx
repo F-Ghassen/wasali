@@ -119,7 +119,7 @@ const STATUS_LABELS: Record<TrackingStatus, string> = {
 
 const STATUS_COLORS: Record<TrackingStatus, { bg: string; text: string }> = {
   awaiting_payment: { bg: Colors.warningLight,  text: Colors.warning },
-  confirmed:        { bg: Colors.secondaryLight, text: Colors.secondary },
+  confirmed:        { bg: Colors.secondary, text: Colors.white },
   collected:        { bg: Colors.successLight,   text: Colors.success },
   in_transit:       { bg: Colors.successLight,   text: Colors.success },
   delivered:        { bg: Colors.successLight,   text: Colors.success },

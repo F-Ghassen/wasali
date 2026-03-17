@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
-import { Search, Package, User, ArrowLeftRight } from 'lucide-react-native';
+import { Search, Package, User, SendHorizonal } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -71,8 +71,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="p2p"
         options={{
-          title: 'P2P Docs',
-          tabBarIcon: ({ color }) => <ArrowLeftRight size={iconSize} color={color} strokeWidth={2} />,
+          title: 'Ship Docs Fast',
+          tabBarIcon: ({ color }) => <SendHorizonal size={iconSize} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen

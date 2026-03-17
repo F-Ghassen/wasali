@@ -10,9 +10,23 @@ import {
   TextInput,
   SafeAreaView,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { format, addDays, isSameDay } from 'date-fns';
+import {
+  format,
+  addDays,
+  isSameDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  addMonths,
+  subMonths,
+  isBefore,
+  isSameMonth,
+  isToday,
+} from 'date-fns';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -120,9 +134,25 @@ function CityPicker({
 
 // ─── Date Picker ──────────────────────────────────────────────────────────────
 
-function chunkWeeks(dates: Date[]): Date[][] {
-  const weeks: Date[][] = [];
-  for (let i = 0; i < dates.length; i += 7) weeks.push(dates.slice(i, i + 7));
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function buildCalendarWeeks(month: Date): (Date | null)[][] {
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+
+  const weeks: (Date | null)[][] = [];
+  let day = gridStart;
+  while (day <= gridEnd) {
+    const week: (Date | null)[] = [];
+    for (let i = 0; i < 7; i++) {
+      // null = filler cell outside the current month
+      week.push(isSameMonth(day, month) ? new Date(day) : null);
+      day = addDays(day, 1);
+    }
+    weeks.push(week);
+  }
   return weeks;
 }
 
@@ -138,7 +168,10 @@ function DatePickerModal({
   onClose: () => void;
 }) {
   const today = new Date();
-  const weeks = chunkWeeks(Array.from({ length: 42 }, (_, i) => addDays(today, i)));
+  const [viewMonth, setViewMonth] = useState(startOfMonth(today));
+
+  const weeks = buildCalendarWeeks(viewMonth);
+  const canGoPrev = !isBefore(subMonths(viewMonth, 1), startOfMonth(today));
 
   const handleSelect = (d: Date | null) => {
     onSelect(d);
@@ -148,6 +181,7 @@ function DatePickerModal({
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={dateS.root}>
+        {/* Sheet header */}
         <View style={dateS.header}>
           <Text style={dateS.title}>Depart before</Text>
           <TouchableOpacity onPress={onClose} style={dateS.closeBtn}>
@@ -155,32 +189,70 @@ function DatePickerModal({
           </TouchableOpacity>
         </View>
 
+        {/* Any time */}
         <TouchableOpacity style={dateS.anyTime} onPress={() => handleSelect(null)} activeOpacity={0.7}>
           <Text style={dateS.anyTimeText}>Any time</Text>
           {!selected && <Text style={dateS.anyTimeTick}>✓</Text>}
         </TouchableOpacity>
 
+        {/* Month navigation */}
+        <View style={dateS.monthNav}>
+          <TouchableOpacity
+            style={[dateS.navBtn, !canGoPrev && dateS.navBtnDisabled]}
+            onPress={() => canGoPrev && setViewMonth((m) => subMonths(m, 1))}
+            activeOpacity={0.7}
+          >
+            <Text style={[dateS.navArrow, !canGoPrev && dateS.navArrowDisabled]}>‹</Text>
+          </TouchableOpacity>
+
+          <Text style={dateS.monthLabel}>{format(viewMonth, 'MMMM yyyy')}</Text>
+
+          <TouchableOpacity
+            style={dateS.navBtn}
+            onPress={() => setViewMonth((m) => addMonths(m, 1))}
+            activeOpacity={0.7}
+          >
+            <Text style={dateS.navArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Day-of-week header */}
+        <View style={dateS.dowRow}>
+          {DOW_LABELS.map((d) => (
+            <Text key={d} style={dateS.dowLabel}>{d}</Text>
+          ))}
+        </View>
+
+        {/* Calendar grid */}
         <ScrollView contentContainerStyle={dateS.grid}>
           {weeks.map((week, wi) => (
             <View key={wi} style={dateS.week}>
-              {week.map((d) => {
+              {week.map((d, di) => {
+                if (!d) return <View key={di} style={dateS.cell} />;
+                const isPast = isBefore(d, today) && !isToday(d);
                 const isSelected = !!selected && isSameDay(d, selected);
-                const isToday = isSameDay(d, today);
+                const todayCell = isToday(d);
                 return (
                   <TouchableOpacity
                     key={d.toISOString()}
-                    style={[dateS.cell, isSelected && dateS.cellSelected]}
-                    onPress={() => handleSelect(d)}
-                    activeOpacity={0.75}
+                    style={[
+                      dateS.cell,
+                      isSelected && dateS.cellSelected,
+                      todayCell && !isSelected && dateS.cellToday,
+                    ]}
+                    onPress={() => !isPast && handleSelect(d)}
+                    activeOpacity={isPast ? 1 : 0.75}
+                    disabled={isPast}
                   >
-                    <Text style={[dateS.cellDay, isSelected && dateS.cellTextSelected]}>
-                      {isToday ? 'TDY' : format(d, 'EEE')}
-                    </Text>
-                    <Text style={[dateS.cellNum, isSelected && dateS.cellTextSelected]}>
+                    <Text
+                      style={[
+                        dateS.cellNum,
+                        isPast && dateS.cellNumPast,
+                        isSelected && dateS.cellTextSelected,
+                        todayCell && !isSelected && dateS.cellNumToday,
+                      ]}
+                    >
                       {format(d, 'd')}
-                    </Text>
-                    <Text style={[dateS.cellMonth, isSelected && dateS.cellTextSelected]}>
-                      {format(d, 'MMM')}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -193,38 +265,115 @@ function DatePickerModal({
   );
 }
 
-// ─── Featured Route Banner ────────────────────────────────────────────────────
+// ─── Featured Routes ──────────────────────────────────────────────────────────
 
-const FEATURED = {
-  driverName: 'Mohamed K.',
-  rating: 4.9,
-  reviewCount: 47,
-  from: 'Berlin',
-  to: 'Tunis',
-  departureDate: new Date('2026-03-25'),
-  collectionDeadline: new Date('2026-03-22'),
-  capacityLeft: 12,
-  totalCapacity: 30,
-  pricePerKg: 3.5,
-  isFull: false,
+type FeaturedRoute = {
+  id: string;
+  driverName: string;
+  rating: number;
+  reviewCount: number;
+  from: string;
+  to: string;
+  departureDate: Date;
+  collectionDeadline: Date;
+  capacityLeft: number;
+  totalCapacity: number;
+  pricePerKg: number;
+  isFull: boolean;
 };
 
-function RouteBanner({ onBook, onSeeAll }: { onBook: () => void; onSeeAll: () => void }) {
-  const slideY = useRef(new Animated.Value(32)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+const FEATURED_ROUTES: FeaturedRoute[] = [
+  {
+    id: '1',
+    driverName: 'Mohamed K.',
+    rating: 4.9,
+    reviewCount: 47,
+    from: 'Berlin',
+    to: 'Tunis',
+    departureDate: new Date('2026-03-25'),
+    collectionDeadline: new Date('2026-03-22'),
+    capacityLeft: 12,
+    totalCapacity: 30,
+    pricePerKg: 3.5,
+    isFull: false,
+  },
+  {
+    id: '2',
+    driverName: 'Amine B.',
+    rating: 4.7,
+    reviewCount: 23,
+    from: 'Munich',
+    to: 'Sfax',
+    departureDate: new Date('2026-03-28'),
+    collectionDeadline: new Date('2026-03-25'),
+    capacityLeft: 5,
+    totalCapacity: 20,
+    pricePerKg: 4.0,
+    isFull: false,
+  },
+  {
+    id: '3',
+    driverName: 'Youssef T.',
+    rating: 4.8,
+    reviewCount: 61,
+    from: 'Frankfurt',
+    to: 'Sousse',
+    departureDate: new Date('2026-04-02'),
+    collectionDeadline: new Date('2026-03-30'),
+    capacityLeft: 0,
+    totalCapacity: 25,
+    pricePerKg: 3.8,
+    isFull: true,
+  },
+  {
+    id: '4',
+    driverName: 'Karim H.',
+    rating: 5.0,
+    reviewCount: 12,
+    from: 'Hamburg',
+    to: 'Tunis',
+    departureDate: new Date('2026-04-05'),
+    collectionDeadline: new Date('2026-04-02'),
+    capacityLeft: 18,
+    totalCapacity: 30,
+    pricePerKg: 3.2,
+    isFull: false,
+  },
+  {
+    id: '5',
+    driverName: 'Sami R.',
+    rating: 4.6,
+    reviewCount: 35,
+    from: 'Cologne',
+    to: 'Gabès',
+    departureDate: new Date('2026-04-08'),
+    collectionDeadline: new Date('2026-04-05'),
+    capacityLeft: 8,
+    totalCapacity: 20,
+    pricePerKg: 4.2,
+    isFull: false,
+  },
+  {
+    id: '6',
+    driverName: 'Nabil M.',
+    rating: 4.8,
+    reviewCount: 19,
+    from: 'Frankfurt',
+    to: 'Tunis',
+    departureDate: new Date('2026-04-12'),
+    collectionDeadline: new Date('2026-04-09'),
+    capacityLeft: 22,
+    totalCapacity: 35,
+    pricePerKg: 3.6,
+    isFull: false,
+  },
+];
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 55, friction: 8, delay: 250 }),
-      Animated.timing(opacity, { toValue: 1, duration: 380, useNativeDriver: true, delay: 250 }),
-    ]).start();
-  }, []);
-
-  const r = FEATURED;
+function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook: () => void }) {
   const fillPct = ((r.totalCapacity - r.capacityLeft) / r.totalCapacity) * 100;
 
   return (
-    <Animated.View style={[bannerS.card, { transform: [{ translateY: slideY }], opacity }]}>
+    <View style={bannerS.card}>
       {/* Route + price */}
       <View style={bannerS.topRow}>
         <View style={{ flex: 1 }}>
@@ -254,26 +403,59 @@ function RouteBanner({ onBook, onSeeAll }: { onBook: () => void; onSeeAll: () =>
         </View>
       </View>
 
-      {/* Shared-by line */}
+      {/* Collect-by */}
       <Text style={bannerS.expiry}>
-        Shared by {r.driverName} · Collect by {format(r.collectionDeadline, 'MMM d')}
+        Collect by {format(r.collectionDeadline, 'MMM d')} · Shared by {r.driverName}
       </Text>
 
       {/* CTAs */}
       {r.isFull ? (
         <View style={bannerS.fullBox}>
-          <Text style={bannerS.fullText}>This route is full — search for alternatives</Text>
+          <Text style={bannerS.fullText}>Route full — search for alternatives</Text>
         </View>
       ) : (
-        <View style={bannerS.ctaWrap}>
-          <TouchableOpacity style={bannerS.primaryBtn} onPress={onBook} activeOpacity={0.85}>
-            <Text style={bannerS.primaryBtnText}>📦  Book this slot →</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={bannerS.secondaryBtn} onPress={onSeeAll} activeOpacity={0.7}>
-            <Text style={bannerS.secondaryBtnText}>See all routes</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={bannerS.primaryBtn} onPress={onBook} activeOpacity={0.85}>
+          <Text style={bannerS.primaryBtnText}>📦  Book this slot →</Text>
+        </TouchableOpacity>
       )}
+
+    </View>
+  );
+}
+
+function FeaturedRoutesSection({ onBook, onSeeAll }: { onBook: () => void; onSeeAll: () => void }) {
+  const { width } = useWindowDimensions();
+  const slideY = useRef(new Animated.Value(24)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(slideY, { toValue: 0, useNativeDriver: true, tension: 55, friction: 8, delay: 300 }),
+      Animated.timing(opacity, { toValue: 1, duration: 380, useNativeDriver: true, delay: 300 }),
+    ]).start();
+  }, []);
+
+  // Breakpoints: mobile <768, tablet <1024, desktop ≥1024
+  const cols = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
+  const GAP = Spacing.md;
+  const cardWidth = (width - Spacing.base * 2 - GAP * (cols - 1)) / cols;
+  const routes = FEATURED_ROUTES.slice(0, cols * 2);
+
+  return (
+    <Animated.View style={[bannerS.section, { transform: [{ translateY: slideY }], opacity }]}>
+      <Text style={s.sectionLabel}>FEATURED ROUTES</Text>
+
+      <View style={[bannerS.grid, { gap: GAP }]}>
+        {routes.map((route) => (
+          <View key={route.id} style={{ width: cardWidth }}>
+            <FeaturedRouteCard route={route} onBook={onBook} />
+          </View>
+        ))}
+      </View>
+
+      <TouchableOpacity style={bannerS.seeAllBtn} onPress={onSeeAll} activeOpacity={0.7}>
+        <Text style={bannerS.seeAllBtnText}>Show all routes</Text>
+      </TouchableOpacity>
     </Animated.View>
   );
 }
@@ -400,10 +582,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Featured Route ──────────────────────────────────── */}
+        {/* ── Featured Routes ─────────────────────────────────── */}
         <View style={s.section}>
-          <Text style={s.sectionLabel}>FEATURED ROUTE</Text>
-          <RouteBanner
+          <FeaturedRoutesSection
             onBook={() => router.push('/routes/results')}
             onSeeAll={() => router.push('/routes/results')}
           />
@@ -536,12 +717,22 @@ const s = StyleSheet.create({
   },
 
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
+  },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.5,
     color: Colors.text.tertiary,
-    marginBottom: Spacing.md,
+  },
+  seeAll: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text.primary,
   },
 
   trustBand: {
@@ -638,11 +829,13 @@ const dateS = StyleSheet.create({
   title: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
   closeBtn: { padding: Spacing.sm },
   closeText: { fontSize: FontSize.lg, color: Colors.text.secondary },
+
   anyTime: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    margin: Spacing.base,
+    marginHorizontal: Spacing.base,
+    marginTop: Spacing.base,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
     backgroundColor: Colors.background.secondary,
@@ -650,39 +843,69 @@ const dateS = StyleSheet.create({
   },
   anyTimeText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.secondary },
   anyTimeTick: { fontSize: FontSize.base, color: Colors.text.primary, fontWeight: '700' },
-  grid: { padding: Spacing.base, gap: Spacing.xs },
-  week: {
+
+  monthNav: {
     flexDirection: 'row',
-    gap: Spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
   },
+  navBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.background.secondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navBtnDisabled: { opacity: 0.3 },
+  navArrow: { fontSize: 22, color: Colors.text.primary, lineHeight: 26 },
+  navArrowDisabled: { color: Colors.text.tertiary },
+  monthLabel: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+
+  dowRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.base,
+    marginBottom: Spacing.xs,
+  },
+  dowLabel: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  grid: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xl, gap: 4 },
+  week: { flexDirection: 'row', gap: 4 },
   cell: {
     flex: 1,
-    aspectRatio: 0.85,
-    backgroundColor: Colors.background.secondary,
+    aspectRatio: 1,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.xs,
   },
   cellSelected: { backgroundColor: Colors.primary },
-  cellDay: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: Colors.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+  cellToday: {
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
   },
   cellNum: {
-    fontSize: FontSize.md,
-    fontWeight: '800',
+    fontSize: FontSize.base,
+    fontWeight: '600',
     color: Colors.text.primary,
-    marginVertical: 1,
   },
-  cellMonth: { fontSize: 9, color: Colors.text.tertiary },
+  cellNumPast: { color: Colors.text.tertiary },
+  cellNumToday: { fontWeight: '800' },
   cellTextSelected: { color: Colors.white },
 });
 
 const bannerS = StyleSheet.create({
+  section: { gap: Spacing.md },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' },
   card: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
@@ -739,7 +962,6 @@ const bannerS = StyleSheet.create({
   },
   barFill: { height: '100%', backgroundColor: Colors.text.primary, borderRadius: 2 },
   expiry: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: Spacing.base },
-  ctaWrap: { gap: Spacing.sm },
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
@@ -747,12 +969,14 @@ const bannerS = StyleSheet.create({
     alignItems: 'center',
   },
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
-  secondaryBtn: {
+  seeAllBtn: {
     borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
     paddingVertical: Spacing.md,
     alignItems: 'center',
   },
-  secondaryBtnText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
+  seeAllBtnText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
   fullBox: {
     backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.md,

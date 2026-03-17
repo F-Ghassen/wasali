@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
@@ -281,7 +282,8 @@ function RadioCard({
 export default function BookingScreen() {
   const router   = useRouter();
   const { profile }        = useAuthStore();
-  const { selectedRoute: route } = useBookingStore();
+  const bookingStore = useBookingStore();
+  const { selectedRoute: route, isLoading: isSubmitting } = bookingStore;
   const { width } = useWindowDimensions();
   const isWide   = width >= 768;
 
@@ -328,6 +330,8 @@ export default function BookingScreen() {
   const [recipientCC,      setRecipientCC]      = useState('+216');
   const [recipientPhone,   setRecipientPhone]   = useState('');
   const [recipientPhoneIsWhatsapp, setRecipientPhoneIsWhatsapp] = useState(false);
+  const [recipientAddrLine1, setRecipientAddrLine1] = useState('');
+  const [recipientAddrLine2, setRecipientAddrLine2] = useState('');
   const [saveRecipient,    setSaveRecipient]    = useState(true);
   const [driverNotes,      setDriverNotes]      = useState('');
 
@@ -341,6 +345,61 @@ export default function BookingScreen() {
   const total             = weightNum * (route?.price_per_kg_eur ?? 0) + pickupSurcharge + deliverySurcharge;
 
   const myName = profile?.full_name ?? '';
+
+  // ── Per-step validation ────────────────────────────────────────────────────
+  const step1Valid = senderMode === 'own'
+    ? ownPhone.trim().length > 0
+    : behalfName.trim().length > 0 && behalfPhone.trim().length > 0;
+  const step2Valid = collectionCity.trim().length > 0 && dropoffCity.trim().length > 0;
+  const step3Valid = weightNum > 0;
+  const step4Valid = recipientName.trim().length > 0 && recipientPhone.trim().length > 0;
+
+  // ── Submit ─────────────────────────────────────────────────────────────────
+  async function handleSubmit() {
+    if (!profile) return;
+
+    const senderName = senderMode === 'own' ? myName : behalfName;
+
+    // Sync entire form state into the store before submitting
+    bookingStore.setDraft({
+      senderMode,
+      senderPhoneCC: ownCC,
+      senderPhone: ownPhone,
+      senderPhoneIsWhatsapp: ownPhoneIsWhatsapp,
+      senderStreet: street,
+      senderPostalCode: postalCode,
+      senderCity: addressCity,
+      senderCountry: addressCountry,
+      behalfName,
+      behalfPhoneCC: behalfCC,
+      behalfPhone,
+      collectionMethod,
+      collectionCity,
+      collectionCityDate,
+      deliveryMethod,
+      dropoffCity,
+      dropoffCityDate,
+      packageWeightKg: weightNum,
+      packageTypes,
+      packagePhotos: photos,
+      recipientName,
+      recipientPhoneCC: recipientCC,
+      recipientPhone,
+      recipientPhoneIsWhatsapp,
+      recipientAddressLine1: recipientAddrLine1,
+      recipientAddressLine2: recipientAddrLine2,
+      driverNotes,
+      paymentMethod: paymentMethod === 'paypal' ? 'card' : paymentMethod,
+    });
+    bookingStore.computePrice();
+
+    try {
+      const bookingId = await bookingStore.submitBooking(profile.id, senderName);
+      router.push(`/tracking/${bookingId}` as any);
+    } catch {
+      // submitBooking never throws (has fallback), but guard just in case
+    }
+  }
 
   // Route stop options
   const pickupOptions = route ? [
@@ -533,7 +592,12 @@ export default function BookingScreen() {
         <Text style={f.privacyNote}>
           🔒 Your contact details are only shared directly with the driver.
         </Text>
-        <TouchableOpacity style={f.continueBtn} onPress={() => setCurrentStep(2)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[f.continueBtn, !step1Valid && f.continueBtnDisabled]}
+          onPress={() => step1Valid && setCurrentStep(2)}
+          activeOpacity={0.85}
+          disabled={!step1Valid}
+        >
           <Text style={f.continueBtnText}>Continue →</Text>
         </TouchableOpacity>
       </StepCard>
@@ -584,7 +648,12 @@ export default function BookingScreen() {
           <ChevronDown size={16} color={Colors.text.tertiary} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={f.continueBtn} onPress={() => setCurrentStep(3)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[f.continueBtn, !step2Valid && f.continueBtnDisabled]}
+          onPress={() => step2Valid && setCurrentStep(3)}
+          activeOpacity={0.85}
+          disabled={!step2Valid}
+        >
           <Text style={f.continueBtnText}>Continue →</Text>
         </TouchableOpacity>
       </StepCard>
@@ -677,7 +746,12 @@ export default function BookingScreen() {
         </View>
         <Text style={f.fieldNote}>Up to 5 photos. Shared with driver only after booking is confirmed.</Text>
 
-        <TouchableOpacity style={f.continueBtn} onPress={() => setCurrentStep(4)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[f.continueBtn, !step3Valid && f.continueBtnDisabled]}
+          onPress={() => step3Valid && setCurrentStep(4)}
+          activeOpacity={0.85}
+          disabled={!step3Valid}
+        >
           <Text style={f.continueBtnText}>Continue →</Text>
         </TouchableOpacity>
       </StepCard>
@@ -723,6 +797,23 @@ export default function BookingScreen() {
           <Text style={f.inlineToggleLabel}>This is their WhatsApp number</Text>
         </View>
 
+        {/* Delivery address */}
+        <Text style={f.fieldLabel}>Delivery address <Text style={f.fieldLabelOpt}>(optional)</Text></Text>
+        <TextInput
+          style={f.input}
+          placeholder="Street, apartment…"
+          placeholderTextColor={Colors.text.tertiary}
+          value={recipientAddrLine1}
+          onChangeText={setRecipientAddrLine1}
+        />
+        <TextInput
+          style={f.input}
+          placeholder="City, postal code"
+          placeholderTextColor={Colors.text.tertiary}
+          value={recipientAddrLine2}
+          onChangeText={setRecipientAddrLine2}
+        />
+
         {/* Drop-off city (read-only) */}
         <Text style={f.fieldLabel}>Drop-off city</Text>
         <View style={f.readOnlyInput}>
@@ -754,7 +845,12 @@ export default function BookingScreen() {
           />
         </View>
 
-        <TouchableOpacity style={f.continueBtn} onPress={() => setCurrentStep(5)} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[f.continueBtn, !step4Valid && f.continueBtnDisabled]}
+          onPress={() => step4Valid && setCurrentStep(5)}
+          activeOpacity={0.85}
+          disabled={!step4Valid}
+        >
           <Text style={f.continueBtnText}>Review & pay →</Text>
         </TouchableOpacity>
       </StepCard>
@@ -803,8 +899,16 @@ export default function BookingScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity style={f.payBtn} activeOpacity={0.85} onPress={() => router.push('/tracking/mock')}>
-          <Text style={f.payBtnText}>Confirm & pay →</Text>
+        <TouchableOpacity
+          style={[f.payBtn, isSubmitting && f.payBtnDisabled]}
+          activeOpacity={0.85}
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+        >
+          {isSubmitting
+            ? <ActivityIndicator size="small" color={Colors.white} />
+            : <Text style={f.payBtnText}>Confirm & pay →</Text>
+          }
         </TouchableOpacity>
       </StepCard>
 
@@ -1093,6 +1197,7 @@ const f = StyleSheet.create({
     marginTop: Spacing.base,
   },
   continueBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
+  continueBtnDisabled: { opacity: 0.35 },
 
   // Weight
   weightRow:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 4 },
@@ -1194,6 +1299,7 @@ const f = StyleSheet.create({
     paddingVertical: Spacing.md, alignItems: 'center',
   },
   payBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '800' },
+  payBtnDisabled: { opacity: 0.5 },
 });
 
 // Country / city picker

@@ -29,7 +29,7 @@ export type ShippingRequestWithOffers = ShippingRequest & {
 };
 
 export type BookingStatus =
-  | 'pending_payment'
+  | 'pending'
   | 'confirmed'
   | 'in_transit'
   | 'delivered'

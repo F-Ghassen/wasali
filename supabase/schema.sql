@@ -60,9 +60,10 @@ CREATE TABLE IF NOT EXISTS bookings (
   dropoff_address           text,
   declared_value_eur        numeric(10,2),
   price_eur                 numeric(10,2) NOT NULL CHECK (price_eur > 0),
+  notes                     text,
   stripe_payment_intent_id  text,
   payment_status            text NOT NULL DEFAULT 'pending' CHECK (payment_status IN ('pending','paid','refunded','failed')),
-  status                    text NOT NULL DEFAULT 'pending_payment' CHECK (status IN ('pending_payment','confirmed','in_transit','delivered','disputed','cancelled')),
+  status                    text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','in_transit','delivered','disputed','cancelled')),
   created_at                timestamptz NOT NULL DEFAULT now(),
   updated_at                timestamptz NOT NULL DEFAULT now()
 );
@@ -192,7 +193,12 @@ CREATE POLICY "Authenticated can view route stops" ON route_stops FOR SELECT
 -- bookings
 CREATE POLICY "Sender can view own bookings"   ON bookings FOR SELECT USING (auth.uid() = sender_id);
 CREATE POLICY "Sender can insert bookings"     ON bookings FOR INSERT WITH CHECK (auth.uid() = sender_id);
--- Updates (status changes) only via service_role (Edge Function)
+-- Drivers can view bookings on their routes
+CREATE POLICY "Driver can view bookings on their routes" ON bookings FOR SELECT
+  USING (
+    route_id IN (SELECT id FROM routes WHERE driver_id = auth.uid())
+  );
+-- Status / payment updates only via service_role (Edge Functions: stripe-webhook, capture-payment)
 
 -- shipping_requests
 CREATE POLICY "Sender can view own requests"   ON shipping_requests FOR SELECT USING (auth.uid() = sender_id);

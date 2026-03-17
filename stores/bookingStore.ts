@@ -2,57 +2,38 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { RouteWithStops } from '@/types/models';
 
-// ─── Draft — all fields captured across the 5-step form ──────────────────────
+// ─── Draft — fields captured across the booking form ─────────────────────────
 
 export interface BookingDraft {
-  // Step 1 — Sender
-  senderMode: 'own' | 'behalf';
-  senderPhoneCC: string;
-  senderPhone: string;
-  senderPhoneIsWhatsapp: boolean;
-  senderStreet: string;
-  senderPostalCode: string;
-  senderCity: string;
-  senderCountry: string;
-  behalfName: string;
-  behalfPhoneCC: string;
-  behalfPhone: string;
-
-  // Step 2 — Logistics
-  collectionMethod: 'dropoff' | 'pickup';
-  collectionCity: string;
-  collectionCityDate: string;
-  deliveryMethod: 'collect' | 'home' | 'post';
-  dropoffCity: string;
-  dropoffCityDate: string;
-
-  // Step 3 — Package
+  // Package
   packageWeightKg: number;
   packageCategory: string;
   packageTypes: string[];
   packagePhotos: string[];
   declaredValueEur: number | null;
+  notes: string;
 
-  // Step 4 — Recipient
+  // Logistics — field names match DB schema and screen expectations
+  pickupType: 'driver_pickup' | 'sender_dropoff';
+  pickupAddress: string;
+  dropoffType: 'home_delivery' | 'recipient_pickup';
+  dropoffAddress: string;
+
+  // Recipient
   recipientName: string;
   recipientPhoneCC: string;
   recipientPhone: string;
   recipientPhoneIsWhatsapp: boolean;
-  recipientAddressLine1: string;
-  recipientAddressLine2: string;
   driverNotes: string;
-
-  // Step 5 — Payment
-  paymentMethod: 'card' | 'transfer' | 'cash';
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface BookingState {
+  step: number;
   selectedRoute: RouteWithStops | null;
   draft: BookingDraft;
   calculatedPriceEur: number;
-  paymentIntentClientSecret: string | null;
   pendingBookingId: string | null;
   submittedAt: string | null;
   isLoading: boolean;
@@ -60,65 +41,53 @@ interface BookingState {
 }
 
 interface BookingActions {
+  setStep: (step: number) => void;
   setRoute: (route: RouteWithStops) => void;
   setDraft: (fields: Partial<BookingDraft>) => void;
-  computePrice: () => void;
-  submitBooking: (senderId: string, senderName: string) => Promise<string>;
-  // Legacy aliases kept for backward compat
   setPackageDetails: (details: Partial<BookingDraft>) => void;
   setLogistics: (logistics: Partial<BookingDraft>) => void;
+  computePrice: () => void;
+  submitBooking: (senderId: string) => Promise<string>;
   reset: () => void;
 }
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 
 export const defaultDraft: BookingDraft = {
-  senderMode: 'own',
-  senderPhoneCC: '+49',
-  senderPhone: '',
-  senderPhoneIsWhatsapp: false,
-  senderStreet: '',
-  senderPostalCode: '',
-  senderCity: '',
-  senderCountry: '',
-  behalfName: '',
-  behalfPhoneCC: '+49',
-  behalfPhone: '',
-  collectionMethod: 'dropoff',
-  collectionCity: '',
-  collectionCityDate: '',
-  deliveryMethod: 'collect',
-  dropoffCity: '',
-  dropoffCityDate: '',
   packageWeightKg: 1,
   packageCategory: '',
   packageTypes: [],
   packagePhotos: [],
   declaredValueEur: null,
+  notes: '',
+  pickupType: 'sender_dropoff',
+  pickupAddress: '',
+  dropoffType: 'home_delivery',
+  dropoffAddress: '',
   recipientName: '',
   recipientPhoneCC: '+216',
   recipientPhone: '',
   recipientPhoneIsWhatsapp: false,
-  recipientAddressLine1: '',
-  recipientAddressLine2: '',
   driverNotes: '',
-  paymentMethod: 'card',
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useBookingStore = create<BookingState & BookingActions>((set, get) => ({
+  step: 1,
   selectedRoute: null,
   draft: defaultDraft,
   calculatedPriceEur: 0,
-  paymentIntentClientSecret: null,
   pendingBookingId: null,
   submittedAt: null,
   isLoading: false,
   submitError: null,
 
+  setStep: (step) => set({ step }),
+
   setRoute: (route) => {
     set({
+      step: 1,
       selectedRoute: route,
       draft: defaultDraft,
       calculatedPriceEur: 0,
@@ -139,20 +108,19 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
 
   setLogistics: (logistics) => {
     set((state) => ({ draft: { ...state.draft, ...logistics } }));
+    get().computePrice();
   },
 
   computePrice: () => {
     const { selectedRoute, draft } = get();
     if (!selectedRoute) return;
     const base              = selectedRoute.price_per_kg_eur * draft.packageWeightKg;
-    const pickupSurcharge   = draft.collectionMethod === 'pickup' ? 8  : 0;
-    const deliverySurcharge =
-      draft.deliveryMethod === 'home' ? 10 :
-      draft.deliveryMethod === 'post' ?  6 : 0;
+    const pickupSurcharge   = draft.pickupType === 'driver_pickup' ? 8 : 0;
+    const deliverySurcharge = draft.dropoffType === 'home_delivery' ? 10 : 0;
     set({ calculatedPriceEur: Math.round((base + pickupSurcharge + deliverySurcharge) * 100) / 100 });
   },
 
-  submitBooking: async (senderId, _senderName) => {
+  submitBooking: async (senderId) => {
     const { selectedRoute, draft, calculatedPriceEur } = get();
     if (!selectedRoute) throw new Error('No route selected');
 
@@ -164,32 +132,32 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
           sender_id:          senderId,
           route_id:           selectedRoute.id,
           package_weight_kg:  draft.packageWeightKg,
-          package_category:   draft.packageTypes.join(', ') || draft.packageCategory || 'general',
+          package_category:   draft.packageCategory || 'general',
           package_photos:     draft.packagePhotos,
           declared_value_eur: draft.declaredValueEur,
-          pickup_type:        draft.collectionMethod === 'pickup' ? 'driver_pickup' : 'sender_dropoff',
-          pickup_address:     draft.collectionCity || null,
-          dropoff_type:       draft.deliveryMethod === 'home' ? 'home_delivery' : 'recipient_pickup',
-          dropoff_address:    [draft.recipientAddressLine1, draft.recipientAddressLine2]
-                                .filter(Boolean).join(', ') || draft.dropoffCity || null,
+          pickup_type:        draft.pickupType,
+          pickup_address:     draft.pickupAddress || null,
+          dropoff_type:       draft.dropoffType,
+          dropoff_address:    draft.dropoffAddress || null,
           price_eur:          calculatedPriceEur,
-          status:             draft.paymentMethod === 'card' ? 'pending_payment' : 'confirmed',
-          payment_status:     draft.paymentMethod === 'card' ? 'pending' : 'paid',
+          status:             'pending',
+          payment_status:     'pending',
         })
         .select('id')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase insert error:', JSON.stringify(error));
+        throw error;
+      }
 
       const id = (booking as { id: string }).id;
       set({ pendingBookingId: id, submittedAt: new Date().toISOString() });
       return id;
-    } catch {
-      // Supabase not yet configured — fall back to a local ID so the full
-      // UI flow works during development and demos.
-      const fallbackId = `DEV-${Date.now().toString(36).toUpperCase()}`;
-      set({ pendingBookingId: fallbackId, submittedAt: new Date().toISOString() });
-      return fallbackId;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create booking';
+      set({ submitError: message });
+      throw new Error(message);
     } finally {
       set({ isLoading: false });
     }
@@ -197,10 +165,10 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
 
   reset: () =>
     set({
+      step: 1,
       selectedRoute: null,
       draft: defaultDraft,
       calculatedPriceEur: 0,
-      paymentIntentClientSecret: null,
       pendingBookingId: null,
       submittedAt: null,
       isLoading: false,

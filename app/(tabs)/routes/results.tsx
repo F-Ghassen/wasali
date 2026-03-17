@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,105 +20,7 @@ import { RouteCard, type RouteCardRoute } from '@/components/route/RouteCard';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
-
-// ─── Mock data (swap with real Supabase query once DB is live) ─────────────────
-
-const MOCK_ROUTES: RouteCardRoute[] = [
-  {
-    id: '1', driver_id: 'd1', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Berlin',    origin_country: 'Germany',
-    destination_city: 'Tunis', destination_country: 'Tunisia',
-    departure_date: '2026-03-25',
-    estimated_arrival_date: '2026-03-29',
-    available_weight_kg: 12, price_per_kg_eur: 3.50,
-    total_weight_kg: 30, min_booking_kg: 5,
-    discount_pct: 15, original_price_per_kg_eur: 4.10,
-    driver_rating: 4.9, driver_trip_count: 47, driver_verified: true,
-    forbidden_items: ['Liquids', 'Weapons', 'Perishables'],
-    driver: { id: 'd1', full_name: 'Mohamed K.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [
-      { id: 's1', route_id: '1', city: 'Hamburg',  country: 'Germany',  stop_order: 1, arrival_date: '2026-03-26', is_pickup_available: true,  is_dropoff_available: false },
-      { id: 's2', route_id: '1', city: 'Sfax',     country: 'Tunisia',  stop_order: 2, arrival_date: '2026-03-30', is_pickup_available: false, is_dropoff_available: true  },
-    ],
-  },
-  {
-    id: '2', driver_id: 'd2', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Munich',    origin_country: 'Germany',
-    destination_city: 'Tunis', destination_country: 'Tunisia',
-    departure_date: '2026-03-28',
-    estimated_arrival_date: '2026-04-01',
-    available_weight_kg: 5, price_per_kg_eur: 4.00,
-    total_weight_kg: 20, min_booking_kg: 3,
-    driver_rating: 4.7, driver_trip_count: 23, driver_verified: true,
-    forbidden_items: ['Food', 'Weapons'],
-    driver: { id: 'd2', full_name: 'Amine B.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [
-      { id: 's3', route_id: '2', city: 'Sousse', country: 'Tunisia', stop_order: 1, arrival_date: '2026-04-02', is_pickup_available: false, is_dropoff_available: true },
-    ],
-  },
-  {
-    id: '3', driver_id: 'd3', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Frankfurt',   origin_country: 'Germany',
-    destination_city: 'Sousse', destination_country: 'Tunisia',
-    departure_date: '2026-04-02',
-    estimated_arrival_date: '2026-04-06',
-    available_weight_kg: 22, price_per_kg_eur: 3.80,
-    total_weight_kg: 25, min_booking_kg: 10,
-    driver_rating: 4.8, driver_trip_count: 61, driver_verified: true,
-    forbidden_items: ['Liquids', 'Fragile items', 'Weapons'],
-    driver: { id: 'd3', full_name: 'Youssef T.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [
-      { id: 's4', route_id: '3', city: 'Cologne', country: 'Germany', stop_order: 1, arrival_date: '2026-04-03', is_pickup_available: true,  is_dropoff_available: false },
-      { id: 's5', route_id: '3', city: 'Sfax',    country: 'Tunisia', stop_order: 2, arrival_date: '2026-04-07', is_pickup_available: false, is_dropoff_available: true  },
-    ],
-  },
-  {
-    id: '4', driver_id: 'd4', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Hamburg',   origin_country: 'Germany',
-    destination_city: 'Tunis', destination_country: 'Tunisia',
-    departure_date: '2026-04-05',
-    estimated_arrival_date: '2026-04-09',
-    available_weight_kg: 18, price_per_kg_eur: 3.20,
-    total_weight_kg: 30, min_booking_kg: 5,
-    discount_pct: 10, original_price_per_kg_eur: 3.55,
-    driver_rating: 5.0, driver_trip_count: 12, driver_verified: true,
-    forbidden_items: ['Weapons'],
-    driver: { id: 'd4', full_name: 'Karim H.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [],
-  },
-  {
-    id: '5', driver_id: 'd5', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Cologne',   origin_country: 'Germany',
-    destination_city: 'Gabès', destination_country: 'Tunisia',
-    departure_date: '2026-04-08',
-    estimated_arrival_date: '2026-04-12',
-    available_weight_kg: 8, price_per_kg_eur: 4.20,
-    total_weight_kg: 20, min_booking_kg: 2,
-    driver_rating: 4.6, driver_trip_count: 35, driver_verified: false,
-    driver: { id: 'd5', full_name: 'Sami R.', avatar_url: null, phone: null, phone_verified: false, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [],
-  },
-  {
-    id: '6', driver_id: 'd6', status: 'active', notes: null,
-    created_at: '', updated_at: '',
-    origin_city: 'Frankfurt',  origin_country: 'Germany',
-    destination_city: 'Tunis', destination_country: 'Tunisia',
-    departure_date: '2026-04-12',
-    estimated_arrival_date: '2026-04-16',
-    available_weight_kg: 22, price_per_kg_eur: 3.60,
-    total_weight_kg: 35, min_booking_kg: 8,
-    driver_rating: 4.8, driver_trip_count: 19, driver_verified: true,
-    driver: { id: 'd6', full_name: 'Nabil M.', avatar_url: null, phone: null, phone_verified: true, stripe_customer_id: null, created_at: '', updated_at: '' },
-    route_stops: [
-      { id: 's6', route_id: '6', city: 'Sfax', country: 'Tunisia', stop_order: 1, arrival_date: '2026-04-17', is_pickup_available: false, is_dropoff_available: true },
-    ],
-  },
-];
+import { supabase } from '@/lib/supabase';
 
 // ─── Sort + filter types ───────────────────────────────────────────────────────
 
@@ -159,19 +61,34 @@ export default function ResultsScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
+  const [routes, setRoutes] = useState<RouteCardRoute[]>([]);
+  const [isFetching, setIsFetching] = useState(true);
   const [sort, setSort]           = useState<SortKey>('earliest');
   const [showFilter, setShowFilter] = useState(false);
   const [direction, setDirection] = useState<Direction>('all');
   const [minCapInput, setMinCapInput] = useState('');
   const [maxPriceInput, setMaxPriceInput] = useState('');
 
+  useEffect(() => {
+    setIsFetching(true);
+    supabase
+      .from('routes')
+      .select('*, route_stops(*), driver:profiles!driver_id(id, full_name, avatar_url, phone, phone_verified, stripe_customer_id, created_at, updated_at)')
+      .eq('status', 'active')
+      .order('departure_date', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) setRoutes(data as unknown as RouteCardRoute[]);
+        setIsFetching(false);
+      });
+  }, []);
+
   // Parse filter inputs
   const minCapacity = parseFloat(minCapInput)  || 0;
   const maxPrice    = parseFloat(maxPriceInput) || Infinity;
 
-  // Apply filter + sort to mock routes
+  // Apply filter + sort to fetched routes
   const displayed = useMemo(() => {
-    let list = [...MOCK_ROUTES];
+    let list = [...routes];
 
     // Direction filter
     if (direction === 'eu-tn') {
@@ -200,7 +117,7 @@ export default function ResultsScreen() {
     }
 
     return list;
-  }, [sort, direction, minCapacity, maxPrice]);
+  }, [routes, sort, direction, minCapacity, maxPrice]);
 
   const activeFilterCount = (direction !== 'all' ? 1 : 0)
     + (minCapacity > 0 ? 1 : 0)
@@ -295,7 +212,7 @@ export default function ResultsScreen() {
   );
 
   // ── Card list ────────────────────────────────────────────────────────────────
-  const CardList = () => isSearching ? (
+  const CardList = () => (isSearching || isFetching) ? (
     <View style={s.list}>
       {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
     </View>

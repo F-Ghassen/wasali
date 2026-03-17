@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useStripe } from '@stripe/stripe-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -30,45 +29,24 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 
 export default function ReviewPayScreen() {
   const router = useRouter();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const { selectedRoute, draft, calculatedPriceEur, createPaymentIntent, confirmBooking, reset } =
-    useBookingStore();
+  const { selectedRoute, draft, calculatedPriceEur, submitBooking, reset } = useBookingStore();
   const { session } = useAuthStore();
   const { showToast } = useUIStore();
 
-  const handlePay = async () => {
-    if (!session || !selectedRoute) return;
+  if (!session || !selectedRoute) return null;
+
+  const handleConfirm = async () => {
     setIsProcessing(true);
-
     try {
-      const clientSecret = await createPaymentIntent(session.user.id);
-
-      const { error: initError } = await initPaymentSheet({
-        paymentIntentClientSecret: clientSecret,
-        merchantDisplayName: 'Wasali',
-        returnURL: 'wasali://booking/complete',
-      });
-
-      if (initError) throw new Error(initError.message);
-
-      const { error: payError } = await presentPaymentSheet();
-      if (payError) {
-        if (payError.code !== 'Canceled') {
-          throw new Error(payError.message);
-        }
-        return;
-      }
-
-      // Payment succeeded — confirm booking
-      const bookingId = await confirmBooking(clientSecret.split('_secret_')[0]);
-      showToast('Booking confirmed! 🎉', 'success');
+      const bookingId = await submitBooking(session.user.id);
+      showToast('Booking confirmed!', 'success');
       reset();
       router.replace(`/bookings/${bookingId}`);
     } catch (error) {
       Alert.alert(
-        'Payment Failed',
+        'Booking Failed',
         error instanceof Error ? error.message : 'Please try again'
       );
     } finally {
@@ -76,16 +54,14 @@ export default function ReviewPayScreen() {
     }
   };
 
-  if (!selectedRoute) return null;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.stepHeader}>
-        <StepIndicator currentStep={3} totalSteps={3} labels={['Package', 'Logistics', 'Payment']} />
+        <StepIndicator currentStep={3} totalSteps={3} labels={['Package', 'Logistics', 'Review']} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Review & Pay</Text>
+        <Text style={styles.title}>Review & Confirm</Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Route</Text>
@@ -99,7 +75,7 @@ export default function ReviewPayScreen() {
           <SummaryRow label="Weight" value={`${draft.packageWeightKg} kg`} />
           <SummaryRow label="Category" value={draft.packageCategory} />
           <SummaryRow label="Pickup" value={draft.pickupType === 'driver_pickup' ? 'Driver picks up' : 'I drop off'} />
-          <SummaryRow label="Delivery" value={draft.dropoffType === 'home_delivery' ? 'Home delivery' : 'Recipient pickup'} />
+          <SummaryRow label="Delivery" value={draft.dropoffType === 'home_delivery' ? 'Home delivery' : 'Recipient collects'} />
         </View>
 
         <View style={styles.card}>
@@ -110,18 +86,18 @@ export default function ReviewPayScreen() {
           <SummaryRow label="Total" value={formatPrice(calculatedPriceEur)} bold />
         </View>
 
-        <View style={styles.escrowNotice}>
-          <Text style={styles.escrowIcon}>🔒</Text>
-          <Text style={styles.escrowText}>
-            Payment is held in escrow until delivery is confirmed.
+        <View style={styles.cashNotice}>
+          <Text style={styles.cashIcon}>💵</Text>
+          <Text style={styles.cashText}>
+            Payment is collected in cash by the driver upon pickup or delivery.
           </Text>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <Button
-          label={`Pay ${formatPrice(calculatedPriceEur)} Securely`}
-          onPress={handlePay}
+          label="Confirm Booking"
+          onPress={handleConfirm}
           isLoading={isProcessing}
           size="lg"
         />
@@ -142,15 +118,15 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: FontSize.base, fontWeight: '500', color: Colors.text.primary },
   summaryBold: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.primary },
   divider: { height: 1, backgroundColor: Colors.border.light, marginVertical: Spacing.sm },
-  escrowNotice: {
+  cashNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.successLight,
+    backgroundColor: Colors.background.tertiary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
-  escrowIcon: { fontSize: 20 },
-  escrowText: { flex: 1, fontSize: FontSize.sm, color: Colors.success, lineHeight: 20 },
+  cashIcon: { fontSize: 20 },
+  cashText: { flex: 1, fontSize: FontSize.sm, color: Colors.text.secondary, lineHeight: 20 },
   footer: { padding: Spacing.base, backgroundColor: Colors.white, borderTopWidth: 1, borderTopColor: Colors.border.light },
 });

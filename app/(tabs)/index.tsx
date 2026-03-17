@@ -33,6 +33,7 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useSearchStore } from '@/stores/searchStore';
 import { EU_ORIGIN_CITIES, TN_DESTINATION_CITIES, type City } from '@/constants/cities';
+import { supabase } from '@/lib/supabase';
 
 
 // ─── City groups ─────────────────────────────────────────────────────────────
@@ -271,111 +272,17 @@ function DatePickerModal({
 type FeaturedRoute = {
   id: string;
   driverName: string;
-  rating: number;
-  reviewCount: number;
   from: string;
   to: string;
   departureDate: Date;
-  collectionDeadline: Date;
   capacityLeft: number;
-  totalCapacity: number;
   pricePerKg: number;
   isFull: boolean;
 };
 
-const FEATURED_ROUTES: FeaturedRoute[] = [
-  {
-    id: '1',
-    driverName: 'Mohamed K.',
-    rating: 4.9,
-    reviewCount: 47,
-    from: 'Berlin',
-    to: 'Tunis',
-    departureDate: new Date('2026-03-25'),
-    collectionDeadline: new Date('2026-03-22'),
-    capacityLeft: 12,
-    totalCapacity: 30,
-    pricePerKg: 3.5,
-    isFull: false,
-  },
-  {
-    id: '2',
-    driverName: 'Amine B.',
-    rating: 4.7,
-    reviewCount: 23,
-    from: 'Munich',
-    to: 'Sfax',
-    departureDate: new Date('2026-03-28'),
-    collectionDeadline: new Date('2026-03-25'),
-    capacityLeft: 5,
-    totalCapacity: 20,
-    pricePerKg: 4.0,
-    isFull: false,
-  },
-  {
-    id: '3',
-    driverName: 'Youssef T.',
-    rating: 4.8,
-    reviewCount: 61,
-    from: 'Frankfurt',
-    to: 'Sousse',
-    departureDate: new Date('2026-04-02'),
-    collectionDeadline: new Date('2026-03-30'),
-    capacityLeft: 0,
-    totalCapacity: 25,
-    pricePerKg: 3.8,
-    isFull: true,
-  },
-  {
-    id: '4',
-    driverName: 'Karim H.',
-    rating: 5.0,
-    reviewCount: 12,
-    from: 'Hamburg',
-    to: 'Tunis',
-    departureDate: new Date('2026-04-05'),
-    collectionDeadline: new Date('2026-04-02'),
-    capacityLeft: 18,
-    totalCapacity: 30,
-    pricePerKg: 3.2,
-    isFull: false,
-  },
-  {
-    id: '5',
-    driverName: 'Sami R.',
-    rating: 4.6,
-    reviewCount: 35,
-    from: 'Cologne',
-    to: 'Gabès',
-    departureDate: new Date('2026-04-08'),
-    collectionDeadline: new Date('2026-04-05'),
-    capacityLeft: 8,
-    totalCapacity: 20,
-    pricePerKg: 4.2,
-    isFull: false,
-  },
-  {
-    id: '6',
-    driverName: 'Nabil M.',
-    rating: 4.8,
-    reviewCount: 19,
-    from: 'Frankfurt',
-    to: 'Tunis',
-    departureDate: new Date('2026-04-12'),
-    collectionDeadline: new Date('2026-04-09'),
-    capacityLeft: 22,
-    totalCapacity: 35,
-    pricePerKg: 3.6,
-    isFull: false,
-  },
-];
-
 function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook: () => void }) {
-  const fillPct = ((r.totalCapacity - r.capacityLeft) / r.totalCapacity) * 100;
-
   return (
     <View style={bannerS.card}>
-      {/* Route + price */}
       <View style={bannerS.topRow}>
         <View style={{ flex: 1 }}>
           <Text style={bannerS.route}>{r.from} → {r.to}</Text>
@@ -387,29 +294,16 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
         </View>
       </View>
 
-      {/* Driver + capacity */}
       <View style={bannerS.driverRow}>
         <View style={bannerS.avatar}>
           <Text style={bannerS.avatarLetter}>{r.driverName[0]}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={bannerS.driverName}>{r.driverName}</Text>
-          <Text style={bannerS.driverMeta}>⭐ {r.rating} · {r.reviewCount} reviews</Text>
-        </View>
-        <View style={bannerS.capacity}>
-          <Text style={bannerS.capacityLabel}>{r.capacityLeft} kg left</Text>
-          <View style={bannerS.bar}>
-            <View style={[bannerS.barFill, { width: `${fillPct}%` as any }]} />
-          </View>
+          <Text style={bannerS.driverMeta}>{r.capacityLeft} kg available</Text>
         </View>
       </View>
 
-      {/* Collect-by */}
-      <Text style={bannerS.expiry}>
-        Collect by {format(r.collectionDeadline, 'MMM d')} · Shared by {r.driverName}
-      </Text>
-
-      {/* CTAs */}
       {r.isFull ? (
         <View style={bannerS.fullBox}>
           <Text style={bannerS.fullText}>Route full — search for alternatives</Text>
@@ -419,12 +313,11 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
           <Text style={bannerS.primaryBtnText}>📦  Book this slot →</Text>
         </TouchableOpacity>
       )}
-
     </View>
   );
 }
 
-function FeaturedRoutesSection({ onBook, onSeeAll }: { onBook: () => void; onSeeAll: () => void }) {
+function FeaturedRoutesSection({ routes, onBook, onSeeAll }: { routes: FeaturedRoute[]; onBook: () => void; onSeeAll: () => void }) {
   const { width } = useWindowDimensions();
   const slideY = useRef(new Animated.Value(24)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -436,18 +329,19 @@ function FeaturedRoutesSection({ onBook, onSeeAll }: { onBook: () => void; onSee
     ]).start();
   }, []);
 
-  // Breakpoints: mobile <768, tablet <1024, desktop ≥1024
   const cols = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
   const GAP = Spacing.md;
   const cardWidth = (width - Spacing.base * 2 - GAP * (cols - 1)) / cols;
-  const routes = FEATURED_ROUTES.slice(0, cols * 2);
+  const visible = routes.slice(0, cols * 2);
+
+  if (routes.length === 0) return null;
 
   return (
     <Animated.View style={[bannerS.section, { transform: [{ translateY: slideY }], opacity }]}>
       <Text style={s.sectionLabel}>FEATURED ROUTES</Text>
 
       <View style={[bannerS.grid, { gap: GAP }]}>
-        {routes.map((route) => (
+        {visible.map((route) => (
           <View key={route.id} style={{ width: cardWidth }}>
             <FeaturedRouteCard route={route} onBook={onBook} />
           </View>
@@ -528,6 +422,31 @@ export default function HomeScreen() {
   const [showTo, setShowTo] = useState(false);
   const [showDate, setShowDate] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [featuredRoutes, setFeaturedRoutes] = useState<FeaturedRoute[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('routes')
+      .select('id, origin_city, destination_city, departure_date, available_weight_kg, price_per_kg_eur, status, driver:profiles!driver_id(full_name)')
+      .eq('status', 'active')
+      .order('departure_date', { ascending: true })
+      .limit(6)
+      .then(({ data }) => {
+        if (!data) return;
+        setFeaturedRoutes(
+          data.map((r: any) => ({
+            id: r.id,
+            driverName: r.driver?.full_name ?? 'Driver',
+            from: r.origin_city,
+            to: r.destination_city,
+            departureDate: new Date(r.departure_date),
+            capacityLeft: r.available_weight_kg,
+            pricePerKg: r.price_per_kg_eur,
+            isFull: r.status === 'full',
+          }))
+        );
+      });
+  }, []);
 
   const canSearch = !!fromCity && !!toCity;
 
@@ -638,6 +557,7 @@ export default function HomeScreen() {
         {/* ── Featured Routes ─────────────────────────────────── */}
         <View style={s.section}>
           <FeaturedRoutesSection
+            routes={featuredRoutes}
             onBook={() => router.push('/routes/results')}
             onSeeAll={() => router.push('/routes/results')}
           />

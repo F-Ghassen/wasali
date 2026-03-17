@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -35,9 +36,11 @@ export default function BookingsScreen() {
     setBookings((data as BookingWithRoute[]) ?? []);
   };
 
-  useEffect(() => {
-    loadBookings().finally(() => setIsLoading(false));
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadBookings().finally(() => setIsLoading(false));
+    }, [session])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

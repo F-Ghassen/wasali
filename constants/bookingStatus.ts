@@ -1,5 +1,5 @@
 export type BookingStatus =
-  | 'pending_payment'
+  | 'pending'
   | 'confirmed'
   | 'in_transit'
   | 'delivered'
@@ -17,12 +17,12 @@ export interface StatusConfig {
 }
 
 export const BOOKING_STATUS_CONFIG: Record<BookingStatus, StatusConfig> = {
-  pending_payment: {
-    label: 'Awaiting Payment',
+  pending: {
+    label: 'Awaiting Driver',
     color: '#F39C12',
     bgColor: '#FEF9E7',
     icon: '⏳',
-    description: 'Complete payment to confirm your booking',
+    description: 'Waiting for the driver to confirm your booking',
   },
   confirmed: {
     label: 'Confirmed',

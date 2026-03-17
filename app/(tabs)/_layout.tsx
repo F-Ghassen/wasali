@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
-import { Search, Package, ClipboardList, User } from 'lucide-react-native';
+import { Search, Package, ClipboardList, User, ArrowLeftRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -82,10 +82,20 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <User size={iconSize} color={color} strokeWidth={2} />,
         }}
       />
+      <Tabs.Screen
+        name="p2p"
+        options={{
+          title: 'P2P',
+          tabBarIcon: ({ color }) => <ArrowLeftRight size={iconSize} color={color} strokeWidth={2} />,
+        }}
+      />
       {/* Hidden screens — part of tabs layout for nav bar, not shown as tab items */}
       <Tabs.Screen name="routes/results"        options={{ href: null }} />
       <Tabs.Screen name="booking/index"         options={{ href: null }} />
       <Tabs.Screen name="tracking/[bookingId]"  options={{ href: null }} />
+      <Tabs.Screen name="p2p/send"              options={{ href: null }} />
+      <Tabs.Screen name="p2p/carry"             options={{ href: null }} />
+      <Tabs.Screen name="p2p/leaderboard"       options={{ href: null }} />
     </Tabs>
     {isWide && <Footer />}
     </View>

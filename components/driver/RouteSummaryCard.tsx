@@ -68,7 +68,9 @@ export function RouteSummaryCard({
   const pct      = promoEnabled ? parseInt(promoDiscountPct) || 0 : 0;
   const discountedPrice    = pct > 0 ? price * (1 - pct / 100) : null;
   const effectivePrice     = discountedPrice ?? price;
-  const estimatedGross     = weight > 0 && effectivePrice > 0 ? weight * effectivePrice : null;
+  const baseGross          = weight > 0 && effectivePrice > 0 ? weight * effectivePrice : null;
+  const estimatedGrossLow  = baseGross != null ? baseGross * 1.20 : null;
+  const estimatedGrossHigh = baseGross != null ? baseGross * 1.40 : null;
 
   const filledCollStops = collectionStops.filter((s) => s.city);
   const filledDropStops = dropoffStops.filter((s) => s.city);
@@ -148,12 +150,19 @@ export function RouteSummaryCard({
           green
         />
       )}
-      {estimatedGross != null && (
+      {baseGross != null && estimatedGrossLow != null && estimatedGrossHigh != null && (
         <>
           <Divider />
-          <View style={s.grossRow}>
-            <Text style={s.grossLabel}>Est. gross (fully booked)</Text>
-            <Text style={s.grossValue}>€{estimatedGross.toFixed(0)}</Text>
+          <Text style={s.grossHeading}>Est. earnings (fully booked)</Text>
+          <Row label="Transport" value={`€${baseGross.toFixed(0)}`} />
+          <Row
+            label="Services"
+            value={`€${(estimatedGrossLow - baseGross).toFixed(0)}–€${(estimatedGrossHigh - baseGross).toFixed(0)}`}
+            muted
+          />
+          <View style={s.grossTotalRow}>
+            <Text style={s.grossTotalLabel}>Total</Text>
+            <Text style={s.grossTotalValue}>€{estimatedGrossLow.toFixed(0)}–€{estimatedGrossHigh.toFixed(0)}</Text>
           </View>
         </>
       )}
@@ -236,14 +245,29 @@ const s = StyleSheet.create({
     letterSpacing: 0.5,
   },
   paymentItem: { fontSize: FontSize.xs, color: Colors.text.secondary, paddingVertical: 2 },
-  grossRow: {
+  grossHeading: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  grossTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+    marginTop: 4,
+    paddingTop: 6,
   },
-  grossLabel: { fontSize: FontSize.sm, color: Colors.text.secondary, flex: 1 },
-  grossValue: {
+  grossTotalLabel: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  grossTotalValue: {
     fontSize: FontSize.base,
     fontWeight: '800',
     color: Colors.success,

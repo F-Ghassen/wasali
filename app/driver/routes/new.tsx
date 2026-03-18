@@ -117,10 +117,13 @@ const DELIVERY_DEFAULTS: LogisticsOpt[] = [
   { key: 'home_delivery',     enabled: false, price: '10' },
 ];
 
+const OIL_LIMIT_LITERS = 2;
+
 const PROHIBITED_PRESETS = [
   'Weapons', 'Drugs', 'Explosives', 'Live animals',
   'Perishable food', 'Flammable liquids', 'Cash & banknotes',
-  'Counterfeit goods', 'Tobacco', 'Alcohol', 'Medication',
+  'Counterfeit goods', `Oil > ${OIL_LIMIT_LITERS}L (metal container only)`,
+  'Cigarettes & shisha', 'Alcohol', 'Medication',
   'Electronics > €500',
 ];
 
@@ -254,14 +257,14 @@ export default function NewRouteScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  // ── Step 1: Collection (departure date lives here) ─────────────────────────
-  const [departureDate, setDepartureDate] = useState('');
+  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', collection_date: '', meeting_point_url: '' });
+  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', estimated_arrival_date: '', meeting_point_url: '' });
 
   // ── Step 1: Collection stops ───────────────────────────────────────────────
-  const [collectionStops, setCollectionStops] = useState<CollectionStop[]>([]);
+  const [collectionStops, setCollectionStops] = useState<CollectionStop[]>([emptyCollStop(), emptyCollStop()]);
 
   // ── Step 2: Drop-off stops ─────────────────────────────────────────────────
-  const [dropoffStops, setDropoffStops] = useState<DropoffStop[]>([]);
+  const [dropoffStops, setDropoffStops] = useState<DropoffStop[]>([emptyDropStop(), emptyDropStop()]);
 
   // ── Step 3: Notes & Rules ──────────────────────────────────────────────────
   const [notes,            setNotes]            = useState('');
@@ -270,6 +273,7 @@ export default function NewRouteScreen() {
 
   // ── Step 5: Pricing ────────────────────────────────────────────────────────
   const [weightKg,         setWeightKg]         = useState('20');
+  const [minWeightKg,      setMinWeightKg]      = useState('10');
   const [pricePerKg,       setPricePerKg]       = useState('5');
   const [promoEnabled,     setPromoEnabled]     = useState(false);
   const [promoDiscountPct, setPromoDiscountPct] = useState('');
@@ -310,10 +314,9 @@ export default function NewRouteScreen() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       AsyncStorage.setItem(draftKey, JSON.stringify({
-        departureDate,
         collectionStops, dropoffStops,
         notes, prohibitedItems,
-        weightKg, pricePerKg,
+        weightKg, minWeightKg, pricePerKg,
         promoEnabled, promoDiscountPct, promoExpiresAt, promoLabel,
         paymentMethods, saveAsTemplate, templateName,
         collectionOptions, deliveryOptions,
@@ -321,8 +324,8 @@ export default function NewRouteScreen() {
       }));
     }, 500);
   }, [
-    draftKey, departureDate, collectionStops, dropoffStops,
-    notes, prohibitedItems, weightKg, pricePerKg, promoEnabled, promoDiscountPct,
+    draftKey, collectionStops, dropoffStops,
+    notes, prohibitedItems, weightKg, minWeightKg, pricePerKg, promoEnabled, promoDiscountPct,
     promoExpiresAt, promoLabel, paymentMethods, saveAsTemplate, templateName,
     collectionOptions, deliveryOptions, currentStep,
   ]);
@@ -332,12 +335,12 @@ export default function NewRouteScreen() {
   const restoreDraft = () => {
     const d = pendingDraftRef.current;
     if (!d) return;
-    if (d.departureDate)       setDepartureDate(d.departureDate);
     if (d.collectionStops)     setCollectionStops(d.collectionStops);
     if (d.dropoffStops)        setDropoffStops(d.dropoffStops);
     if (d.notes)               setNotes(d.notes);
     if (d.prohibitedItems)     setProhibitedItems(d.prohibitedItems);
     if (d.weightKg)            setWeightKg(d.weightKg);
+    if (d.minWeightKg)         setMinWeightKg(d.minWeightKg);
     if (d.pricePerKg)          setPricePerKg(d.pricePerKg);
     if (d.promoEnabled != null) setPromoEnabled(d.promoEnabled);
     if (d.promoDiscountPct)    setPromoDiscountPct(d.promoDiscountPct);
@@ -358,14 +361,18 @@ export default function NewRouteScreen() {
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
-  const step1Valid = collectionStops.some(s => s.city && s.country) && !!departureDate;
+  const step1Valid = collectionStops.some(s => s.city && s.country);
   const step2Valid = dropoffStops.some(s => s.city && s.country);
   const step4Valid = collectionOptions.some((o) => o.enabled) && deliveryOptions.some((o) => o.enabled);
   const step5Valid = parseFloat(weightKg) > 0 && parseFloat(pricePerKg) > 0 && paymentMethods.length > 0;
 
   // ── Summaries ──────────────────────────────────────────────────────────────
-  const step1Summary = collectionStops.filter(s => s.city).length > 0 && departureDate
-    ? `${collectionStops.filter(s => s.city).map(s => s.city).join(', ')}  ·  ${format(new Date(departureDate), 'MMM d, yyyy')}`
+  const derivedDepartureDate = collectionStops.find(s => s.collection_date)?.collection_date ?? '';
+  const step1Summary = collectionStops.filter(s => s.city).length > 0
+    ? [
+        collectionStops.filter(s => s.city).map(s => s.city).join(', '),
+        derivedDepartureDate ? format(new Date(derivedDepartureDate), 'MMM d, yyyy') : '',
+      ].filter(Boolean).join('  ·  ')
     : '';
   const step2Summary = dropoffStops.filter((s) => s.city).length > 0
     ? `${dropoffStops.filter((s) => s.city).length} stop(s): ${dropoffStops.filter((s) => s.city).map((s) => s.city).join(', ')}`
@@ -399,7 +406,7 @@ export default function NewRouteScreen() {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const handleBack = () => {
-    const hasData = collectionStops.length > 0 || dropoffStops.length > 0 || !!departureDate;
+    const hasData = collectionStops.some(s => s.city) || dropoffStops.some(s => s.city);
     if (hasData) {
       Alert.alert(
         'Leave?',
@@ -464,6 +471,7 @@ export default function NewRouteScreen() {
 
     const derivedOriginCity = collectionStops.find(s => s.city)?.city ?? '';
     const derivedDestCity   = dropoffStops.find(s => s.city)?.city ?? '';
+    const derivedDeparture  = collectionStops.find(s => s.collection_date)?.collection_date ?? '';
 
     const { data: existing } = await supabase
       .from('routes')
@@ -471,7 +479,7 @@ export default function NewRouteScreen() {
       .eq('driver_id', profile.id)
       .eq('origin_city', derivedOriginCity)
       .eq('destination_city', derivedDestCity)
-      .eq('departure_date', departureDate)
+      .eq('departure_date', derivedDeparture)
       .neq('status', 'cancelled')
       .maybeSingle();
 
@@ -530,9 +538,10 @@ export default function NewRouteScreen() {
         origin_country,
         destination_city: dest_city,
         destination_country: dest_country,
-        departure_date: departureDate,
+        departure_date: collStops[0]?.arrival_date ?? '',
         estimated_arrival_date: dropStops[0]?.arrival_date ?? null,
         available_weight_kg: parseFloat(weightKg),
+        min_weight_kg: parseFloat(minWeightKg) || 10,
         price_per_kg_eur: parseFloat(pricePerKg),
         notes: notes || null,
         payment_methods: paymentMethods,
@@ -546,7 +555,10 @@ export default function NewRouteScreen() {
         ],
         prohibited_items: prohibitedItems,
         save_as_template: saveAsTemplate,
-        template_name: saveAsTemplate ? (templateName || `${origin_city} → ${dest_city}`) : undefined,
+        template_name: saveAsTemplate ? (templateName || [
+          collStops.map(s => s.city).join(', '),
+          dropStops.map(s => s.city).join(', '),
+        ].filter(Boolean).join(' → ')) : undefined,
       });
 
       if (draftKey) await AsyncStorage.removeItem(draftKey);
@@ -555,7 +567,7 @@ export default function NewRouteScreen() {
     } catch {
       try {
         await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify({
-          departureDate, weightKg, pricePerKg,
+          weightKg, pricePerKg,
           notes, paymentMethods, promoEnabled, promoDiscountPct,
           promoExpiresAt, promoLabel, collectionStops, dropoffStops,
           profileId: profile.id,
@@ -569,7 +581,6 @@ export default function NewRouteScreen() {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const today = new Date();
-  const departureDateObj = departureDate ? new Date(departureDate) : undefined;
   const isFirstRoute = routes.length === 0;
   const discountedPrice = promoEnabled && pricePerKg && promoDiscountPct
     ? (parseFloat(pricePerKg) * (1 - parseInt(promoDiscountPct) / 100)).toFixed(2)
@@ -636,16 +647,8 @@ export default function NewRouteScreen() {
             )}
 
             <Text style={f.stepDesc}>
-              Add cities where you will collect packages from senders.
+              Add the cities where you will collect packages. Stop 1's date is used as your departure date.
             </Text>
-
-            <Text style={f.fieldLabel}>Departure date</Text>
-            <DateInput
-              value={departureDate}
-              onChange={setDepartureDate}
-              minDate={today}
-              placeholder="Select date"
-            />
 
             {collectionStops.map((stop, idx) => (
               <View key={idx} style={f.stopCard}>
@@ -666,7 +669,7 @@ export default function NewRouteScreen() {
                   placeholder="Select collection city"
                   onChange={(city, country) => updateCollectionStop(idx, { city, country })}
                 />
-                <Text style={f.fieldLabel}>Collection date (optional)</Text>
+                <Text style={f.fieldLabel}>{idx === 0 ? 'Departure date (optional)' : 'Collection date (optional)'}</Text>
                 <DateInput
                   value={stop.collection_date}
                   onChange={(v) => updateCollectionStop(idx, { collection_date: v })}
@@ -683,12 +686,13 @@ export default function NewRouteScreen() {
             ))}
 
             <TouchableOpacity
-              style={[f.addStopRow, collectionStops.length >= 8 && f.addStopRowDisabled]}
+              style={[f.addStopBtn, collectionStops.length >= 8 && f.addStopBtnDisabled]}
               onPress={addCollectionStop}
               disabled={collectionStops.length >= 8}
+              activeOpacity={0.75}
             >
-              <Plus size={15} color={collectionStops.length >= 8 ? Colors.text.tertiary : Colors.primary} />
-              <Text style={[f.addStopText, collectionStops.length >= 8 && f.addStopTextDisabled]}>
+              <Plus size={16} color={collectionStops.length >= 8 ? Colors.text.tertiary : Colors.primary} strokeWidth={2.5} />
+              <Text style={[f.addStopBtnText, collectionStops.length >= 8 && f.addStopBtnTextDisabled]}>
                 {collectionStops.length >= 8 ? 'Maximum 8 stops' : 'Add collection stop'}
               </Text>
             </TouchableOpacity>
@@ -697,7 +701,7 @@ export default function NewRouteScreen() {
               label="Continue"
               onPress={() => {
                 if (!step1Valid) {
-                  showToast('Add at least one collection stop and set a departure date', 'error');
+                  showToast('Add at least one collection stop with city and country', 'error');
                   return;
                 }
                 setCurrentStep(2);
@@ -748,7 +752,7 @@ export default function NewRouteScreen() {
                 <DateInput
                   value={stop.estimated_arrival_date}
                   onChange={(v) => updateDropoffStop(idx, { estimated_arrival_date: v })}
-                  minDate={departureDateObj ?? today}
+                  minDate={derivedDepartureDate ? new Date(derivedDepartureDate) : today}
                   placeholder="Optional"
                 />
                 <Text style={f.fieldLabel}>Meeting point link (optional)</Text>
@@ -761,12 +765,13 @@ export default function NewRouteScreen() {
             ))}
 
             <TouchableOpacity
-              style={[f.addStopRow, dropoffStops.length >= 8 && f.addStopRowDisabled]}
+              style={[f.addStopBtn, dropoffStops.length >= 8 && f.addStopBtnDisabled]}
               onPress={addDropoffStop}
               disabled={dropoffStops.length >= 8}
+              activeOpacity={0.75}
             >
-              <Plus size={15} color={dropoffStops.length >= 8 ? Colors.text.tertiary : Colors.primary} />
-              <Text style={[f.addStopText, dropoffStops.length >= 8 && f.addStopTextDisabled]}>
+              <Plus size={16} color={dropoffStops.length >= 8 ? Colors.text.tertiary : Colors.primary} strokeWidth={2.5} />
+              <Text style={[f.addStopBtnText, dropoffStops.length >= 8 && f.addStopBtnTextDisabled]}>
                 {dropoffStops.length >= 8 ? 'Maximum 8 stops' : 'Add drop-off stop'}
               </Text>
             </TouchableOpacity>
@@ -956,19 +961,34 @@ export default function NewRouteScreen() {
           >
             {/* Capacity */}
             <Text style={f.sectionSubtitle}>Capacity</Text>
-            <Text style={f.fieldLabel}>Available weight (kg)</Text>
-            <TextInput
-              style={f.input}
-              value={weightKg}
-              onChangeText={setWeightKg}
-              keyboardType="decimal-pad"
-              placeholder="20"
-              placeholderTextColor={Colors.text.tertiary}
-            />
+            <View style={f.capacityRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={f.fieldLabel}>Max capacity (kg)</Text>
+                <TextInput
+                  style={f.input}
+                  value={weightKg}
+                  onChangeText={setWeightKg}
+                  keyboardType="decimal-pad"
+                  placeholder="20"
+                  placeholderTextColor={Colors.text.tertiary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={f.fieldLabel}>Min per sender (kg)</Text>
+                <TextInput
+                  style={f.input}
+                  value={minWeightKg}
+                  onChangeText={setMinWeightKg}
+                  keyboardType="decimal-pad"
+                  placeholder="10"
+                  placeholderTextColor={Colors.text.tertiary}
+                />
+              </View>
+            </View>
             <View style={f.tipRow}>
               <Info size={11} color={Colors.text.tertiary} />
               <Text style={f.tipText}>
-                Capacity decreases automatically as bookings are accepted.
+                Max capacity decreases as bookings are accepted. Senders cannot book below the minimum.
               </Text>
             </View>
 
@@ -1066,9 +1086,12 @@ export default function NewRouteScreen() {
                 <Text style={f.fieldLabel}>Template name</Text>
                 <TextInput
                   style={f.input}
-                  value={templateName}
+                  value={templateName || [
+                    collectionStops.filter(s => s.city).map(s => s.city).join(', '),
+                    dropoffStops.filter(s => s.city).map(s => s.city).join(', '),
+                  ].filter(Boolean).join(' → ')}
                   onChangeText={setTemplateName}
-                  placeholder={collectionStops.find(s => s.city)?.city && dropoffStops.find(s => s.city)?.city ? `${collectionStops.find(s => s.city)?.city} → ${dropoffStops.find(s => s.city)?.city}` : 'Template name'}
+                  placeholder="Template name"
                   placeholderTextColor={Colors.text.tertiary}
                   maxLength={60}
                 />
@@ -1085,7 +1108,7 @@ export default function NewRouteScreen() {
                 originCountry={collectionStops.find(s => s.city)?.country ?? ''}
                 destinationCity={dropoffStops.find(s => s.city)?.city ?? ''}
                 destinationCountry={dropoffStops.find(s => s.city)?.country ?? ''}
-                departureDate={departureDate}
+                departureDate={derivedDepartureDate}
                 estimatedArrivalDate={dropoffStops.find(s => s.estimated_arrival_date)?.estimated_arrival_date ?? ''}
                 weightKg={weightKg}
                 pricePerKg={pricePerKg}
@@ -1117,7 +1140,7 @@ export default function NewRouteScreen() {
                   {collectionStops.find(s => s.city)?.city} → {dropoffStops.find(s => s.city)?.city || '…'}
                 </Text>
                 <Text style={styles.mobileSummaryMeta}>
-                  {departureDate ? format(new Date(departureDate), 'MMM d, yyyy') : 'No date set'}
+                  {derivedDepartureDate ? format(new Date(derivedDepartureDate), 'MMM d, yyyy') : 'No date set'}
                   {pricePerKg ? `  ·  €${pricePerKg}/kg` : ''}
                 </Text>
               </View>
@@ -1133,7 +1156,7 @@ export default function NewRouteScreen() {
               originCountry={collectionStops.find(s => s.city)?.country ?? ''}
               destinationCity={dropoffStops.find(s => s.city)?.city ?? ''}
               destinationCountry={dropoffStops.find(s => s.city)?.country ?? ''}
-              departureDate={departureDate}
+              departureDate={derivedDepartureDate}
               estimatedArrivalDate={dropoffStops.find(s => s.estimated_arrival_date)?.estimated_arrival_date ?? ''}
               weightKg={weightKg}
               pricePerKg={pricePerKg}
@@ -1418,13 +1441,25 @@ const f = StyleSheet.create({
   stopNum: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
 
   // Add stop button
-  addStopRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: Spacing.xs, paddingVertical: Spacing.sm, marginBottom: Spacing.sm,
+  addStopBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderStyle: 'dashed',
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
   },
-  addStopRowDisabled: { opacity: 0.5 },
-  addStopText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
-  addStopTextDisabled: { color: Colors.text.tertiary },
+  addStopBtnDisabled: {
+    borderColor: Colors.border.medium,
+    backgroundColor: Colors.background.secondary,
+  },
+  addStopBtnText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '700' },
+  addStopBtnTextDisabled: { color: Colors.text.tertiary, fontWeight: '400' },
 
   // Estimate note
   estimateNote: {
@@ -1478,6 +1513,10 @@ const f = StyleSheet.create({
   paymentLabel: { fontSize: FontSize.sm, color: Colors.text.primary, flex: 1 },
 
   // Template
+  capacityRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
   templateHint: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: -Spacing.xs },
 
   // Prohibited items

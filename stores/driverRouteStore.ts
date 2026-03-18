@@ -25,6 +25,7 @@ interface CreateRouteInput {
   departure_date: string;
   estimated_arrival_date?: string | null;
   available_weight_kg: number;
+  min_weight_kg?: number;
   price_per_kg_eur: number;
   notes?: string | null;
   payment_methods?: string[];
@@ -101,6 +102,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         departure_date: data.departure_date,
         estimated_arrival_date: data.estimated_arrival_date ?? null,
         available_weight_kg: data.available_weight_kg,
+        min_weight_kg: data.min_weight_kg ?? 10,
         price_per_kg_eur: data.price_per_kg_eur,
         notes: data.notes ?? null,
         status: 'active',

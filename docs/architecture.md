@@ -2,6 +2,44 @@
 
 _Last updated: 2026-03-18_
 
+## Test Architecture
+
+```
+tests/
+  helpers.ts              # adminClient, createTestUser, cleanupUser, seedRoute, TEST_ROUTE
+  seed-test-data.ts       # CLI script — seeds driver + sender + route, prints env vars
+  README.md               # How to run each test layer
+  unit/                   # Vitest unit tests (no network)
+  integration/            # Vitest integration tests (requires local Supabase)
+
+.maestro/
+  config.yaml             # appId: host.exp.Exponent
+  _login_driver.yaml      # Reusable driver sign-in sub-flow
+  _login_sender.yaml      # Reusable sender sign-in sub-flow
+  01_driver_create_route.yaml   # Driver wizard → publish route
+  02_sender_search_and_book.yaml# Sender search → book → tracking screen
+  03_driver_booking_lifecycle.yaml # Pending → Confirmed → In transit → Delivered
+  04_sender_tracking.yaml       # Sender tracking timeline + Print Label
+  05_driver_route_cancel.yaml   # Cancel active route
+  06_driver_mark_full.yaml      # Mark route full → invisible in sender search
+```
+
+### Test layers
+
+| Layer | Tool | Requires network |
+|-------|------|-----------------|
+| Unit | Vitest | No |
+| Integration | Vitest + supabase-js admin | Local Supabase (`supabase start`) |
+| E2E | Maestro | Local Supabase + Expo dev server + simulator |
+
+### helpers.ts
+
+- `adminClient` — service-role Supabase client; bypasses RLS
+- `createTestUser(role)` — creates a confirmed user, returns `{ userId, email, password, client }` where `client` is pre-authenticated with a server-side session
+- `cleanupUser(userId)` — deletes auth user (cascades to profile)
+- `seedRoute(driverUserId, overrides?)` — inserts an active route, returns route id
+- `cleanupRoute(routeId)` — deletes route (bookings cascade via FK)
+
 ---
 
 ## High-Level System Diagram

@@ -1,0 +1,52 @@
+# 03_driver_booking_lifecycle.yaml
+# E2E flow: driver finds a pending booking, confirms it, marks it in-transit,
+# then marks it delivered, asserting the status label changes at each step.
+#
+# Required env vars: DRIVER_EMAIL, DRIVER_PASSWORD
+# Pre-condition: a booking in status "pending" must exist on one of the driver's
+#   routes. Run seed-test-data.ts and 02_sender_search_and_book.yaml first.
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Sign in as driver
+- tapOn:
+    text: "Sign In"
+- runFlow:
+    file: .maestro/_login_driver.yaml
+
+# 3. Open Bookings tab
+- tapOn:
+    text: "Bookings"
+- assertVisible:
+    text: "Pending"
+
+# 4. Open the first pending booking
+- tapOn:
+    text: "Pending"
+    index: 0
+
+# 5. Confirm booking
+- assertVisible:
+    text: "Confirm booking"
+- tapOn:
+    text: "Confirm booking"
+- assertVisible:
+    text: "Confirmed"
+
+# 6. Mark in-transit
+- tapOn:
+    text: "Mark in transit"
+- assertVisible:
+    text: "In transit"
+
+# 7. Mark delivered
+- tapOn:
+    text: "Mark delivered"
+- assertVisible:
+    text: "Delivered"

@@ -1,0 +1,111 @@
+# 01_driver_create_route.yaml
+# Full E2E flow: driver signs in, creates a route via the 5-step wizard, publishes it,
+# and asserts it appears in the routes list.
+#
+# Required env vars: DRIVER_EMAIL, DRIVER_PASSWORD
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Navigate to Sign In
+- tapOn:
+    text: "Sign In"
+
+# 3. Authenticate as driver
+- runFlow:
+    file: .maestro/_login_driver.yaml
+
+# 4. Navigate to Routes tab
+- tapOn:
+    text: "Routes"
+- assertVisible:
+    text: "My Routes"
+
+# 5. Tap the "+" FAB to start the route wizard
+- tapOn:
+    id: "fab-new-route"
+
+# ── Step 1: Cities & Dates ─────────────────────────────────────────────────────
+- assertVisible:
+    text: "Step 1"
+- tapOn:
+    text: "Origin city"
+- inputText:
+    text: "Berlin"
+- tapOn:
+    text: "Berlin"
+- tapOn:
+    text: "Destination city"
+- inputText:
+    text: "Tunis"
+- tapOn:
+    text: "Tunis"
+- tapOn:
+    text: "Departure date"
+# Select a date two months from now — tap the first available future day shown
+- tapOn:
+    text: "15"
+- tapOn:
+    text: "Estimated arrival"
+- tapOn:
+    text: "20"
+- tapOn:
+    text: "Next"
+
+# ── Step 2: Weight & Price ─────────────────────────────────────────────────────
+- assertVisible:
+    text: "Step 2"
+- tapOn:
+    id: "input-available-weight"
+- clearText
+- inputText:
+    text: "50"
+- tapOn:
+    id: "input-min-weight"
+- clearText
+- inputText:
+    text: "1"
+- tapOn:
+    id: "input-price-per-kg"
+- clearText
+- inputText:
+    text: "8"
+- tapOn:
+    text: "Next"
+
+# ── Step 3: Stops (optional — skip) ───────────────────────────────────────────
+- assertVisible:
+    text: "Step 3"
+- tapOn:
+    text: "Next"
+
+# ── Step 4: Payment methods ────────────────────────────────────────────────────
+- assertVisible:
+    text: "Step 4"
+- tapOn:
+    text: "Cash"
+- tapOn:
+    text: "Bank transfer"
+- tapOn:
+    text: "Next"
+
+# ── Step 5: Review & Publish ───────────────────────────────────────────────────
+- assertVisible:
+    text: "Step 5"
+- assertVisible:
+    text: "Berlin"
+- assertVisible:
+    text: "Tunis"
+- assertVisible:
+    text: "€8.00"
+- tapOn:
+    text: "Publish route"
+
+# 6. Assert the new route now appears in the list
+- assertVisible:
+    text: "Berlin → Tunis"

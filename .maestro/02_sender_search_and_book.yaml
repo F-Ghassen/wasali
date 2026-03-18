@@ -1,0 +1,109 @@
+# 02_sender_search_and_book.yaml
+# E2E flow: sender searches Berlin → Tunis, taps a result, fills the booking
+# form, confirms, and arrives at the tracking screen showing status "Pending".
+#
+# Required env vars: SENDER_EMAIL, SENDER_PASSWORD, TEST_ROUTE_ID
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Navigate to Sign In
+- tapOn:
+    text: "Sign In"
+
+# 3. Authenticate as sender
+- runFlow:
+    file: .maestro/_login_sender.yaml
+
+# 4. Assert home screen
+- assertVisible:
+    text: "Send a package"
+
+# 5. Select FROM city
+- tapOn:
+    text: "FROM"
+- assertVisible:
+    text: "Select departure city"
+- tapOn:
+    text: "Berlin"
+
+# 6. Select TO city
+- tapOn:
+    text: "TO"
+- assertVisible:
+    text: "Select destination city"
+- tapOn:
+    text: "Tunis"
+
+# 7. Search (no date filter)
+- tapOn:
+    text: "Search drivers"
+- assertVisible:
+    text: "Berlin → Tunis"
+
+# 8. Assert at least one result is shown
+- assertVisible:
+    text: "Book slot →"
+
+# 9. Tap "Book slot" on the first result
+- tapOn:
+    text: "Book slot →"
+    index: 0
+
+# ── Step 1 of booking: Package details ────────────────────────────────────────
+- assertVisible:
+    text: "Package details"
+- tapOn:
+    id: "input-weight"
+- clearText
+- inputText:
+    text: "5"
+- tapOn:
+    text: "General"
+- tapOn:
+    text: "Next"
+
+# ── Step 2: Logistics ─────────────────────────────────────────────────────────
+- assertVisible:
+    text: "Logistics"
+- tapOn:
+    text: "I'll drop off"
+- tapOn:
+    text: "Home delivery"
+- tapOn:
+    id: "input-dropoff-address"
+- inputText:
+    text: "12 Rue de la Liberté, Tunis"
+- tapOn:
+    text: "Next"
+
+# ── Step 3: Recipient ─────────────────────────────────────────────────────────
+- assertVisible:
+    text: "Recipient"
+- tapOn:
+    id: "input-recipient-name"
+- inputText:
+    text: "Fatma Test"
+- tapOn:
+    id: "input-recipient-phone"
+- inputText:
+    text: "98765432"
+- tapOn:
+    text: "Next"
+
+# ── Step 4: Confirm & Pay ─────────────────────────────────────────────────────
+- assertVisible:
+    text: "Order summary"
+- assertVisible:
+    text: "€40"
+- tapOn:
+    text: "Confirm booking"
+
+# 10. Assert tracking screen shows Pending
+- assertVisible:
+    text: "Pending"

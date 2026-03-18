@@ -1,0 +1,45 @@
+# 04_sender_tracking.yaml
+# E2E flow: sender opens a confirmed booking, verifies the tracking timeline
+# shows "Confirmed" as the current step, and asserts the Print Label button
+# is visible.
+#
+# Required env vars: SENDER_EMAIL, SENDER_PASSWORD
+# Pre-condition: a booking in status "confirmed" must exist for this sender.
+#   Run 02_sender_search_and_book.yaml + 03_driver_booking_lifecycle.yaml first.
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Sign in as sender
+- tapOn:
+    text: "Sign In"
+- runFlow:
+    file: .maestro/_login_sender.yaml
+
+# 3. Navigate to Bookings tab
+- tapOn:
+    text: "Bookings"
+- assertVisible:
+    text: "Confirmed"
+
+# 4. Open the confirmed booking
+- tapOn:
+    text: "Confirmed"
+    index: 0
+
+# 5. Assert the tracking timeline shows the correct current step
+- assertVisible:
+    text: "Confirmed"
+- scrollUntilVisible:
+    element:
+      text: "Print Label"
+    direction: DOWN
+
+# 6. Assert Print Label is reachable
+- assertVisible:
+    text: "Print Label"

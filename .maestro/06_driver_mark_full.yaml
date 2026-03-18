@@ -1,0 +1,84 @@
+# 06_driver_mark_full.yaml
+# E2E flow: driver marks a route as "Full", confirms the status label updates,
+# then switches to the sender view and verifies the route does NOT appear in
+# search results (full routes are filtered out).
+#
+# Required env vars:
+#   DRIVER_EMAIL, DRIVER_PASSWORD
+#   SENDER_EMAIL, SENDER_PASSWORD
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Sign in as driver
+- tapOn:
+    text: "Sign In"
+- runFlow:
+    file: .maestro/_login_driver.yaml
+
+# 3. Open Routes tab
+- tapOn:
+    text: "Routes"
+- assertVisible:
+    text: "My Routes"
+
+# 4. Open the first active route
+- tapOn:
+    text: "Berlin → Tunis"
+    index: 0
+
+# 5. Tap "Mark Full"
+- scrollUntilVisible:
+    element:
+      text: "Mark as full"
+    direction: DOWN
+- tapOn:
+    text: "Mark as full"
+
+# 6. Confirm the alert
+- assertVisible:
+    text: "Mark route as full"
+- tapOn:
+    text: "Confirm"
+
+# 7. Assert status badge now shows "Full"
+- assertVisible:
+    text: "Full"
+
+# 8. Sign out
+- tapOn:
+    text: "Profile"
+- scrollUntilVisible:
+    element:
+      text: "Sign out"
+    direction: DOWN
+- tapOn:
+    text: "Sign out"
+
+# 9. Sign in as sender
+- tapOn:
+    text: "Sign In"
+- runFlow:
+    file: .maestro/_login_sender.yaml
+
+# 10. Search the same route
+- tapOn:
+    text: "FROM"
+- tapOn:
+    text: "Berlin"
+- tapOn:
+    text: "TO"
+- tapOn:
+    text: "Tunis"
+- tapOn:
+    text: "Search drivers"
+
+# 11. Assert the full route is NOT in results
+# (full routes are excluded by status = 'active' filter in the search query)
+- assertNotVisible:
+    text: "Full"

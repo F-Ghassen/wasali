@@ -1,0 +1,21 @@
+# _login_sender.yaml
+# Reusable sub-flow: sign in as sender.
+# Requires env vars: SENDER_EMAIL, SENDER_PASSWORD
+# Assumes the app is already open on the Sign In screen.
+#
+# Usage:
+#   - runFlow:
+#       file: .maestro/_login_sender.yaml
+
+- tapOn:
+    text: "Email"
+- inputText:
+    text: ${SENDER_EMAIL}
+- tapOn:
+    text: "Password"
+- inputText:
+    text: ${SENDER_PASSWORD}
+- tapOn:
+    text: "Sign In"
+- assertVisible:
+    text: "Send a package"

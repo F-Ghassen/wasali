@@ -529,3 +529,21 @@ Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notif
 **Route performance analytics:**
 - Route detail shows: expected gross, actual gross, fill rate bar, delivered count
 - Driver dashboard shows 6-month revenue bar chart (`RevenueChart` component)
+
+
+---
+
+## E2E Test Flows (Maestro)
+
+The `.maestro/` directory contains automated E2E flows that mirror the user journeys above.
+
+| Flow file | Mirrors user journey |
+|-----------|---------------------|
+| `01_driver_create_route.yaml` | Driver route creation (step 1–5 wizard + publish) |
+| `02_sender_search_and_book.yaml` | Sender search → select route → 4-step booking → tracking screen |
+| `03_driver_booking_lifecycle.yaml` | Driver: Pending → Confirmed → In transit → Delivered |
+| `04_sender_tracking.yaml` | Sender: Bookings tab → tracking timeline → Print Label |
+| `05_driver_route_cancel.yaml` | Driver: Cancel active route → gone from list |
+| `06_driver_mark_full.yaml` | Driver: Mark full → route hidden in sender search |
+
+See `tests/README.md` for setup and run instructions.

@@ -1,0 +1,21 @@
+# _login_driver.yaml
+# Reusable sub-flow: sign in as driver.
+# Requires env vars: DRIVER_EMAIL, DRIVER_PASSWORD
+# Assumes the app is already open on the Sign In screen.
+#
+# Usage:
+#   - runFlow:
+#       file: .maestro/_login_driver.yaml
+
+- tapOn:
+    text: "Email"
+- inputText:
+    text: ${DRIVER_EMAIL}
+- tapOn:
+    text: "Password"
+- inputText:
+    text: ${DRIVER_PASSWORD}
+- tapOn:
+    text: "Sign In"
+- assertVisible:
+    text: "Dashboard"

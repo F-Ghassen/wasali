@@ -1,0 +1,51 @@
+# 05_driver_route_cancel.yaml
+# E2E flow: driver navigates to an active route, cancels it, confirms the
+# alert, and asserts the route no longer appears in the active routes list.
+#
+# Required env vars: DRIVER_EMAIL, DRIVER_PASSWORD
+# Pre-condition: at least one active route must exist for this driver.
+
+appId: host.exp.Exponent
+
+---
+
+# 1. Launch
+- launchApp:
+    clearState: true
+
+# 2. Sign in as driver
+- tapOn:
+    text: "Sign In"
+- runFlow:
+    file: .maestro/_login_driver.yaml
+
+# 3. Open Routes tab
+- tapOn:
+    text: "Routes"
+- assertVisible:
+    text: "My Routes"
+
+# 4. Tap the first active route to open its detail screen
+- tapOn:
+    text: "Berlin → Tunis"
+    index: 0
+
+# 5. Tap Cancel route (scroll down in case button is below the fold)
+- scrollUntilVisible:
+    element:
+      text: "Cancel route"
+    direction: DOWN
+- tapOn:
+    text: "Cancel route"
+
+# 6. Confirm the alert dialog
+- assertVisible:
+    text: "Are you sure"
+- tapOn:
+    text: "Yes, cancel"
+
+# 7. Assert we are back on the routes list and the route is gone
+- assertVisible:
+    text: "My Routes"
+- assertNotVisible:
+    text: "Berlin → Tunis"

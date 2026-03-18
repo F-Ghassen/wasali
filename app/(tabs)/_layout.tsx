@@ -10,6 +10,7 @@ import { Footer } from '@/components/ui/Footer';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { Button } from '@/components/ui/Button';
+import { LanguageNavButton } from '@/components/ui/LanguageNavButton';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;
@@ -86,6 +87,7 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
+    <LanguageNavButton />
     <Tabs
       screenOptions={{
         tabBarPosition: isWide ? 'top' : 'bottom',
@@ -115,12 +117,13 @@ export default function TabsLayout() {
               shadowRadius: 4,
               elevation: 4,
             },
+        tabBarShowLabel: true,
         tabBarLabelStyle: isWide
-          ? { fontSize: FontSize.sm, fontWeight: '600', textTransform: 'none', letterSpacing: 0 }
-          : { fontSize: 11, fontWeight: '500', letterSpacing: 0.2 },
+          ? { fontSize: FontSize.sm, fontWeight: '600', textTransform: 'none', letterSpacing: 0, marginLeft: Spacing.xs }
+          : { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, marginLeft: 4 },
         tabBarItemStyle: isWide
-          ? { flexDirection: 'row', gap: Spacing.xs, paddingVertical: Spacing.md }
-          : undefined,
+          ? { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md }
+          : { flexDirection: 'row', alignItems: 'center', gap: 4 },
         headerShown: false,
       }}
     >

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Phone } from 'lucide-react-native';
+import { ArrowLeft, Phone, ScanLine } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -19,6 +19,7 @@ import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
 import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
+import { QrScannerModal } from '@/components/driver/QrScannerModal';
 import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverBookingDetailScreen() {
@@ -35,6 +36,7 @@ export default function DriverBookingDetailScreen() {
     isLoading,
   } = useDriverBookingStore();
   const { showToast } = useUIStore();
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   useEffect(() => {
     if (profile) fetchBookings(profile.id);
@@ -190,14 +192,25 @@ export default function DriverBookingDetailScreen() {
           )}
 
           {booking.status === 'confirmed' && (
-            <Button
-              label="Mark as In Transit"
-              onPress={() =>
-                handleAction('Mark In Transit', () => markInTransit(id), 'Confirm you have picked up this package?')
-              }
-              isLoading={isLoading}
-              size="lg"
-            />
+            <>
+              <TouchableOpacity
+                style={styles.scanBtn}
+                onPress={() => setScannerVisible(true)}
+                disabled={isLoading}
+              >
+                <ScanLine size={18} color={Colors.white} />
+                <Text style={styles.scanBtnText}>Scan Sender's QR</Text>
+              </TouchableOpacity>
+              <Button
+                label="Mark as In Transit"
+                onPress={() =>
+                  handleAction('Mark In Transit', () => markInTransit(id), 'Confirm you have picked up this package?')
+                }
+                isLoading={isLoading}
+                size="lg"
+                variant="outline"
+              />
+            </>
           )}
 
           {booking.status === 'in_transit' && (
@@ -212,6 +225,20 @@ export default function DriverBookingDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <QrScannerModal
+        visible={scannerVisible}
+        expectedBookingId={id}
+        onSuccess={async () => {
+          try {
+            await markInTransit(id);
+            showToast('Package marked as in transit', 'success');
+          } catch {
+            showToast('Failed to update status', 'error');
+          }
+        }}
+        onClose={() => setScannerVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -249,6 +276,16 @@ const styles = StyleSheet.create({
   notesRow: { gap: 4 },
   notesText: { fontSize: FontSize.sm, color: Colors.text.secondary },
   actionsCard: { gap: Spacing.sm },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+    paddingVertical: Spacing.md,
+  },
+  scanBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFoundText: { fontSize: FontSize.base, color: Colors.text.secondary },
 });

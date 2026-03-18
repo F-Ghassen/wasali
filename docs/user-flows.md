@@ -1,6 +1,6 @@
 # Wasali — User Flows
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-03-18_
 
 ---
 
@@ -498,14 +498,34 @@ pending ──▶  confirmed ──▶ in_transit ──▶ delivered ──▶ 
 
 ## 6. Notifications
 
-Push notifications (via `lib/notifications.ts`):
+Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notifications table):
 
-| Event | Recipient |
-|---|---|
-| New booking on route | Driver |
-| Booking confirmed | Sender |
-| Package collected / in transit | Sender |
-| Package delivered | Sender |
-| New offer on shipping request | Sender |
-| Offer accepted | Driver |
-| New P2P carry offer | Document sender |
+| Event | Recipient | Channel |
+|---|---|---|
+| New booking on route | Driver | push + in-app |
+| Booking confirmed | Sender | push + email + in-app |
+| Package collected / in transit | Sender | push + email + in-app |
+| Package delivered | Sender | push + email + in-app |
+| New offer on shipping request | Sender | push + in-app |
+| Offer accepted | Driver | push + in-app |
+| New P2P carry offer | Document sender | push + in-app |
+
+**Notification delivery pipeline** (`notify-booking-event` Edge Function):
+- Triggered by Supabase DB Webhook on `bookings` UPDATE
+- Fetches route + recipient profile
+- Sends Expo push (native), Resend email (web / notification_email set), inserts notifications row
+- `notificationStore` subscribes via Supabase Realtime to receive live inserts
+
+**In-app notification inbox:**
+- Profile tab gets a red dot badge when `unreadCount > 0`
+- Tapping "Notifications" row opens `NotificationList` bottom sheet
+- Tap a notification → navigate to booking + mark read
+
+**QR-assisted collection (driver):**
+- When booking is `confirmed`, driver can scan sender's QR code OR tap "Mark as In Transit"
+- QR value must equal the booking UUID; mismatch shows error toast
+- On successful scan, confirmation alert → `markInTransit()`
+
+**Route performance analytics:**
+- Route detail shows: expected gross, actual gross, fill rate bar, delivered count
+- Driver dashboard shows 6-month revenue bar chart (`RevenueChart` component)

@@ -19,6 +19,7 @@ import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { StatCard } from '@/components/driver/StatCard';
 import { EarningsSummary } from '@/components/driver/EarningsSummary';
+import { RevenueChart } from '@/components/driver/RevenueChart';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { BookingStatus } from '@/constants/bookingStatus';
 
@@ -26,7 +27,7 @@ export default function DriverDashboardScreen() {
   const router = useRouter();
   const { profile } = useAuthStore();
   const { routes, fetchRoutes, isLoading: routesLoading } = useDriverRouteStore();
-  const { bookings, stats, fetchBookings, isLoading: bookingsLoading } = useDriverBookingStore();
+  const { bookings, stats, fetchBookings, getMonthlyRevenue, isLoading: bookingsLoading } = useDriverBookingStore();
 
   const isRefreshing = routesLoading || bookingsLoading;
 
@@ -66,6 +67,9 @@ export default function DriverDashboardScreen() {
           totalEarnings={stats.totalEarnings}
           deliveredCount={stats.delivered}
         />
+
+        {/* Monthly revenue chart */}
+        <RevenueChart data={getMonthlyRevenue()} />
 
         {/* Stats row */}
         <View style={styles.statsRow}>

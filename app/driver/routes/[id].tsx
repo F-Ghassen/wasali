@@ -36,7 +36,7 @@ export default function DriverRouteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
   const { routes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
-  const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered } = useDriverBookingStore();
+  const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered, getRouteStats } = useDriverBookingStore();
   const { showToast } = useUIStore();
 
   const route = routes.find((r) => r.id === id) as RouteWithStops | undefined;
@@ -282,6 +282,55 @@ export default function DriverRouteDetailScreen() {
           </View>
         )}
 
+        {/* Analytics */}
+        {(() => {
+          const stats = getRouteStats(id);
+          const capacity = route.available_weight_kg ?? 0;
+          const pricePerKg = route.price_per_kg_eur ?? 0;
+          const expectedGross = capacity * pricePerKg * 1.3;
+          const actualGross = stats.deliveredRevenue * 1.3;
+          const fillRate = capacity > 0 ? Math.min(stats.bookedKg / capacity, 1) : 0;
+          const fillPct = Math.round(fillRate * 100);
+          const fillBarCount = 10;
+          const filledBars = Math.round(fillRate * fillBarCount);
+          const isGoodActual = actualGross >= expectedGross;
+          const isLowActual = !isGoodActual && actualGross < expectedGross * 0.8;
+          return (
+            <View style={styles.analyticsCard}>
+              <Text style={styles.sectionTitle}>Est. Performance</Text>
+              <View style={styles.analyticRow}>
+                <View style={styles.analyticItem}>
+                  <Text style={styles.analyticLabel}>Expected gross</Text>
+                  <Text style={styles.analyticValue}>€{expectedGross.toFixed(0)}</Text>
+                </View>
+                <View style={styles.analyticItem}>
+                  <Text style={styles.analyticLabel}>Actual gross</Text>
+                  <Text style={[
+                    styles.analyticValue,
+                    isGoodActual && styles.analyticGood,
+                    isLowActual && styles.analyticLow,
+                  ]}>€{actualGross.toFixed(0)}</Text>
+                </View>
+              </View>
+              <View style={styles.fillRow}>
+                <Text style={styles.analyticLabel}>Fill rate</Text>
+                <View style={styles.fillBar}>
+                  {Array.from({ length: fillBarCount }).map((_, i) => (
+                    <View
+                      key={i}
+                      style={[styles.fillSegment, i < filledBars && styles.fillSegmentActive]}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.analyticLabel}>{fillPct}%</Text>
+              </View>
+              <Text style={styles.analyticSub}>
+                {stats.deliveredCount} booking{stats.deliveredCount !== 1 ? 's' : ''} delivered
+              </Text>
+            </View>
+          );
+        })()}
+
         {/* Bookings on this route */}
         <Text style={styles.sectionTitle}>
           Bookings ({routeBookings.length})
@@ -379,6 +428,31 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   locationLinkText: { fontSize: FontSize.xs, color: Colors.secondary, fontWeight: '600' },
+
+  // Analytics
+  analyticsCard: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  analyticRow: { flexDirection: 'row', gap: Spacing.md },
+  analyticItem: { flex: 1 },
+  analyticLabel: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: 2 },
+  analyticValue: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+  analyticGood: { color: Colors.success },
+  analyticLow: { color: Colors.warning },
+  analyticSub: { fontSize: FontSize.xs, color: Colors.text.tertiary },
+  fillRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  fillBar: { flex: 1, flexDirection: 'row', gap: 2 },
+  fillSegment: {
+    flex: 1,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.border.light,
+  },
+  fillSegmentActive: { backgroundColor: Colors.primary },
 
   // Promo card
   promoCard: {

@@ -19,6 +19,17 @@ interface DriverBookingState {
   error: string | null;
 }
 
+export interface RouteStats {
+  bookedKg: number;
+  deliveredRevenue: number;
+  deliveredCount: number;
+}
+
+export interface MonthlyRevenue {
+  month: string;
+  revenue: number;
+}
+
 interface DriverBookingActions {
   fetchBookings: (driverId: string, filter?: BookingFilter) => Promise<void>;
   confirmBooking: (id: string) => Promise<void>;
@@ -27,6 +38,8 @@ interface DriverBookingActions {
   markDelivered: (id: string) => Promise<void>;
   computeStats: () => void;
   clearError: () => void;
+  getRouteStats: (routeId: string) => RouteStats;
+  getMonthlyRevenue: () => MonthlyRevenue[];
 }
 
 const emptyStats: DriverBookingStats = {
@@ -115,6 +128,49 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
 
   markDelivered: async (id) => {
     await updateBookingStatus(id, 'delivered', set, get);
+  },
+
+  getRouteStats: (routeId) => {
+    const { bookings } = get();
+    return bookings
+      .filter((b) => b.route_id === routeId)
+      .reduce<RouteStats>(
+        (acc, b) => {
+          acc.bookedKg += b.package_weight_kg ?? 0;
+          if (b.status === 'delivered') {
+            acc.deliveredRevenue += b.price_eur ?? 0;
+            acc.deliveredCount++;
+          }
+          return acc;
+        },
+        { bookedKg: 0, deliveredRevenue: 0, deliveredCount: 0 }
+      );
+  },
+
+  getMonthlyRevenue: () => {
+    const { bookings } = get();
+    const delivered = bookings.filter((b) => b.status === 'delivered');
+
+    // Build a map of YYYY-MM → revenue for last 6 calendar months
+    const now = new Date();
+    const months: MonthlyRevenue[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('default', { month: 'short' });
+      months.push({ month: label, revenue: 0, _key: key } as MonthlyRevenue & { _key: string });
+    }
+
+    for (const b of delivered) {
+      if (!b.created_at) continue;
+      const d = new Date(b.created_at);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const entry = (months as (MonthlyRevenue & { _key: string })[]).find((m) => m._key === key);
+      if (entry) entry.revenue += b.price_eur ?? 0;
+    }
+
+    // Strip internal _key before returning
+    return months.map(({ month, revenue }) => ({ month, revenue }));
   },
 }));
 

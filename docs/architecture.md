@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-19_
+_Last updated: 2026-03-18_
 
 ---
 
@@ -42,6 +42,7 @@ _Last updated: 2026-03-19_
           │  │  package-photos     │   │  stripe-webhook       │    │
           │  │  dispute-evidence   │   │  capture-payment      │    │
           │  └─────────────────────┘   │  accept-offer         │    │
+          │                            │  notify-booking-event │    │
           │                            └───────────┬───────────┘    │
           └────────────────────────────────────────┼────────────────┘
                                                    │
@@ -134,7 +135,8 @@ session?  →  NO   →  (auth)/welcome
 | `searchStore` | `stores/searchStore.ts` | Route search params & results |
 | `bookingStore` | `stores/bookingStore.ts` | Active booking wizard state + price calculation |
 | `driverRouteStore` | `stores/driverRouteStore.ts` | Driver route CRUD, templates, filters |
-| `driverBookingStore` | `stores/driverBookingStore.ts` | Driver booking views, status transitions, earnings stats |
+| `driverBookingStore` | `stores/driverBookingStore.ts` | Driver booking views, status transitions, earnings stats, route analytics |
+| `notificationStore` | `stores/notificationStore.ts` | In-app notifications, unread count, Realtime subscription |
 | `requestStore` | `stores/requestStore.ts` | Shipping requests & offers lifecycle |
 | `uiStore` | `stores/uiStore.ts` | Toast queue, global loading state |
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Tabs, Redirect, useRouter } from 'expo-router';
 import { View, Text, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,6 +7,7 @@ import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { Button } from '@/components/ui/Button';
 
 const ICON_SIZE_WIDE = 18;
@@ -43,11 +45,21 @@ function WrongRoleScreen({ targetRole }: { targetRole: 'driver' | 'sender' }) {
   );
 }
 
+function BadgeIcon({ icon, unread }: { icon: React.ReactNode; unread: number }) {
+  return (
+    <View style={{ position: 'relative' }}>
+      {icon}
+      {unread > 0 && <View style={badgeStyles.dot} />}
+    </View>
+  );
+}
+
 export default function DriverTabsLayout() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const iconSize = isWide ? ICON_SIZE_WIDE : ICON_SIZE_MOBILE;
   const { session, profile, isInitialized } = useAuthStore();
+  const unreadCount = useNotificationStore((s) => s.unreadCount);
 
   // 1. Still bootstrapping — show spinner
   if (!isInitialized) {
@@ -134,13 +146,32 @@ export default function DriverTabsLayout() {
           name="profile"
           options={{
             title: 'Profile',
-            tabBarIcon: ({ color }) => <User size={iconSize} color={color} strokeWidth={2} />,
+            tabBarIcon: ({ color }) => (
+              <BadgeIcon
+                icon={<User size={iconSize} color={color} strokeWidth={2} />}
+                unread={unreadCount}
+              />
+            ),
           }}
         />
       </Tabs>
     </View>
   );
 }
+
+const badgeStyles = StyleSheet.create({
+  dot: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: Colors.error,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
+  },
+});
 
 const styles = StyleSheet.create({
   center: {

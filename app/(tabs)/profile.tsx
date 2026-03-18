@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,15 +13,19 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useNotificationStore } from '@/stores/notificationStore';
+import { NotificationList } from '@/components/ui/NotificationList';
 
 function ProfileRow({
   icon,
   label,
+  badge,
   onPress,
   isDestructive,
 }: {
   icon: string;
   label: string;
+  badge?: number;
   onPress: () => void;
   isDestructive?: boolean;
 }) {
@@ -29,6 +33,11 @@ function ProfileRow({
     <TouchableOpacity style={styles.row} onPress={onPress}>
       <Text style={styles.rowIcon}>{icon}</Text>
       <Text style={[styles.rowLabel, isDestructive && styles.destructive]}>{label}</Text>
+      {badge != null && badge > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      )}
       <Text style={styles.chevron}>›</Text>
     </TouchableOpacity>
   );
@@ -38,6 +47,15 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { profile, signOut } = useAuthStore();
   const { showToast } = useUIStore();
+  const { unreadCount, fetchNotifications, subscribeRealtime } = useNotificationStore();
+  const [notifVisible, setNotifVisible] = useState(false);
+
+  useEffect(() => {
+    if (!profile) return;
+    fetchNotifications(profile.id);
+    const unsubscribe = subscribeRealtime(profile.id);
+    return unsubscribe;
+  }, [profile?.id]);
 
   const handleSignOut = async () => {
     try {
@@ -65,9 +83,16 @@ export default function ProfileScreen() {
             <View style={styles.separator} />
             <ProfileRow icon="📍" label="Saved Addresses" onPress={() => router.push('/profile/addresses')} />
             <View style={styles.separator} />
-            <ProfileRow icon="🔔" label="Notifications" onPress={() => router.push('/profile/notifications')} />
+            <ProfileRow
+              icon="🔔"
+              label="Notifications"
+              badge={unreadCount}
+              onPress={() => setNotifVisible(true)}
+            />
           </View>
         </View>
+
+        <NotificationList visible={notifVisible} onClose={() => setNotifVisible(false)} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
@@ -129,4 +154,14 @@ const styles = StyleSheet.create({
   destructive: { color: Colors.error },
   chevron: { fontSize: 18, color: Colors.text.tertiary },
   separator: { height: 1, backgroundColor: Colors.border.light, marginLeft: 60 },
+  badge: {
+    backgroundColor: Colors.error,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  badgeText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
 });

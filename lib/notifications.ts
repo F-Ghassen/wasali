@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { supabase } from '@/lib/supabase';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,4 +33,11 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   const token = await Notifications.getExpoPushTokenAsync();
   return token.data;
+}
+
+export async function savePushToken(userId: string, token: string): Promise<void> {
+  await supabase
+    .from('profiles')
+    .update({ push_token: token } as any)
+    .eq('id', userId);
 }

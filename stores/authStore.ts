@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
+import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
 import type { Profile } from '@/types/models';
 
 interface AuthState {
@@ -120,7 +121,13 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const result = await Promise.race([query, timeout]);
     if (!result) return;
     const { data, error } = result as Awaited<typeof query>;
-    if (!error && data) set({ profile: data as Profile });
+    if (!error && data) {
+      set({ profile: data as Profile });
+      // Register push token in the background (non-blocking)
+      registerForPushNotificationsAsync()
+        .then((token) => { if (token) savePushToken(userId, token); })
+        .catch(() => {});
+    }
   },
 
   updateProfile: async (updates) => {

@@ -61,22 +61,15 @@ export async function createTestUser(role: 'sender' | 'driver'): Promise<TestUse
   });
   if (error) throw new Error(`createUser failed: ${error.message}`);
 
-  // Issue a server-side session for immediate use in tests (no email flow)
-  const { data: sessionData, error: sessionError } =
-    await adminClient.auth.admin.createSession({ user_id: data.user.id });
-  if (sessionError) throw new Error(`createSession failed: ${sessionError.message}`);
-
-  // Build a user-scoped client with the session token so RLS applies correctly
+  // Sign in with email/password to get a real session (no email flow since user is pre-confirmed)
   const userClient = createClient<Database>(LOCAL_URL, LOCAL_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const { data: signInData, error: signInError } =
+    await userClient.auth.signInWithPassword({ email, password });
+  if (signInError) throw new Error(`signIn failed: ${signInError.message}`);
 
-  await userClient.auth.setSession({
-    access_token: sessionData.session.access_token,
-    refresh_token: sessionData.session.refresh_token ?? '',
-  });
-
-  return { userId: data.user.id, email, password, client: userClient };
+  return { userId: data.user.id, email, password, client: signInData.user ? userClient : userClient };
 }
 
 // ─── cleanupUser ──────────────────────────────────────────────────────────────
@@ -101,7 +94,7 @@ export async function seedRoute(
   driverUserId: string,
   overrides: Partial<typeof TEST_ROUTE> = {},
 ): Promise<string> {
-  const payload = { ...TEST_ROUTE, driver_id: driverUserId, status: 'active', ...overrides };
+  const payload = { ...TEST_ROUTE, payment_methods: [...TEST_ROUTE.payment_methods], driver_id: driverUserId, status: 'active', ...overrides };
   const { data, error } = await adminClient
     .from('routes')
     .insert(payload)
@@ -133,22 +126,22 @@ export const TEST_ROUTE = {
   min_weight_kg: 1,
   price_per_kg_eur: 8,
   notes: 'Test route — created by test helpers',
-  payment_methods: ['cash', 'bank_transfer'],
-} as const;
+  payment_methods: ['cash', 'bank_transfer'] as string[],
+};
 
 export const TEST_BOOKING_DRAFT = {
   package_weight_kg: 5,
   package_category: 'general',
   package_photos: [] as string[],
   declared_value_eur: null as number | null,
-  pickup_type: 'sender_dropoff' as const,
+  pickup_type: 'sender_dropoff' as string,
   pickup_address: null as string | null,
-  dropoff_type: 'home_delivery' as const,
+  dropoff_type: 'home_delivery' as string,
   dropoff_address: '12 Rue de la Liberté, Tunis',
   recipient_name: 'Fatma Test',
   recipient_phone: '+21698765432',
   driver_notes: null as string | null,
-  price_eur: 40,
-  status: 'pending' as const,
-  payment_status: 'pending' as const,
-} as const;
+  price_eur: 40 as number,
+  status: 'pending' as string,
+  payment_status: 'pending' as string,
+};

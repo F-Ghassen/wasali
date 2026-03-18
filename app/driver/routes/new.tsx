@@ -250,7 +250,7 @@ function LogisticsOptionCard({
 export default function NewRouteScreen() {
   const router = useRouter();
   const { profile } = useAuthStore();
-  const { createRoute, isLoading, routes } = useDriverRouteStore();
+  const { createRoute, publishRoute, isLoading, routes } = useDriverRouteStore();
   const { showToast } = useUIStore();
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -406,6 +406,11 @@ export default function NewRouteScreen() {
 
   // ── Navigation ─────────────────────────────────────────────────────────────
   const handleBack = () => {
+    if (currentStep > 1) {
+      setCurrentStep((s) => s - 1);
+      return;
+    }
+    // On step 1: confirm leave if user has entered anything
     const hasData = collectionStops.some(s => s.city) || dropoffStops.some(s => s.city);
     if (hasData) {
       Alert.alert(
@@ -533,12 +538,14 @@ export default function NewRouteScreen() {
       const dest_city      = dropStops[0]?.city    ?? '';
       const dest_country   = dropStops[0]?.country ?? '';
 
-      await createRoute(profile.id, {
+      const departure_date = collStops[0]?.arrival_date || new Date().toISOString().split('T')[0];
+
+      const routeId = await createRoute(profile.id, {
         origin_city,
         origin_country,
         destination_city: dest_city,
         destination_country: dest_country,
-        departure_date: collStops[0]?.arrival_date ?? '',
+        departure_date,
         estimated_arrival_date: dropStops[0]?.arrival_date ?? null,
         available_weight_kg: parseFloat(weightKg),
         min_weight_kg: parseFloat(minWeightKg) || 10,
@@ -561,20 +568,28 @@ export default function NewRouteScreen() {
         ].filter(Boolean).join(' → ')) : undefined,
       });
 
+      await publishRoute(routeId);
+
       if (draftKey) await AsyncStorage.removeItem(draftKey);
-      showToast('Route created successfully!', 'success');
+      showToast('Route published successfully!', 'success');
       router.back();
-    } catch {
-      try {
-        await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify({
-          weightKg, pricePerKg,
-          notes, paymentMethods, promoEnabled, promoDiscountPct,
-          promoExpiresAt, promoLabel, collectionStops, dropoffStops,
-          profileId: profile.id,
-        }));
-        showToast('No connection — route saved locally.', 'info');
-      } catch {
-        showToast('Failed to create route. Please try again.', 'error');
+    } catch (err) {
+      const message = (err as Error)?.message ?? '';
+      const isOffline = message.includes('network') || message.includes('fetch') || message.includes('NetworkError');
+      if (isOffline) {
+        try {
+          await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify({
+            weightKg, pricePerKg,
+            notes, paymentMethods, promoEnabled, promoDiscountPct,
+            promoExpiresAt, promoLabel, collectionStops, dropoffStops,
+            profileId: profile.id,
+          }));
+          showToast('No connection — route saved locally.', 'info');
+        } catch {
+          showToast('Failed to create route. Please try again.', 'error');
+        }
+      } else {
+        showToast(message || 'Failed to create route. Please try again.', 'error');
       }
     }
   };
@@ -1116,8 +1131,8 @@ export default function NewRouteScreen() {
                 promoDiscountPct={promoDiscountPct}
                 promoLabel={promoLabel}
                 paymentMethods={paymentMethods}
-                collectionStops={collectionStops.map(s => ({ city: s.city, country: s.country }))}
-                dropoffStops={dropoffStops.map(s => ({ city: s.city, country: s.country }))}
+                collectionStops={collectionStops.map(s => ({ city: s.city, country: s.country, date: s.collection_date }))}
+                dropoffStops={dropoffStops.map(s => ({ city: s.city, country: s.country, date: s.estimated_arrival_date }))}
                 prohibitedItems={prohibitedItems}
               />
             )}

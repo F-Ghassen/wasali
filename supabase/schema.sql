@@ -26,9 +26,19 @@ CREATE TABLE IF NOT EXISTS routes (
   departure_date          date NOT NULL,
   estimated_arrival_date  date,
   available_weight_kg     numeric(8,2) NOT NULL CHECK (available_weight_kg > 0),
+  min_weight_kg           numeric DEFAULT NULL,
   price_per_kg_eur        numeric(8,2) NOT NULL CHECK (price_per_kg_eur > 0),
-  status                  text NOT NULL DEFAULT 'active' CHECK (status IN ('active','full','cancelled','completed')),
+  status                  text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','active','full','cancelled','completed')),
   notes                   text,
+  -- payment & promo (migration 006)
+  payment_methods         text[] NOT NULL DEFAULT ARRAY['cash_sender','cash_recipient','paypal','bank_transfer'],
+  promo_discount_pct      smallint CHECK (promo_discount_pct BETWEEN 1 AND 99),
+  promo_expires_at        date,
+  promo_label             text,
+  -- logistics options JSON array (migration 007)
+  logistics_options       jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- prohibited items (migration 008)
+  prohibited_items        text[] NOT NULL DEFAULT '{}',
   created_at              timestamptz NOT NULL DEFAULT now(),
   updated_at              timestamptz NOT NULL DEFAULT now()
 );
@@ -41,7 +51,9 @@ CREATE TABLE IF NOT EXISTS route_stops (
   city                 text NOT NULL,
   country              text NOT NULL,
   stop_order           int NOT NULL,
+  stop_type            text NOT NULL DEFAULT 'collection' CHECK (stop_type IN ('collection', 'dropoff')),
   arrival_date         date,
+  meeting_point_url    text,
   is_pickup_available  boolean NOT NULL DEFAULT false,
   is_dropoff_available boolean NOT NULL DEFAULT false
 );
@@ -186,9 +198,35 @@ CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.
 CREATE POLICY "Authenticated can view active routes" ON routes FOR SELECT
   TO authenticated USING (status = 'active');
 
+-- drivers can manage their own routes (all statuses)
+CREATE POLICY "driver_insert_own_routes" ON routes
+  FOR INSERT WITH CHECK (auth.uid() = driver_id);
+
+CREATE POLICY "driver_select_own_routes" ON routes
+  FOR SELECT USING (auth.uid() = driver_id);
+
+CREATE POLICY "driver_update_own_routes" ON routes
+  FOR UPDATE USING (auth.uid() = driver_id) WITH CHECK (auth.uid() = driver_id);
+
 -- route_stops: readable alongside routes
 CREATE POLICY "Authenticated can view route stops" ON route_stops FOR SELECT
   TO authenticated USING (true);
+
+-- drivers can manage stops on their own routes
+CREATE POLICY "driver_insert_own_route_stops" ON route_stops
+  FOR INSERT WITH CHECK (
+    route_id IN (SELECT id FROM routes WHERE driver_id = auth.uid())
+  );
+
+CREATE POLICY "driver_update_own_route_stops" ON route_stops
+  FOR UPDATE USING (
+    route_id IN (SELECT id FROM routes WHERE driver_id = auth.uid())
+  );
+
+CREATE POLICY "driver_delete_own_route_stops" ON route_stops
+  FOR DELETE USING (
+    route_id IN (SELECT id FROM routes WHERE driver_id = auth.uid())
+  );
 
 -- bookings
 CREATE POLICY "Sender can view own bookings"   ON bookings FOR SELECT USING (auth.uid() = sender_id);

@@ -9,6 +9,7 @@ import { FontSize } from '@/constants/typography';
 interface Stop {
   city: string;
   country: string;
+  date?: string;
 }
 
 export interface RouteSummaryCardProps {
@@ -68,9 +69,9 @@ export function RouteSummaryCard({
   const pct      = promoEnabled ? parseInt(promoDiscountPct) || 0 : 0;
   const discountedPrice    = pct > 0 ? price * (1 - pct / 100) : null;
   const effectivePrice     = discountedPrice ?? price;
-  const baseGross          = weight > 0 && effectivePrice > 0 ? weight * effectivePrice : null;
-  const estimatedGrossLow  = baseGross != null ? baseGross * 1.20 : null;
-  const estimatedGrossHigh = baseGross != null ? baseGross * 1.40 : null;
+  const baseGross      = weight > 0 && effectivePrice > 0 ? weight * effectivePrice : null;
+  const servicesGross  = baseGross != null ? baseGross * 0.30 : null;
+  const totalGross     = baseGross != null ? baseGross + servicesGross! : null;
 
   const filledCollStops = collectionStops.filter((s) => s.city);
   const filledDropStops = dropoffStops.filter((s) => s.city);
@@ -117,17 +118,51 @@ export function RouteSummaryCard({
 
       <Divider />
 
-      {/* Stops */}
-      <Row
-        label="Collection stops"
-        value={filledCollStops.length > 0 ? filledCollStops.map((s) => s.city).join(', ') : 'None'}
-        muted={filledCollStops.length === 0}
-      />
-      <Row
-        label="Drop-off stops"
-        value={filledDropStops.length > 0 ? filledDropStops.map((s) => s.city).join(', ') : 'None'}
-        muted={filledDropStops.length === 0}
-      />
+      {/* Collection stops */}
+      {filledCollStops.length > 0 ? (
+        <>
+          <Text style={s.subheading}>Collection stops</Text>
+          {filledCollStops.map((stop, i) => (
+            <View key={i} style={s.stopRow}>
+              <MapPin size={12} color={Colors.text.tertiary} style={s.stopPin} />
+              <View style={s.stopInfo}>
+                <Text style={s.stopCity}>{stop.city}</Text>
+                {stop.date ? (
+                  <Text style={s.stopDate}>
+                    {format(new Date(stop.date), 'EEE, MMM d')}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </>
+      ) : (
+        <Row label="Collection stops" value="None" muted />
+      )}
+
+      <Divider />
+
+      {/* Drop-off stops */}
+      {filledDropStops.length > 0 ? (
+        <>
+          <Text style={s.subheading}>Drop-off stops</Text>
+          {filledDropStops.map((stop, i) => (
+            <View key={i} style={s.stopRow}>
+              <MapPin size={12} color={Colors.primary} style={s.stopPin} />
+              <View style={s.stopInfo}>
+                <Text style={s.stopCity}>{stop.city}</Text>
+                {stop.date ? (
+                  <Text style={s.stopDate}>
+                    {format(new Date(stop.date), 'EEE, MMM d')}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </>
+      ) : (
+        <Row label="Drop-off stops" value="None" muted />
+      )}
 
       <Divider />
 
@@ -150,19 +185,15 @@ export function RouteSummaryCard({
           green
         />
       )}
-      {baseGross != null && estimatedGrossLow != null && estimatedGrossHigh != null && (
+      {totalGross != null && baseGross != null && servicesGross != null && (
         <>
           <Divider />
           <Text style={s.grossHeading}>Est. earnings (fully booked)</Text>
           <Row label="Transport" value={`€${baseGross.toFixed(0)}`} />
-          <Row
-            label="Services"
-            value={`€${(estimatedGrossLow - baseGross).toFixed(0)}–€${(estimatedGrossHigh - baseGross).toFixed(0)}`}
-            muted
-          />
+          <Row label="Services (+30%)" value={`€${servicesGross.toFixed(0)}`} muted />
           <View style={s.grossTotalRow}>
             <Text style={s.grossTotalLabel}>Total</Text>
-            <Text style={s.grossTotalValue}>€{estimatedGrossLow.toFixed(0)}–€{estimatedGrossHigh.toFixed(0)}</Text>
+            <Text style={s.grossTotalValue}>€{totalGross.toFixed(0)}</Text>
           </View>
         </>
       )}
@@ -271,6 +302,24 @@ const s = StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: '800',
     color: Colors.success,
+  },
+  stopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 3,
+    gap: 6,
+  },
+  stopPin: { marginTop: 2 },
+  stopInfo: { flex: 1 },
+  stopCity: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text.primary,
+  },
+  stopDate: {
+    fontSize: FontSize.xs,
+    color: Colors.text.secondary,
+    marginTop: 1,
   },
   prohibitedWrap: {
     flexDirection: 'row',

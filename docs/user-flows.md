@@ -1,6 +1,6 @@
 # Wasali — User Flows
 
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-19_
 
 ---
 
@@ -356,6 +356,7 @@ Step 4 — Services
 
 Step 5 — Pricing & Settings
   Max weight capacity (kg)
+  Min weight per sender (kg, optional)
   Price per kg (€)
   Promo toggle:
     ├── Discount %  →  live "senders pay €X/kg" calc
@@ -366,7 +367,9 @@ Step 5 — Pricing & Settings
   Save as template toggle + template name
     (auto-filled: "Paris, Lyon → Tunis, Sfax")
   ── Route Summary sidebar (wide) / inline card (mobile) ──
-  [Create Route]
+  [Publish Route]
+    ▼
+  Route saved as draft  →  published immediately as 'active'
 ```
 
 **Route Summary Card** (live, updates as wizard fills):
@@ -374,15 +377,22 @@ Step 5 — Pricing & Settings
 Origin → Destination
 Departure date
 Est. arrival date
-Collection stops  /  Drop-off stops
+
+COLLECTION STOPS
+  📍 City                    Mon, Mar 18
+
+DROP-OFF STOPS
+  📍 City                    Thu, Mar 21
+  📍 City 2                  Fri, Mar 22
+
 Capacity (kg)
 Base price / Promo price
 Payment methods
 EST. EARNINGS (FULLY BOOKED)
   Transport     €___
-  Services      €___–€___  (20–40% uplift estimate)
-  ─────────────────────────
-  Total         €___–€___
+  Services +30% €___
+  ─────────────
+  Total         €___
 Prohibited items (red chips)
 ```
 
@@ -445,7 +455,27 @@ Templates store: origin/destination, capacity, price, payment methods, logistics
 
 ---
 
-## 4. Booking Status State Machine
+## 4. Route Status State Machine
+
+```
+draft ──▶ active ──▶ full
+  │          │
+  │          └──▶ cancelled
+  │          └──▶ completed
+  └──▶ cancelled
+```
+
+| Status | Trigger |
+|---|---|
+| `draft` | Route created by wizard (before publish) |
+| `active` | Driver publishes route (visible to senders) |
+| `full` | Driver marks capacity exhausted |
+| `cancelled` | Driver cancels route |
+| `completed` | Driver marks trip done |
+
+---
+
+## 5. Booking Status State Machine
 
 ```
           ┌──────────────────────────────────────────────────────┐
@@ -466,7 +496,7 @@ pending ──▶  confirmed ──▶ in_transit ──▶ delivered ──▶ 
 
 ---
 
-## 5. Notifications
+## 6. Notifications
 
 Push notifications (via `lib/notifications.ts`):
 

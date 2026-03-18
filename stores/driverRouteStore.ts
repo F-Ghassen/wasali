@@ -49,6 +49,7 @@ interface DriverRouteState {
 interface DriverRouteActions {
   fetchRoutes: (driverId: string, filter?: RouteFilter) => Promise<void>;
   createRoute: (driverId: string, data: CreateRouteInput) => Promise<string>;
+  publishRoute: (id: string) => Promise<void>;
   updateRoute: (id: string, updates: Partial<CreateRouteInput>) => Promise<void>;
   cancelRoute: (id: string) => Promise<void>;
   markRouteFull: (id: string) => Promise<void>;
@@ -102,10 +103,10 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         departure_date: data.departure_date,
         estimated_arrival_date: data.estimated_arrival_date ?? null,
         available_weight_kg: data.available_weight_kg,
-        min_weight_kg: data.min_weight_kg ?? 10,
+        min_weight_kg: data.min_weight_kg ?? null,
         price_per_kg_eur: data.price_per_kg_eur,
         notes: data.notes ?? null,
-        status: 'active',
+        status: 'draft',
         payment_methods: data.payment_methods ?? ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'],
         promo_discount_pct: data.promo_discount_pct ?? null,
         promo_expires_at: data.promo_expires_at ?? null,
@@ -156,6 +157,27 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
 
       await get().fetchRoutes(driverId);
       return routeId;
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  publishRoute: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase
+        .from('routes')
+        .update({ status: 'active' as RouteStatus, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      set((state) => ({
+        routes: state.routes.map((r) =>
+          r.id === id ? { ...r, status: 'active' } : r
+        ),
+      }));
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;

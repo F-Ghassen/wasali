@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-19_
 
 ---
 
@@ -161,8 +161,10 @@ profiles ───────────────────────�
     │     id, origin_city, origin_country,                        │
     │     destination_city, destination_country,                  │
     │     departure_date, estimated_arrival_date,                 │
-    │     available_weight_kg, price_per_kg_eur,                  │
-    │     status, notes, payment_methods[],                       │
+    │     available_weight_kg, min_weight_kg (nullable),          │
+    │     price_per_kg_eur,                                       │
+    │     status (draft|active|full|cancelled|completed),         │
+    │     notes, payment_methods[],                               │
     │     promo_discount_pct, promo_expires_at, promo_label,       │
     │     logistics_options jsonb, prohibited_items text[],        │
     │     └──▶ route_stops                                        │
@@ -204,6 +206,8 @@ profiles ───────────────────────�
 | `006_route_wizard.sql` | `payment_methods[]`, promo fields, `route_templates` table |
 | `007_logistics_options.sql` | `logistics_options jsonb` on routes |
 | `008_prohibited_items.sql` | `prohibited_items text[]` on routes |
+| `009_min_weight.sql` | `min_weight_kg` (nullable) on routes |
+| `010_driver_route_publish.sql` | `draft` status; driver INSERT/UPDATE/SELECT RLS on routes & stops |
 | `20260317_booking_status_pending.sql` | Booking status pending transitions |
 
 ### RLS Policy Model
@@ -211,8 +215,8 @@ profiles ───────────────────────�
 | Table | Rule |
 |---|---|
 | `profiles` | User reads/updates own row only |
-| `routes` | Public read (active); driver insert/update own |
-| `route_stops` | Follows parent route permissions |
+| `routes` | Authenticated users read `active` routes; driver reads/inserts/updates own routes (all statuses) |
+| `route_stops` | Authenticated users read all stops; driver inserts/updates/deletes stops on own routes |
 | `bookings` | Sender reads own; driver reads where `route_id` matches |
 | `shipping_requests` | Public read (open); sender manages own |
 | `p2p_requests` | Public read (open); sender manages own |

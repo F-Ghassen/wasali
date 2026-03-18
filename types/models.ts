@@ -61,6 +61,6 @@ export type BookingStatus =
   | 'cancelled';
 
 export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
-export type RouteStatus = 'active' | 'full' | 'cancelled' | 'completed';
+export type RouteStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'completed';
 export type RequestStatus = 'open' | 'offer_accepted' | 'expired' | 'cancelled';
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';

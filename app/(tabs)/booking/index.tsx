@@ -88,12 +88,6 @@ const DELIVERY_OPTIONS: { key: DeliveryMethod; label: string; desc: string; pric
     desc: 'Driver delivers to the door. Recipient address required.',
     price: '+€10',
   },
-  {
-    key: 'post',
-    label: 'Post delivery',
-    desc: 'Driver hands to local post. Tracking number shared with recipient.',
-    price: '+€6',
-  },
 ];
 
 const STEPS = [

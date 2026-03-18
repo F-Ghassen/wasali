@@ -32,6 +32,8 @@ interface CreateRouteInput {
   promo_expires_at?: string | null;
   promo_label?: string | null;
   stops?: StopInput[];
+  logistics_options?: { type: 'collection' | 'delivery'; key: string; price_eur: number }[];
+  prohibited_items?: string[];
   save_as_template?: boolean;
   template_name?: string;
 }
@@ -106,6 +108,8 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         promo_discount_pct: data.promo_discount_pct ?? null,
         promo_expires_at: data.promo_expires_at ?? null,
         promo_label: data.promo_label ?? null,
+        logistics_options: data.logistics_options ?? [],
+        prohibited_items: data.prohibited_items ?? [],
       };
 
       const { data: route, error: routeError } = await supabase

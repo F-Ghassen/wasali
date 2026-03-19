@@ -14,68 +14,137 @@ export type Database = {
   }
   public: {
     Tables: {
+      cities: {
+        Row: {
+          id: string
+          name: string
+          country: string
+          country_code: string
+          flag_emoji: string
+          is_active: boolean
+          coming_soon: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          country: string
+          country_code: string
+          flag_emoji?: string
+          is_active?: boolean
+          coming_soon?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          country?: string
+          country_code?: string
+          flag_emoji?: string
+          is_active?: boolean
+          coming_soon?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       bookings: {
         Row: {
+          cancelled_at: string | null
+          cancellation_reason: string | null
+          collection_service_id: string | null
           created_at: string
           declared_value_eur: number | null
+          delivery_service_id: string | null
           driver_notes: string | null
           dropoff_address: string | null
           dropoff_type: string
+          estimated_collection_date: string | null
           id: string
           package_category: string
           package_photos: string[] | null
           package_weight_kg: number
           payment_status: string
+          payment_type: string | null
           pickup_address: string | null
           pickup_type: string
           price_eur: number
+          recipient_address_city: string | null
+          recipient_address_postal_code: string | null
+          recipient_address_street: string | null
           recipient_name: string | null
           recipient_phone: string | null
           route_id: string
+          sender_address_city: string | null
+          sender_address_postal_code: string | null
+          sender_address_street: string | null
           sender_id: string
           status: string
           stripe_payment_intent_id: string | null
           updated_at: string
         }
         Insert: {
+          cancelled_at?: string | null
+          cancellation_reason?: string | null
+          collection_service_id?: string | null
           created_at?: string
           declared_value_eur?: number | null
+          delivery_service_id?: string | null
           driver_notes?: string | null
           dropoff_address?: string | null
           dropoff_type: string
+          estimated_collection_date?: string | null
           id?: string
           package_category: string
           package_photos?: string[] | null
           package_weight_kg: number
           payment_status?: string
+          payment_type?: string | null
           pickup_address?: string | null
           pickup_type: string
           price_eur: number
+          recipient_address_city?: string | null
+          recipient_address_postal_code?: string | null
+          recipient_address_street?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
           route_id: string
+          sender_address_city?: string | null
+          sender_address_postal_code?: string | null
+          sender_address_street?: string | null
           sender_id: string
           status?: string
           stripe_payment_intent_id?: string | null
           updated_at?: string
         }
         Update: {
+          cancelled_at?: string | null
+          cancellation_reason?: string | null
+          collection_service_id?: string | null
           created_at?: string
           declared_value_eur?: number | null
+          delivery_service_id?: string | null
           driver_notes?: string | null
           dropoff_address?: string | null
           dropoff_type?: string
+          estimated_collection_date?: string | null
           id?: string
           package_category?: string
           package_photos?: string[] | null
           package_weight_kg?: number
           payment_status?: string
+          payment_type?: string | null
           pickup_address?: string | null
           pickup_type?: string
           price_eur?: number
+          recipient_address_city?: string | null
+          recipient_address_postal_code?: string | null
+          recipient_address_street?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
           route_id?: string
+          sender_address_city?: string | null
+          sender_address_postal_code?: string | null
+          sender_address_street?: string | null
           sender_id?: string
           status?: string
           stripe_payment_intent_id?: string | null
@@ -197,6 +266,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          completed_trips: number
           created_at: string
           full_name: string | null
           id: string
@@ -204,6 +274,7 @@ export type Database = {
           phone: string | null
           phone_verified: boolean
           push_token: string | null
+          rating: number
           role: string
           stripe_connect_account_id: string | null
           stripe_customer_id: string | null
@@ -211,6 +282,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          completed_trips?: number
           created_at?: string
           full_name?: string | null
           id: string
@@ -218,6 +290,7 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean
           push_token?: string | null
+          rating?: number
           role?: string
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
@@ -225,6 +298,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          completed_trips?: number
           created_at?: string
           full_name?: string | null
           id?: string
@@ -232,6 +306,7 @@ export type Database = {
           phone?: string | null
           phone_verified?: boolean
           push_token?: string | null
+          rating?: number
           role?: string
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
@@ -391,6 +466,164 @@ export type Database = {
           },
         ]
       }
+      recipients: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          phone: string
+          whatsapp_enabled: boolean
+          address_street: string | null
+          address_city: string | null
+          address_postal_code: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          phone: string
+          whatsapp_enabled?: boolean
+          address_street?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          phone?: string
+          whatsapp_enabled?: boolean
+          address_street?: string | null
+          address_city?: string | null
+          address_postal_code?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipients_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_alerts: {
+        Row: {
+          id: string
+          user_id: string
+          origin_city: string
+          destination_city: string
+          date_from: string | null
+          date_to: string | null
+          min_weight_kg: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          origin_city: string
+          destination_city: string
+          date_from?: string | null
+          date_to?: string | null
+          min_weight_kg?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          origin_city?: string
+          destination_city?: string
+          date_from?: string | null
+          date_to?: string | null
+          min_weight_kg?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_alerts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_payment_methods: {
+        Row: {
+          id: string
+          route_id: string
+          payment_type: string
+          enabled: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          route_id: string
+          payment_type: string
+          enabled?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          route_id?: string
+          payment_type?: string
+          enabled?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_payment_methods_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_services: {
+        Row: {
+          id: string
+          route_id: string
+          service_type: string
+          price_eur: number
+          location_name: string | null
+          location_address: string | null
+          instructions: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          route_id: string
+          service_type: string
+          price_eur?: number
+          location_name?: string | null
+          location_address?: string | null
+          instructions?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          route_id?: string
+          service_type?: string
+          price_eur?: number
+          location_name?: string | null
+          location_address?: string | null
+          instructions?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_services_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routes: {
         Row: {
           available_weight_kg: number
@@ -402,6 +635,7 @@ export type Database = {
           estimated_arrival_date: string | null
           id: string
           logistics_options: Json
+          max_single_package_kg: number | null
           min_weight_kg: number | null
           notes: string | null
           origin_city: string
@@ -412,8 +646,11 @@ export type Database = {
           promo_discount_pct: number | null
           promo_expires_at: string | null
           promo_label: string | null
+          promotion_active: boolean
+          promotion_percentage: number | null
           status: string
           updated_at: string
+          vehicle_type: string | null
         }
         Insert: {
           available_weight_kg: number
@@ -425,6 +662,7 @@ export type Database = {
           estimated_arrival_date?: string | null
           id?: string
           logistics_options?: Json
+          max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
           origin_city: string
@@ -435,8 +673,11 @@ export type Database = {
           promo_discount_pct?: number | null
           promo_expires_at?: string | null
           promo_label?: string | null
+          promotion_active?: boolean
+          promotion_percentage?: number | null
           status?: string
           updated_at?: string
+          vehicle_type?: string | null
         }
         Update: {
           available_weight_kg?: number
@@ -448,6 +689,7 @@ export type Database = {
           estimated_arrival_date?: string | null
           id?: string
           logistics_options?: Json
+          max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
           origin_city?: string
@@ -458,8 +700,11 @@ export type Database = {
           promo_discount_pct?: number | null
           promo_expires_at?: string | null
           promo_label?: string | null
+          promotion_active?: boolean
+          promotion_percentage?: number | null
           status?: string
           updated_at?: string
+          vehicle_type?: string | null
         }
         Relationships: [
           {
@@ -467,6 +712,42 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_routes: {
+        Row: {
+          id: string
+          user_id: string
+          route_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          route_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          route_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_routes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_routes_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
             referencedColumns: ["id"]
           },
         ]

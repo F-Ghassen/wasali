@@ -98,11 +98,19 @@ updateUser()  →  /(tabs)/index ✓
 
 ```
 /(tabs)/index  [Search Routes]
-  select origin city (EU)  +  destination city (TN)
-  tap Search
+  useCities() loads 29 cities from DB (or falls back to constants/cities.ts)
+  CityPicker (origin) — grouped by country, coming_soon cities greyed out
+  CityPicker (destination) — same
+  DatePicker — single departure date, defaults to today
+  tap Search → router.push('/routes/results', { origin_city_id, destination_city_id, depart_from_date })
     ▼
 /(tabs)/routes/results  [Route List]
-  RouteCard shows: cities, date, price/kg, available kg, driver rating
+  useRouteResults() — two-tier Supabase query (exact city match + country match)
+  Tier 1: exact city→city routes (shown first)
+  Tier 2: "Other routes in region" (same country pair, different city)
+  Sort: Earliest / Cheapest (effective price incl. promo) / Top rated
+  Filter: min capacity (kg), max price (€/kg)  — badge shows active filter count
+  RouteCard shows: cities, dates, price/kg (strikethrough if promo active), driver rating/trip count
   tap a card
     ▼
 /(tabs)/booking/index  [Book Shipment — 5-step accordion]

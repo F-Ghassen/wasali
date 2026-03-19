@@ -66,7 +66,18 @@ supabase.from('profiles').upsert({ id, full_name })
 
 // RPC (stored procedure)
 supabase.rpc('accept_offer', { offer_id })
+
+// Two-tier city/country search (useRouteResults hook)
+supabase.from('routes')
+  .select('id, ..., route_stops(*), route_services(id, service_type, price_eur), driver:profiles!driver_id(id, full_name, rating, completed_trips)')
+  .eq('status', 'active')
+  .gte('departure_date', departFromDate)
+  .or(`and(origin_city.eq.${city1},destination_city.eq.${city2}),and(origin_country.eq.${c1},destination_country.eq.${c2})`)
 ```
+
+### Cities Table RLS
+
+`cities` has a single public-read policy (`cities_public_read`). All 29 city rows are readable by unauthenticated clients. No write policy is defined; inserts/updates require service-role key (migrations only).
 
 ### Storage Buckets
 

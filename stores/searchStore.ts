@@ -1,76 +1,45 @@
 import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import type { RouteWithStops } from '@/types/models';
+import { format } from 'date-fns';
 
 interface SearchState {
-  fromCity: string;
+  fromCityId: string;
+  fromCityName: string;
   fromCountry: string;
-  toCity: string;
+  toCityId: string;
+  toCityName: string;
   toCountry: string;
-  date: string | null;
-  minWeight: number;
-  results: RouteWithStops[];
-  isSearching: boolean;
-  hasSearched: boolean;
+  departFromDate: string; // ISO date string, e.g. "2026-03-19"
 }
 
 interface SearchActions {
-  setFromCity: (city: string, country: string) => void;
-  setToCity: (city: string, country: string) => void;
-  setDate: (date: string | null) => void;
-  setMinWeight: (weight: number) => void;
-  search: () => Promise<void>;
-  clearResults: () => void;
+  setFromCity: (id: string, name: string, country: string) => void;
+  setToCity: (id: string, name: string, country: string) => void;
+  setDepartFromDate: (date: string) => void;
   reset: () => void;
 }
 
+const todayIso = format(new Date(), 'yyyy-MM-dd');
+
 const initialState: SearchState = {
-  fromCity: '',
+  fromCityId: '',
+  fromCityName: '',
   fromCountry: '',
-  toCity: '',
+  toCityId: '',
+  toCityName: '',
   toCountry: '',
-  date: null,
-  minWeight: 0,
-  results: [],
-  isSearching: false,
-  hasSearched: false,
+  departFromDate: todayIso,
 };
 
-export const useSearchStore = create<SearchState & SearchActions>((set, get) => ({
+export const useSearchStore = create<SearchState & SearchActions>((set) => ({
   ...initialState,
 
-  setFromCity: (city, country) => set({ fromCity: city, fromCountry: country }),
-  setToCity: (city, country) => set({ toCity: city, toCountry: country }),
-  setDate: (date) => set({ date }),
-  setMinWeight: (minWeight) => set({ minWeight }),
+  setFromCity: (id, name, country) =>
+    set({ fromCityId: id, fromCityName: name, fromCountry: country }),
 
-  search: async () => {
-    const { fromCity, toCity, date, minWeight } = get();
-    if (!fromCity || !toCity) return;
+  setToCity: (id, name, country) =>
+    set({ toCityId: id, toCityName: name, toCountry: country }),
 
-    set({ isSearching: true, hasSearched: false });
-    try {
-      let query = supabase
-        .from('routes')
-        .select('*, route_stops(*)')
-        .eq('origin_city', fromCity)
-        .eq('destination_city', toCity)
-        .eq('status', 'active')
-        .gte('available_weight_kg', minWeight > 0 ? minWeight : 0)
-        .order('departure_date', { ascending: true });
+  setDepartFromDate: (date) => set({ departFromDate: date }),
 
-      if (date) {
-        query = query.gte('departure_date', date);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      set({ results: (data as RouteWithStops[]) ?? [], hasSearched: true });
-    } finally {
-      set({ isSearching: false });
-    }
-  },
-
-  clearResults: () => set({ results: [], hasSearched: false }),
-  reset: () => set(initialState),
+  reset: () => set({ ...initialState, departFromDate: format(new Date(), 'yyyy-MM-dd') }),
 }));

@@ -15,70 +15,56 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
-  format,
-  addDays,
-  isSameDay,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  addMonths,
-  subMonths,
-  isBefore,
-  isSameMonth,
-  isToday,
+  format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  isSameMonth, addDays, isBefore, subMonths, addMonths, isToday, isSameDay,
 } from 'date-fns';
 import { SendHorizonal, Zap, ArrowRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useSearchStore } from '@/stores/searchStore';
-import { EU_ORIGIN_CITIES, TN_DESTINATION_CITIES, type City } from '@/constants/cities';
+import { useCities, type CityRow } from '@/hooks/useCities';
 import { supabase } from '@/lib/supabase';
 
-
-// ─── City groups ─────────────────────────────────────────────────────────────
-
-type CitySection = { country: string; flag: string; data: City[]; comingSoon?: boolean };
-
-const CITY_SECTIONS: CitySection[] = [
-  {
-    country: 'Germany',
-    flag: '🇩🇪',
-    data: EU_ORIGIN_CITIES.filter((c) => c.countryCode === 'DE'),
-  },
-  {
-    country: 'Tunisia',
-    flag: '🇹🇳',
-    data: TN_DESTINATION_CITIES,
-  },
-  { country: 'France', flag: '🇫🇷', data: [], comingSoon: true },
-  { country: 'Italy', flag: '🇮🇹', data: [], comingSoon: true },
-];
-
 // ─── City Picker ──────────────────────────────────────────────────────────────
+
+type CitySection = {
+  country: string;
+  flag: string;
+  data: CityRow[];
+  comingSoon?: boolean;
+};
 
 function CityPicker({
   visible,
   title,
+  citiesByCountry,
   onSelect,
   onClose,
 }: {
   visible: boolean;
   title: string;
-  onSelect: (city: City) => void;
+  citiesByCountry: Record<string, CityRow[]>;
+  onSelect: (city: CityRow) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState('');
 
-  const sections: CitySection[] = CITY_SECTIONS.map((s) => ({
-    ...s,
-    data: query
-      ? s.data.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-      : s.data,
-  }));
+  const sections: CitySection[] = Object.entries(citiesByCountry).map(
+    ([country, cities]) => ({
+      country,
+      flag: cities[0]?.flag_emoji ?? '',
+      data: query
+        ? cities.filter((c) =>
+            c.name.toLowerCase().includes(query.toLowerCase()),
+          )
+        : cities,
+      comingSoon: cities.every((c) => c.coming_soon),
+    }),
+  );
 
-  const handleSelect = (city: City) => {
+  const handleSelect = (city: CityRow) => {
+    if (city.coming_soon) return;
     onSelect(city);
     onClose();
     setQuery('');
@@ -121,9 +107,13 @@ function CityPicker({
               )}
             </View>
           )}
-          renderItem={({ item, section }) =>
-            section.comingSoon ? null : (
-              <TouchableOpacity style={pickerS.item} onPress={() => handleSelect(item)} activeOpacity={0.7}>
+          renderItem={({ item }) =>
+            item.coming_soon ? null : (
+              <TouchableOpacity
+                style={pickerS.item}
+                onPress={() => handleSelect(item)}
+                activeOpacity={0.7}
+              >
                 <Text style={pickerS.cityName}>{item.name}</Text>
                 <Text style={pickerS.chevron}>›</Text>
               </TouchableOpacity>
@@ -150,7 +140,6 @@ function buildCalendarWeeks(month: Date): (Date | null)[][] {
   while (day <= gridEnd) {
     const week: (Date | null)[] = [];
     for (let i = 0; i < 7; i++) {
-      // null = filler cell outside the current month
       week.push(isSameMonth(day, month) ? new Date(day) : null);
       day = addDays(day, 1);
     }
@@ -167,7 +156,7 @@ function DatePickerModal({
 }: {
   visible: boolean;
   selected: Date | null;
-  onSelect: (d: Date | null) => void;
+  onSelect: (d: Date) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -177,15 +166,9 @@ function DatePickerModal({
   const weeks = buildCalendarWeeks(viewMonth);
   const canGoPrev = !isBefore(subMonths(viewMonth, 1), startOfMonth(today));
 
-  const handleSelect = (d: Date | null) => {
-    onSelect(d);
-    onClose();
-  };
-
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={dateS.root}>
-        {/* Sheet header */}
         <View style={dateS.header}>
           <Text style={dateS.title}>{t('home.departBeforeTitle')}</Text>
           <TouchableOpacity onPress={onClose} style={dateS.closeBtn}>
@@ -193,13 +176,6 @@ function DatePickerModal({
           </TouchableOpacity>
         </View>
 
-        {/* Any time */}
-        <TouchableOpacity style={dateS.anyTime} onPress={() => handleSelect(null)} activeOpacity={0.7}>
-          <Text style={dateS.anyTimeText}>{t('home.anyTime')}</Text>
-          {!selected && <Text style={dateS.anyTimeTick}>✓</Text>}
-        </TouchableOpacity>
-
-        {/* Month navigation */}
         <View style={dateS.monthNav}>
           <TouchableOpacity
             style={[dateS.navBtn, !canGoPrev && dateS.navBtnDisabled]}
@@ -220,14 +196,12 @@ function DatePickerModal({
           </TouchableOpacity>
         </View>
 
-        {/* Day-of-week header */}
         <View style={dateS.dowRow}>
           {DOW_LABELS.map((d) => (
             <Text key={d} style={dateS.dowLabel}>{d}</Text>
           ))}
         </View>
 
-        {/* Calendar grid */}
         <ScrollView contentContainerStyle={dateS.grid}>
           {weeks.map((week, wi) => (
             <View key={wi} style={dateS.week}>
@@ -244,7 +218,7 @@ function DatePickerModal({
                       isSelected && dateS.cellSelected,
                       todayCell && !isSelected && dateS.cellToday,
                     ]}
-                    onPress={() => !isPast && handleSelect(d)}
+                    onPress={() => { if (!isPast) { onSelect(d); onClose(); } }}
                     activeOpacity={isPast ? 1 : 0.75}
                     disabled={isPast}
                   >
@@ -320,7 +294,11 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
   );
 }
 
-function FeaturedRoutesSection({ routes, onBook, onSeeAll }: { routes: FeaturedRoute[]; onBook: () => void; onSeeAll: () => void }) {
+function FeaturedRoutesSection({ routes, onBook, onSeeAll }: {
+  routes: FeaturedRoute[];
+  onBook: () => void;
+  onSeeAll: () => void;
+}) {
   const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const slideY = useRef(new Animated.Value(24)).current;
@@ -379,7 +357,6 @@ const P2P_BULLETS = [
 function ShipDocsBanner({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity style={promo.card} onPress={onPress} activeOpacity={0.88}>
-      {/* Label */}
       <View style={promo.labelRow}>
         <View style={promo.labelPill}>
           <Zap size={10} color={Colors.gold} strokeWidth={2.5} />
@@ -387,7 +364,6 @@ function ShipDocsBanner({ onPress }: { onPress: () => void }) {
         </View>
       </View>
 
-      {/* Headline */}
       <View style={promo.headRow}>
         <SendHorizonal size={26} color={Colors.white} strokeWidth={2} />
         <Text style={promo.headline}>Ship Docs Fast</Text>
@@ -396,7 +372,6 @@ function ShipDocsBanner({ onPress }: { onPress: () => void }) {
         Send or carry documents between Europe and Tunisia — for free or a small fee.
       </Text>
 
-      {/* Bullets */}
       <View style={promo.bullets}>
         {P2P_BULLETS.map((b) => (
           <View key={b.text} style={promo.bulletRow}>
@@ -406,7 +381,6 @@ function ShipDocsBanner({ onPress }: { onPress: () => void }) {
         ))}
       </View>
 
-      {/* CTA */}
       <View style={promo.cta}>
         <Text style={promo.ctaText}>Get started</Text>
         <ArrowRight size={15} color={Colors.gold} strokeWidth={2.5} />
@@ -420,8 +394,14 @@ function ShipDocsBanner({ onPress }: { onPress: () => void }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { fromCity, fromCountry, toCity, toCountry, setFromCity, setToCity, setDate, isSearching } =
-    useSearchStore();
+  const {
+    fromCityId, fromCityName, fromCountry,
+    toCityId, toCityName, toCountry,
+    departFromDate,
+    setFromCity, setToCity, setDepartFromDate,
+  } = useSearchStore();
+
+  const { citiesByCountry } = useCities();
 
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
@@ -448,18 +428,31 @@ export default function HomeScreen() {
             capacityLeft: r.available_weight_kg,
             pricePerKg: r.price_per_kg_eur,
             isFull: r.status === 'full',
-          }))
+          })),
         );
       });
   }, []);
 
-  const canSearch = !!fromCity && !!toCity;
+  const canSearch = !!fromCityId && !!toCityId;
 
   const handleSearch = () => {
     if (!canSearch) return;
-    setDate(selectedDate ? selectedDate.toISOString() : null);
-    router.push('/routes/results');
+    router.push({
+      pathname: '/routes/results',
+      params: {
+        origin_city_id: fromCityId,
+        destination_city_id: toCityId,
+        depart_from_date: departFromDate,
+      },
+    } as any);
   };
+
+  const handleDateSelect = (d: Date) => {
+    setSelectedDate(d);
+    setDepartFromDate(format(d, 'yyyy-MM-dd'));
+  };
+
+  const dateLabel = selectedDate ? format(selectedDate, 'EEE, MMM d') : null;
 
   return (
     <View style={s.root}>
@@ -488,9 +481,9 @@ export default function HomeScreen() {
               <Text style={s.fieldTagText}>FROM</Text>
             </View>
             <View style={s.fieldBody}>
-              {fromCity ? (
+              {fromCityName ? (
                 <>
-                  <Text style={s.fieldCity}>{fromCity}</Text>
+                  <Text style={s.fieldCity}>{fromCityName}</Text>
                   <Text style={s.fieldCountry}>{fromCountry}</Text>
                 </>
               ) : (
@@ -508,9 +501,9 @@ export default function HomeScreen() {
               <Text style={s.fieldTagText}>TO</Text>
             </View>
             <View style={s.fieldBody}>
-              {toCity ? (
+              {toCityName ? (
                 <>
-                  <Text style={s.fieldCity}>{toCity}</Text>
+                  <Text style={s.fieldCity}>{toCityName}</Text>
                   <Text style={s.fieldCountry}>{toCountry}</Text>
                 </>
               ) : (
@@ -528,8 +521,8 @@ export default function HomeScreen() {
               <Text style={s.fieldTagText}>DATE</Text>
             </View>
             <View style={s.fieldBody}>
-              {selectedDate ? (
-                <Text style={s.fieldCity}>{format(selectedDate, 'EEE, MMM d')}</Text>
+              {dateLabel ? (
+                <Text style={s.fieldCity}>{dateLabel}</Text>
               ) : (
                 <Text style={s.fieldPlaceholder}>{t('home.departBefore')}</Text>
               )}
@@ -539,14 +532,12 @@ export default function HomeScreen() {
 
           {/* CTA */}
           <TouchableOpacity
-            style={[s.searchBtn, (!canSearch || isSearching) && s.searchBtnDisabled]}
+            style={[s.searchBtn, !canSearch && s.searchBtnDisabled]}
             onPress={handleSearch}
-            disabled={!canSearch || isSearching}
+            disabled={!canSearch}
             activeOpacity={0.85}
           >
-            <Text style={s.searchBtnText}>
-              {isSearching ? t('home.searching') : t('home.searchDrivers')}
-            </Text>
+            <Text style={s.searchBtnText}>{t('home.searchDrivers')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -585,19 +576,21 @@ export default function HomeScreen() {
       <CityPicker
         visible={showFrom}
         title={t('home.fromSelectCity')}
-        onSelect={(c) => setFromCity(c.name, c.country)}
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => setFromCity(c.id, c.name, c.country)}
         onClose={() => setShowFrom(false)}
       />
       <CityPicker
         visible={showTo}
         title={t('home.toSelectCity')}
-        onSelect={(c) => setToCity(c.name, c.country)}
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => setToCity(c.id, c.name, c.country)}
         onClose={() => setShowTo(false)}
       />
       <DatePickerModal
         visible={showDate}
         selected={selectedDate}
-        onSelect={setSelectedDate}
+        onSelect={handleDateSelect}
         onClose={() => setShowDate(false)}
       />
     </View>
@@ -624,7 +617,6 @@ const s = StyleSheet.create({
     lineHeight: 50,
     letterSpacing: -0.8,
   },
-  heroAccent: { fontWeight: '900' },
   statsBand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -634,7 +626,6 @@ const s = StyleSheet.create({
   statsText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '500' },
   statsDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: Colors.text.tertiary },
 
-  // Search card — floats over the hero
   card: {
     marginHorizontal: Spacing.base,
     marginTop: -(Spacing.xl + Spacing.base),
@@ -691,22 +682,11 @@ const s = StyleSheet.create({
   },
 
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
-  sectionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: Spacing.md,
-  },
   sectionLabel: {
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.5,
     color: Colors.text.tertiary,
-  },
-  seeAll: {
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.text.primary,
   },
 
   trustBand: {
@@ -804,20 +784,6 @@ const dateS = StyleSheet.create({
   closeBtn: { padding: Spacing.sm },
   closeText: { fontSize: FontSize.lg, color: Colors.text.secondary },
 
-  anyTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: Spacing.base,
-    marginTop: Spacing.base,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-  },
-  anyTimeText: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.secondary },
-  anyTimeTick: { fontSize: FontSize.base, color: Colors.text.primary, fontWeight: '700' },
-
   monthNav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -863,15 +829,8 @@ const dateS = StyleSheet.create({
     justifyContent: 'center',
   },
   cellSelected: { backgroundColor: Colors.primary },
-  cellToday: {
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  cellNum: {
-    fontSize: FontSize.base,
-    fontWeight: '600',
-    color: Colors.text.primary,
-  },
+  cellToday: { borderWidth: 1.5, borderColor: Colors.primary },
+  cellNum: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
   cellNumPast: { color: Colors.text.tertiary },
   cellNumToday: { fontWeight: '800' },
   cellTextSelected: { color: Colors.white },
@@ -925,17 +884,6 @@ const bannerS = StyleSheet.create({
   avatarLetter: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text.primary },
   driverName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
   driverMeta: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
-  capacity: { alignItems: 'flex-end' },
-  capacityLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary, marginBottom: 4 },
-  bar: {
-    width: 64,
-    height: 4,
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  barFill: { height: '100%', backgroundColor: Colors.text.primary, borderRadius: 2 },
-  expiry: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: Spacing.base },
   primaryBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
@@ -983,22 +931,13 @@ const promo = StyleSheet.create({
     paddingVertical: 3,
   },
   labelText: { fontSize: 10, fontWeight: '800', color: Colors.gold, letterSpacing: 0.8 },
-  headRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   headline: { fontSize: FontSize['2xl'], fontWeight: '900', color: Colors.white, letterSpacing: -0.5 },
   sub: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.72)', lineHeight: 20 },
   bullets: { gap: Spacing.xs },
   bulletRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   bulletIcon: { fontSize: 13 },
   bulletText: { fontSize: FontSize.sm, color: 'rgba(255,255,255,0.88)', fontWeight: '500' },
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: Spacing.xs,
-  },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.xs },
   ctaText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.gold },
 });

@@ -20,6 +20,12 @@ supabase db push
 
 Or apply each file in `supabase/migrations/` in order via the Supabase SQL editor.
 
+**Migration 016** (`016_cities_promotions.sql`) seeds 29 cities into the `cities` table, adds `promotion_percentage`/`promotion_active` columns to `routes`, and adds `rating`/`completed_trips` columns to `profiles`. Verify with:
+
+```sql
+SELECT count(*) FROM cities; -- expect 29
+```
+
 ---
 
 ## Step 2 — Deploy the Edge Function

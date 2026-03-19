@@ -22,6 +22,8 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
   booking_confirmed: <CheckCircle size={18} color={Colors.success} />,
   in_transit: <Truck size={18} color={Colors.warning} />,
   delivered: <MapPin size={18} color={Colors.success} />,
+  route_alert: <Bell size={18} color={Colors.secondary} />,
+  route_alert_created: <Bell size={18} color={Colors.success} />,
 };
 
 function NotificationRow({

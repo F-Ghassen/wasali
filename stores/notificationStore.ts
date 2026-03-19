@@ -5,7 +5,7 @@ export interface AppNotification {
   id: string;
   user_id: string;
   booking_id: string | null;
-  type: 'new_booking' | 'booking_confirmed' | 'in_transit' | 'delivered' | string;
+  type: 'new_booking' | 'booking_confirmed' | 'in_transit' | 'delivered' | 'route_alert' | 'route_alert_created' | string;
   message: string;
   read: boolean;
   created_at: string;

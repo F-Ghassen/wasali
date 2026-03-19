@@ -69,7 +69,7 @@ tests/
           │         │                    │                           │
           │  ┌──────▼────────────────────▼────────────────────────┐ │
           │  │                  PostgreSQL                         │ │
-          │  │  profiles · routes · route_stops · bookings        │ │
+          │  │  cities · profiles · routes · route_stops · bookings│ │
           │  │  shipping_requests · offers · ratings · disputes   │ │
           │  │  saved_addresses · route_templates · p2p_*         │ │
           │  └────────────────────────────────────────────────────┘ │

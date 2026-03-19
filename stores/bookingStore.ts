@@ -19,12 +19,29 @@ export interface BookingDraft {
   dropoffType: 'home_delivery' | 'recipient_pickup';
   dropoffAddress: string;
 
+  // Extended logistics (new columns)
+  collectionServiceId: string | null;
+  deliveryServiceId: string | null;
+  collectionServicePriceEur: number;
+  deliveryServicePriceEur: number;
+
+  // Sender address
+  senderAddressStreet: string;
+  senderAddressCity: string;
+  senderAddressPostalCode: string;
+
   // Recipient
   recipientName: string;
   recipientPhoneCC: string;
   recipientPhone: string;
   recipientPhoneIsWhatsapp: boolean;
+  recipientAddressStreet: string;
+  recipientAddressCity: string;
+  recipientAddressPostalCode: string;
   driverNotes: string;
+
+  // Payment
+  paymentType: string;
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -64,11 +81,22 @@ export const defaultDraft: BookingDraft = {
   pickupAddress: '',
   dropoffType: 'home_delivery',
   dropoffAddress: '',
+  collectionServiceId: null,
+  deliveryServiceId: null,
+  collectionServicePriceEur: 0,
+  deliveryServicePriceEur: 0,
+  senderAddressStreet: '',
+  senderAddressCity: '',
+  senderAddressPostalCode: '',
   recipientName: '',
   recipientPhoneCC: '+216',
   recipientPhone: '',
   recipientPhoneIsWhatsapp: false,
+  recipientAddressStreet: '',
+  recipientAddressCity: '',
+  recipientAddressPostalCode: '',
   driverNotes: '',
+  paymentType: 'cash_on_collection',
 };
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -115,8 +143,8 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
     const { selectedRoute, draft } = get();
     if (!selectedRoute) return;
     const base              = selectedRoute.price_per_kg_eur * draft.packageWeightKg;
-    const pickupSurcharge   = draft.pickupType === 'driver_pickup' ? 8 : 0;
-    const deliverySurcharge = draft.dropoffType === 'home_delivery' ? 10 : 0;
+    const pickupSurcharge   = draft.collectionServicePriceEur;
+    const deliverySurcharge = draft.deliveryServicePriceEur;
     set({ calculatedPriceEur: Math.round((base + pickupSurcharge + deliverySurcharge) * 100) / 100 });
   },
 
@@ -129,24 +157,33 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
       const { data: booking, error } = await supabase
         .from('bookings')
         .insert({
-          sender_id:          senderId,
-          route_id:           selectedRoute.id,
-          package_weight_kg:  draft.packageWeightKg,
-          package_category:   draft.packageCategory || 'general',
-          package_photos:     draft.packagePhotos,
-          declared_value_eur: draft.declaredValueEur,
-          pickup_type:        draft.pickupType,
-          pickup_address:     draft.pickupAddress || null,
-          dropoff_type:       draft.dropoffType,
-          dropoff_address:    draft.dropoffAddress || null,
-          recipient_name:     draft.recipientName || null,
-          recipient_phone:    draft.recipientPhoneCC && draft.recipientPhone
-                                ? draft.recipientPhoneCC + draft.recipientPhone
-                                : null,
-          driver_notes:       draft.driverNotes || null,
-          price_eur:          calculatedPriceEur,
-          status:             'pending',
-          payment_status:     'pending',
+          sender_id:                    senderId,
+          route_id:                     selectedRoute.id,
+          package_weight_kg:            draft.packageWeightKg,
+          package_category:             draft.packageCategory || 'general',
+          package_photos:               draft.packagePhotos,
+          declared_value_eur:           draft.declaredValueEur,
+          pickup_type:                  draft.pickupType,
+          pickup_address:               draft.pickupAddress || null,
+          dropoff_type:                 draft.dropoffType,
+          dropoff_address:              draft.dropoffAddress || null,
+          collection_service_id:        draft.collectionServiceId,
+          delivery_service_id:          draft.deliveryServiceId,
+          sender_address_street:        draft.senderAddressStreet || null,
+          sender_address_city:          draft.senderAddressCity || null,
+          sender_address_postal_code:   draft.senderAddressPostalCode || null,
+          recipient_name:               draft.recipientName || null,
+          recipient_phone:              draft.recipientPhoneCC && draft.recipientPhone
+                                          ? draft.recipientPhoneCC + draft.recipientPhone
+                                          : null,
+          recipient_address_street:     draft.recipientAddressStreet || null,
+          recipient_address_city:       draft.recipientAddressCity || null,
+          recipient_address_postal_code: draft.recipientAddressPostalCode || null,
+          driver_notes:                 draft.driverNotes || null,
+          payment_type:                 draft.paymentType || null,
+          price_eur:                    calculatedPriceEur,
+          status:                       'pending',
+          payment_status:               'pending',
         })
         .select('id')
         .single();

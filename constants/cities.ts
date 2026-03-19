@@ -1,3 +1,7 @@
+/**
+ * @deprecated Use `useCities()` hook instead (fetches from the `cities` DB table).
+ * This file is kept as an offline fallback only.
+ */
 export interface City {
   id: string;
   name: string;

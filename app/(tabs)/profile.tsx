@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { NotificationList } from '@/components/ui/NotificationList';
+import { RouteAlertList } from '@/components/ui/RouteAlertList';
 import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
 
 function ProfileRow({
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
   const { showToast } = useUIStore();
   const { unreadCount, fetchNotifications, subscribeRealtime } = useNotificationStore();
   const [notifVisible, setNotifVisible] = useState(false);
+  const [alertsVisible, setAlertsVisible] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
 
   useEffect(() => {
@@ -93,11 +95,18 @@ export default function ProfileScreen() {
               onPress={() => setNotifVisible(true)}
             />
             <View style={styles.separator} />
+            <ProfileRow
+              icon="🛎️"
+              label="Route Alerts"
+              onPress={() => setAlertsVisible(true)}
+            />
+            <View style={styles.separator} />
             <ProfileRow icon="🌐" label={t('profile.language')} onPress={() => setLangVisible(true)} />
           </View>
         </View>
 
         <NotificationList visible={notifVisible} onClose={() => setNotifVisible(false)} />
+        <RouteAlertList visible={alertsVisible} onClose={() => setAlertsVisible(false)} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('senderProfile.support')}</Text>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,46 +8,451 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Modal,
+  SectionList,
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SlidersHorizontal, X } from 'lucide-react-native';
+import {
+  format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
+  isSameMonth, addDays, isBefore, subMonths, addMonths, isToday, isSameDay,
+} from 'date-fns';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { SlidersHorizontal, X, Bell, BellOff, Check } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { RouteCard, type RouteCardRoute } from '@/components/route/RouteCard';
+import { RouteCard } from '@/components/route/RouteCard';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
+import { useAuthStore } from '@/stores/authStore';
+import { useRouteResults, type RouteResult, type SortKey, type FilterState } from '@/hooks/useRouteResults';
+import { useCities, type CityRow } from '@/hooks/useCities';
 import { supabase } from '@/lib/supabase';
 
-// ─── Sort + filter types ───────────────────────────────────────────────────────
-
-type SortKey = 'earliest' | 'cheapest' | 'rated';
-type Direction = 'all' | 'eu-tn' | 'tn-eu';
+// ─── Sort options ─────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'earliest', label: 'Earliest' },
-  { key: 'cheapest', label: 'Cheapest' },
-  { key: 'rated',    label: 'Highest rated' },
+  { key: 'earliest',  label: 'Earliest' },
+  { key: 'cheapest',  label: 'Cheapest' },
+  { key: 'top_rated', label: 'Top rated' },
 ];
 
-// ─── No-results state ─────────────────────────────────────────────────────────
+// ─── Route Alert Sheet ────────────────────────────────────────────────────────
 
-function NoResults({ fromCity, toCity, onSubmitRequest }: {
-  fromCity: string; toCity: string; onSubmitRequest: () => void;
+type CitySection = { country: string; flag: string; data: CityRow[] };
+
+function CityPickerModal({
+  visible,
+  title,
+  citiesByCountry,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  citiesByCountry: Record<string, CityRow[]>;
+  onSelect: (city: CityRow) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+
+  const sections: CitySection[] = Object.entries(citiesByCountry).map(
+    ([country, cities]) => ({
+      country,
+      flag: cities[0]?.flag_emoji ?? '',
+      data: query
+        ? cities.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) && !c.coming_soon)
+        : cities.filter((c) => !c.coming_soon),
+    }),
+  ).filter((s) => s.data.length > 0);
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <SafeAreaView style={cp.root}>
+        <View style={cp.header}>
+          <Text style={cp.title}>{title}</Text>
+          <TouchableOpacity onPress={onClose} style={cp.closeBtn}>
+            <Text style={cp.closeText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={cp.searchWrap}>
+          <TextInput
+            style={cp.search}
+            placeholder="Search city…"
+            placeholderTextColor={Colors.text.tertiary}
+            value={query}
+            onChangeText={setQuery}
+            autoFocus
+          />
+        </View>
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          stickySectionHeadersEnabled
+          renderSectionHeader={({ section }) => (
+            <View style={cp.sectionHeader}>
+              <Text style={cp.sectionFlag}>{section.flag}</Text>
+              <Text style={cp.sectionName}>{section.country}</Text>
+            </View>
+          )}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={cp.item}
+              onPress={() => { onSelect(item); onClose(); setQuery(''); }}
+              activeOpacity={0.7}
+            >
+              <Text style={cp.cityName}>{item.name}</Text>
+              <Text style={cp.chevron}>›</Text>
+            </TouchableOpacity>
+          )}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+}
+
+// ─── Inline date picker (used inside alert sheet) ────────────────────────────
+
+const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+function buildWeeks(month: Date): (Date | null)[][] {
+  const monthStart = startOfMonth(month);
+  const monthEnd   = endOfMonth(month);
+  const gridStart  = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const gridEnd    = endOfWeek(monthEnd,     { weekStartsOn: 0 });
+  const weeks: (Date | null)[][] = [];
+  let day = gridStart;
+  while (day <= gridEnd) {
+    const week: (Date | null)[] = [];
+    for (let i = 0; i < 7; i++) {
+      week.push(isSameMonth(day, month) ? new Date(day) : null);
+      day = addDays(day, 1);
+    }
+    weeks.push(week);
+  }
+  return weeks;
+}
+
+function InlineDatePicker({
+  selected,
+  onSelect,
+}: {
+  selected: Date | null;
+  onSelect: (d: Date | null) => void;
+}) {
+  const today = new Date();
+  const [viewMonth, setViewMonth] = useState(startOfMonth(today));
+  const weeks = buildWeeks(viewMonth);
+  const canGoPrev = !isBefore(subMonths(viewMonth, 1), startOfMonth(today));
+
+  return (
+    <View style={dp.root}>
+      {/* Month nav */}
+      <View style={dp.monthNav}>
+        <TouchableOpacity
+          style={[dp.navBtn, !canGoPrev && dp.navBtnOff]}
+          onPress={() => canGoPrev && setViewMonth((m) => subMonths(m, 1))}
+          activeOpacity={0.7}
+        >
+          <Text style={[dp.navArrow, !canGoPrev && dp.navArrowOff]}>‹</Text>
+        </TouchableOpacity>
+        <Text style={dp.monthLabel}>{format(viewMonth, 'MMMM yyyy')}</Text>
+        <TouchableOpacity
+          style={dp.navBtn}
+          onPress={() => setViewMonth((m) => addMonths(m, 1))}
+          activeOpacity={0.7}
+        >
+          <Text style={dp.navArrow}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Day-of-week row */}
+      <View style={dp.dowRow}>
+        {DOW.map((d, i) => (
+          <Text key={i} style={dp.dowLabel}>{d}</Text>
+        ))}
+      </View>
+
+      {/* Calendar */}
+      {weeks.map((week, wi) => (
+        <View key={wi} style={dp.week}>
+          {week.map((d, di) => {
+            if (!d) return <View key={di} style={dp.cell} />;
+            const isPast    = isBefore(d, today) && !isToday(d);
+            const isSel     = !!selected && isSameDay(d, selected);
+            const isToday_  = isToday(d);
+            return (
+              <TouchableOpacity
+                key={d.toISOString()}
+                style={[dp.cell, isSel && dp.cellSel, isToday_ && !isSel && dp.cellToday]}
+                onPress={() => !isPast && onSelect(isSel ? null : d)}
+                activeOpacity={isPast ? 1 : 0.75}
+                disabled={isPast}
+              >
+                <Text style={[
+                  dp.cellNum,
+                  isPast   && dp.cellNumPast,
+                  isSel    && dp.cellNumSel,
+                  isToday_ && !isSel && dp.cellNumToday,
+                ]}>
+                  {format(d, 'd')}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      ))}
+
+      {/* Any time shortcut */}
+      {selected && (
+        <TouchableOpacity style={dp.anyTime} onPress={() => onSelect(null)} activeOpacity={0.7}>
+          <Text style={dp.anyTimeText}>Any date  ✕</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ─── Route Alert Sheet ────────────────────────────────────────────────────────
+
+function RouteAlertSheet({
+  visible,
+  initialFrom,
+  initialTo,
+  initialDate,
+  profile,
+  onClose,
+}: {
+  visible: boolean;
+  initialFrom: string;
+  initialTo: string;
+  initialDate: string; // ISO date, e.g. "2026-03-19"
+  profile: { id: string } | null;
+  onClose: () => void;
+}) {
+  const { citiesByCountry } = useCities();
+  const [fromCity, setFromCity] = useState(initialFrom);
+  const [toCity, setToCity]     = useState(initialTo);
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [showFromPicker, setShowFromPicker] = useState(false);
+  const [showToPicker, setShowToPicker]     = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Sync with parent's initial values whenever sheet opens
+  useEffect(() => {
+    if (visible) {
+      setFromCity(initialFrom);
+      setToCity(initialTo);
+      setDateFrom(null);
+      setSubmitted(false);
+      setError(null);
+    }
+  }, [visible, initialFrom, initialTo, initialDate]);
+
+  const canSubmit = !!fromCity && !!toCity && !!profile;
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const { error: dbError } = await supabase
+        .from('route_alerts' as any)
+        .insert({
+          user_id: profile!.id,
+          origin_city: fromCity,
+          destination_city: toCity,
+          date_from: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
+        });
+      if (dbError) throw dbError;
+
+      // Insert a confirmation notification so the user sees the alert in their inbox
+      const dateLabel = dateFrom ? ` from ${format(dateFrom, 'MMM d, yyyy')}` : '';
+      await supabase.from('notifications').insert({
+        user_id: profile!.id,
+        type: 'route_alert_created',
+        message: `Alert saved: you'll be notified when a ${fromCity} → ${toCity} route is published${dateLabel}.`,
+      });
+
+      setSubmitted(true);
+    } catch {
+      setError('Could not save alert. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+        <SafeAreaView style={alert.root}>
+
+          {/* Header */}
+          <View style={alert.header}>
+            <View style={alert.headerLeft}>
+              <Bell size={20} color={Colors.primary} strokeWidth={2} />
+              <Text style={alert.headerTitle}>Route Alert</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={alert.closeBtn}>
+              <X size={20} color={Colors.text.secondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+
+          {submitted ? (
+            /* ── Success state ───────────────────────────── */
+            <View style={alert.successRoot}>
+              <View style={alert.successIcon}>
+                <Check size={32} color={Colors.white} strokeWidth={2.5} />
+              </View>
+              <Text style={alert.successTitle}>Alert saved!</Text>
+              <Text style={alert.successDesc}>
+                We'll notify you as soon as a driver publishes a route from{' '}
+                <Text style={alert.successBold}>{fromCity}</Text> to{' '}
+                <Text style={alert.successBold}>{toCity}</Text>
+                {dateFrom ? (
+                  <Text> departing from{' '}
+                    <Text style={alert.successBold}>{format(dateFrom, 'MMM d, yyyy')}</Text>
+                  </Text>
+                ) : null}.
+              </Text>
+              <TouchableOpacity style={alert.doneBtn} onPress={onClose} activeOpacity={0.85}>
+                <Text style={alert.doneBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            /* ── Form ────────────────────────────────────── */
+            <ScrollView contentContainerStyle={alert.body} keyboardShouldPersistTaps="handled">
+              <Text style={alert.desc}>
+                We'll send you a push notification when a driver publishes a matching route. You can change the cities below.
+              </Text>
+
+              {/* From */}
+              <Text style={alert.label}>FROM</Text>
+              <TouchableOpacity
+                style={alert.field}
+                onPress={() => setShowFromPicker(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={fromCity ? alert.fieldValue : alert.fieldPlaceholder}>
+                  {fromCity || 'Select origin city'}
+                </Text>
+                <Text style={alert.fieldChevron}>›</Text>
+              </TouchableOpacity>
+
+              {/* To */}
+              <Text style={[alert.label, { marginTop: Spacing.md }]}>TO</Text>
+              <TouchableOpacity
+                style={alert.field}
+                onPress={() => setShowToPicker(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={toCity ? alert.fieldValue : alert.fieldPlaceholder}>
+                  {toCity || 'Select destination city'}
+                </Text>
+                <Text style={alert.fieldChevron}>›</Text>
+              </TouchableOpacity>
+
+              {/* Date */}
+              <Text style={[alert.label, { marginTop: Spacing.lg ?? Spacing.xl }]}>FROM DATE</Text>
+              <Text style={alert.dateHint}>
+                {dateFrom
+                  ? `Alert me for routes departing from ${format(dateFrom, 'EEE, MMM d yyyy')}`
+                  : 'Alert me for any upcoming date'}
+              </Text>
+              <InlineDatePicker selected={dateFrom} onSelect={setDateFrom} />
+
+              {!profile && (
+                <View style={alert.loginNotice}>
+                  <BellOff size={14} color={Colors.text.tertiary} strokeWidth={2} />
+                  <Text style={alert.loginNoticeText}>Sign in to save alerts</Text>
+                </View>
+              )}
+
+              {error && <Text style={alert.errorText}>{error}</Text>}
+
+              <TouchableOpacity
+                style={[alert.submitBtn, (!canSubmit || isSubmitting) && alert.submitBtnDisabled]}
+                onPress={handleSubmit}
+                disabled={!canSubmit || isSubmitting}
+                activeOpacity={0.85}
+              >
+                <Bell size={16} color={Colors.white} strokeWidth={2} />
+                <Text style={alert.submitBtnText}>
+                  {isSubmitting ? 'Saving…' : 'Notify me'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      <CityPickerModal
+        visible={showFromPicker}
+        title="Select origin city"
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => setFromCity(c.name)}
+        onClose={() => setShowFromPicker(false)}
+      />
+      <CityPickerModal
+        visible={showToPicker}
+        title="Select destination city"
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => setToCity(c.name)}
+        onClose={() => setShowToPicker(false)}
+      />
+    </>
+  );
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+function NoResults({
+  fromCity,
+  toCity,
+  hasFilters,
+  onShowAll,
+  onSetAlert,
+}: {
+  fromCity: string;
+  toCity: string;
+  hasFilters: boolean;
+  onShowAll: () => void;
+  onSetAlert: () => void;
 }) {
   return (
     <View style={empty.root}>
-      <Text style={empty.emoji}>🔍</Text>
-      <Text style={empty.title}>No drivers found</Text>
+      <Text style={empty.emoji}>🚛</Text>
+      <Text style={empty.title}>No matching routes found</Text>
       <Text style={empty.desc}>
-        No drivers are scheduled for {fromCity} → {toCity} on this date.
+        {hasFilters
+          ? `No routes match your current filters for ${fromCity} → ${toCity}.`
+          : `No drivers are currently scheduled from ${fromCity} to ${toCity}.`}
       </Text>
-      <TouchableOpacity style={empty.btn} onPress={onSubmitRequest} activeOpacity={0.85}>
-        <Text style={empty.btnText}>Submit a request instead →</Text>
-      </TouchableOpacity>
+
+      {hasFilters && (
+        <TouchableOpacity style={empty.secondaryBtn} onPress={onShowAll} activeOpacity={0.85}>
+          <Text style={empty.secondaryBtnText}>Clear filters</Text>
+        </TouchableOpacity>
+      )}
+
+      <View style={empty.alertCard}>
+        <View style={empty.alertCardTop}>
+          <Bell size={22} color={Colors.primary} strokeWidth={2} />
+          <View style={{ flex: 1 }}>
+            <Text style={empty.alertCardTitle}>Get notified when a route opens</Text>
+            <Text style={empty.alertCardDesc}>
+              Be the first to know when a driver publishes a route on this corridor.
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity style={empty.alertBtn} onPress={onSetAlert} activeOpacity={0.85}>
+          <Text style={empty.alertBtnText}>Set up alert →</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -56,92 +461,87 @@ function NoResults({ fromCity, toCity, onSubmitRequest }: {
 
 export default function ResultsScreen() {
   const router = useRouter();
-  const { fromCity, toCity, isSearching } = useSearchStore();
+  const params = useLocalSearchParams<{
+    origin_city_id?: string;
+    destination_city_id?: string;
+    depart_from_date?: string;
+  }>();
+
+  const store = useSearchStore();
   const { setRoute } = useBookingStore();
+  const { profile } = useAuthStore();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const [routes, setRoutes] = useState<RouteCardRoute[]>([]);
-  const [isFetching, setIsFetching] = useState(true);
-  const [sort, setSort]           = useState<SortKey>('earliest');
-  const [showFilter, setShowFilter] = useState(false);
-  const [direction, setDirection] = useState<Direction>('all');
+  const originCityName = store.fromCityName;
+  const originCountry  = store.fromCountry;
+  const destCityName   = store.toCityName;
+  const destCountry    = store.toCountry;
+  const departFromDate = params.depart_from_date ?? store.departFromDate;
+
+  const {
+    tier1,
+    tier2,
+    sortKey,
+    setSortKey,
+    filters,
+    setFilters,
+    activeFilterCount,
+    isFetching,
+    isFetchingMore,
+    hasMore,
+    loadMore,
+    refresh,
+  } = useRouteResults({ originCityName, originCountry, destCityName, destCountry, departFromDate });
+
+  const [showFilter, setShowFilter]   = useState(false);
+  const [showAlert, setShowAlert]     = useState(false);
   const [minCapInput, setMinCapInput] = useState('');
   const [maxPriceInput, setMaxPriceInput] = useState('');
 
   useEffect(() => {
-    setIsFetching(true);
-    supabase
-      .from('routes')
-      .select('*, route_stops(*), driver:profiles!driver_id(id, full_name, avatar_url, phone, phone_verified, stripe_customer_id, created_at, updated_at)')
-      .eq('status', 'active')
-      .order('departure_date', { ascending: true })
-      .then(({ data, error }) => {
-        if (!error && data) setRoutes(data as unknown as RouteCardRoute[]);
-        setIsFetching(false);
-      });
+    if (originCityName && destCityName) refresh();
   }, []);
 
-  // Parse filter inputs
-  const minCapacity = parseFloat(minCapInput)  || 0;
-  const maxPrice    = parseFloat(maxPriceInput) || Infinity;
+  const handleApplyFilters = () => {
+    const minCap   = parseFloat(minCapInput)   || undefined;
+    const maxPrice = parseFloat(maxPriceInput) || undefined;
+    setFilters({ ...filters, minCapacityKg: minCap, maxPriceEur: maxPrice });
+  };
 
-  // Apply filter + sort to fetched routes
-  const displayed = useMemo(() => {
-    let list = [...routes];
-
-    // Direction filter
-    if (direction === 'eu-tn') {
-      list = list.filter((r) => r.origin_country !== 'Tunisia');
-    } else if (direction === 'tn-eu') {
-      list = list.filter((r) => r.origin_country === 'Tunisia');
-    }
-
-    // Capacity filter
-    if (minCapacity > 0) {
-      list = list.filter((r) => r.available_weight_kg >= minCapacity);
-    }
-
-    // Price filter
-    if (isFinite(maxPrice)) {
-      list = list.filter((r) => r.price_per_kg_eur <= maxPrice);
-    }
-
-    // Sort
-    if (sort === 'earliest') {
-      list.sort((a, b) => a.departure_date.localeCompare(b.departure_date));
-    } else if (sort === 'cheapest') {
-      list.sort((a, b) => a.price_per_kg_eur - b.price_per_kg_eur);
-    } else {
-      list.sort((a, b) => (b.driver_rating ?? 0) - (a.driver_rating ?? 0));
-    }
-
-    return list;
-  }, [routes, sort, direction, minCapacity, maxPrice]);
-
-  const activeFilterCount = (direction !== 'all' ? 1 : 0)
-    + (minCapacity > 0 ? 1 : 0)
-    + (isFinite(maxPrice) ? 1 : 0);
-
-  const handleSelect = (route: RouteCardRoute) => {
+  const handleSelect = (route: RouteResult) => {
     setRoute(route as any);
     router.push('/booking');
   };
 
-  // ── Shared filter controls (used in both sidebar and mobile panel) ──────────
-  const FilterControls = () => (
+  const totalCount = tier1.length + tier2.length;
+
+  type ListItem =
+    | { type: 'route'; route: RouteResult }
+    | { type: 'header'; label: string };
+
+  const listData: ListItem[] = [
+    ...tier1.map((r): ListItem => ({ type: 'route', route: r })),
+    ...(tier2.length > 0
+      ? [
+          { type: 'header', label: 'Other routes in region' } as ListItem,
+          ...tier2.map((r): ListItem => ({ type: 'route', route: r })),
+        ]
+      : []),
+  ];
+
+  const filterControls = (
     <>
-      {/* Sort */}
       <Text style={s.filterLabel}>SORT BY</Text>
       <View style={s.sidebarSortCol}>
         {SORT_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.key}
-            style={[s.sidebarSortItem, sort === opt.key && s.sidebarSortItemActive]}
-            onPress={() => setSort(opt.key)}
+            style={[s.sidebarSortItem, sortKey === opt.key && s.sidebarSortItemActive]}
+            onPress={() => setSortKey(opt.key)}
             activeOpacity={0.75}
           >
-            <Text style={[s.sidebarSortText, sort === opt.key && s.sidebarSortTextActive]}>
+            <Text style={[s.sidebarSortText, sortKey === opt.key && s.sidebarSortTextActive]}>
               {opt.label}
             </Text>
           </TouchableOpacity>
@@ -150,26 +550,6 @@ export default function ResultsScreen() {
 
       <View style={s.sidebarDivider} />
 
-      {/* Direction */}
-      <Text style={s.filterLabel}>DIRECTION</Text>
-      <View style={s.dirCol}>
-        {(['all', 'eu-tn', 'tn-eu'] as Direction[]).map((d) => (
-          <TouchableOpacity
-            key={d}
-            style={[s.dirChip, direction === d && s.dirChipActive]}
-            onPress={() => setDirection(d)}
-            activeOpacity={0.75}
-          >
-            <Text style={[s.dirChipText, direction === d && s.dirChipTextActive]}>
-              {d === 'all' ? 'All directions' : d === 'eu-tn' ? 'EU → TN' : 'TN → EU'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <View style={s.sidebarDivider} />
-
-      {/* Min capacity */}
       <Text style={s.filterLabel}>MIN CAPACITY</Text>
       <View style={s.inputWrap}>
         <TextInput
@@ -179,11 +559,11 @@ export default function ResultsScreen() {
           keyboardType="numeric"
           value={minCapInput}
           onChangeText={setMinCapInput}
+          onEndEditing={handleApplyFilters}
         />
         <Text style={s.inputUnit}>kg</Text>
       </View>
 
-      {/* Max price */}
       <Text style={[s.filterLabel, { marginTop: Spacing.sm }]}>MAX PRICE</Text>
       <View style={s.inputWrap}>
         <Text style={s.inputUnit}>€</Text>
@@ -194,15 +574,15 @@ export default function ResultsScreen() {
           keyboardType="numeric"
           value={maxPriceInput}
           onChangeText={setMaxPriceInput}
+          onEndEditing={handleApplyFilters}
         />
         <Text style={s.inputUnit}>/kg</Text>
       </View>
 
-      {/* Reset */}
       {activeFilterCount > 0 && (
         <TouchableOpacity
           style={s.resetBtn}
-          onPress={() => { setDirection('all'); setMinCapInput(''); setMaxPriceInput(''); }}
+          onPress={() => { setMinCapInput(''); setMaxPriceInput(''); setFilters({}); }}
           activeOpacity={0.7}
         >
           <Text style={s.resetText}>Reset filters</Text>
@@ -211,25 +591,48 @@ export default function ResultsScreen() {
     </>
   );
 
-  // ── Card list ────────────────────────────────────────────────────────────────
-  const CardList = () => (isSearching || isFetching) ? (
+  const cardList = isFetching ? (
     <View style={s.list}>
       {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
     </View>
   ) : (
     <FlatList
-      data={displayed}
-      keyExtractor={(item) => item.id}
+      data={listData}
+      keyExtractor={(item, i) =>
+        item.type === 'route' ? item.route.id : `header-${i}`
+      }
       contentContainerStyle={s.list}
       showsVerticalScrollIndicator={false}
-      renderItem={({ item }) => (
-        <RouteCard route={item} onPress={() => handleSelect(item)} />
-      )}
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.3}
+      renderItem={({ item }) => {
+        if (item.type === 'header') {
+          return (
+            <View style={s.sectionHeader}>
+              <Text style={s.sectionHeaderText}>{item.label}</Text>
+            </View>
+          );
+        }
+        if (!item.route.driver) return null;
+        return (
+          <RouteCard
+            route={item.route}
+            onPress={() => handleSelect(item.route)}
+            serviceTags={item.route.route_services?.map((rs) => ({
+              type: rs.service_type,
+              price_eur: rs.price_eur,
+            }))}
+          />
+        );
+      }}
+      ListFooterComponent={isFetchingMore ? <SkeletonCard /> : null}
       ListEmptyComponent={
         <NoResults
-          fromCity={fromCity || 'this origin'}
-          toCity={toCity || 'this destination'}
-          onSubmitRequest={() => router.push('/shipping-requests/new')}
+          fromCity={originCityName || 'this origin'}
+          toCity={destCityName || 'this destination'}
+          hasFilters={activeFilterCount > 0}
+          onShowAll={() => { setMinCapInput(''); setMaxPriceInput(''); setFilters({}); }}
+          onSetAlert={() => setShowAlert(true)}
         />
       }
     />
@@ -238,18 +641,21 @@ export default function ResultsScreen() {
   return (
     <SafeAreaView style={s.root}>
 
-      {/* ── Header — always at top ───────────────────────── */}
+      {/* ── Header ───────────────────────────────────────── */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerRoute}>{fromCity || 'Origin'} → {toCity || 'Destination'}</Text>
-          {!isSearching && (
-            <Text style={s.headerCount}>{displayed.length} route{displayed.length !== 1 ? 's' : ''}</Text>
+          <Text style={s.headerRoute}>
+            {originCityName || 'Origin'} → {destCityName || 'Destination'}
+          </Text>
+          {!isFetching && (
+            <Text style={s.headerCount}>
+              {totalCount} route{totalCount !== 1 ? 's' : ''}
+            </Text>
           )}
         </View>
-        {/* Filter toggle only on mobile */}
         {!isWide && (
           <TouchableOpacity
             style={[s.filterBtn, activeFilterCount > 0 && s.filterBtnActive]}
@@ -268,58 +674,47 @@ export default function ResultsScreen() {
       </View>
 
       {isWide ? (
-        /* ── Wide: sidebar + cards ───────────────────────── */
         <View style={s.wideBody}>
           <ScrollView style={s.sidebar} contentContainerStyle={s.sidebarContent} showsVerticalScrollIndicator={false}>
-            <FilterControls />
+            {filterControls}
           </ScrollView>
-          <View style={s.cardArea}>
-            <CardList />
-          </View>
+          <View style={s.cardArea}>{cardList}</View>
         </View>
       ) : (
-        /* ── Mobile: stacked sort + filter + cards ───────── */
         <>
+          {/* Sort tabs */}
           <View style={s.sortRow}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.sortScroll}>
               {SORT_OPTIONS.map((opt) => (
                 <TouchableOpacity
                   key={opt.key}
-                  style={[s.sortChip, sort === opt.key && s.sortChipActive]}
-                  onPress={() => setSort(opt.key)}
+                  style={[s.sortChip, sortKey === opt.key && s.sortChipActive]}
+                  onPress={() => setSortKey(opt.key)}
                   activeOpacity={0.75}
                 >
-                  <Text style={[s.sortChipText, sort === opt.key && s.sortChipTextActive]}>
+                  <Text style={[s.sortChipText, sortKey === opt.key && s.sortChipTextActive]}>
                     {opt.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
+
           {showFilter && (
             <View style={s.filterPanel}>
-              {/* Direction */}
-              <Text style={s.filterLabel}>DIRECTION</Text>
-              <View style={s.dirRow}>
-                {(['all', 'eu-tn', 'tn-eu'] as Direction[]).map((d) => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[s.dirChip, direction === d && s.dirChipActive]}
-                    onPress={() => setDirection(d)}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={[s.dirChipText, direction === d && s.dirChipTextActive]}>
-                      {d === 'all' ? 'All' : d === 'eu-tn' ? 'EU → TN' : 'TN → EU'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {/* Capacity + Price */}
               <View style={s.inputRow}>
                 <View style={s.inputGroup}>
                   <Text style={s.filterLabel}>MIN CAPACITY</Text>
                   <View style={s.inputWrap}>
-                    <TextInput style={s.input} placeholder="0" placeholderTextColor={Colors.text.tertiary} keyboardType="numeric" value={minCapInput} onChangeText={setMinCapInput} />
+                    <TextInput
+                      style={s.input}
+                      placeholder="0"
+                      placeholderTextColor={Colors.text.tertiary}
+                      keyboardType="numeric"
+                      value={minCapInput}
+                      onChangeText={setMinCapInput}
+                      onEndEditing={handleApplyFilters}
+                    />
                     <Text style={s.inputUnit}>kg</Text>
                   </View>
                 </View>
@@ -327,21 +722,44 @@ export default function ResultsScreen() {
                   <Text style={s.filterLabel}>MAX PRICE</Text>
                   <View style={s.inputWrap}>
                     <Text style={s.inputUnit}>€</Text>
-                    <TextInput style={s.input} placeholder="any" placeholderTextColor={Colors.text.tertiary} keyboardType="numeric" value={maxPriceInput} onChangeText={setMaxPriceInput} />
+                    <TextInput
+                      style={s.input}
+                      placeholder="any"
+                      placeholderTextColor={Colors.text.tertiary}
+                      keyboardType="numeric"
+                      value={maxPriceInput}
+                      onChangeText={setMaxPriceInput}
+                      onEndEditing={handleApplyFilters}
+                    />
                     <Text style={s.inputUnit}>/kg</Text>
                   </View>
                 </View>
               </View>
               {activeFilterCount > 0 && (
-                <TouchableOpacity style={s.resetBtn} onPress={() => { setDirection('all'); setMinCapInput(''); setMaxPriceInput(''); }} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={s.resetBtn}
+                  onPress={() => { setMinCapInput(''); setMaxPriceInput(''); setFilters({}); }}
+                  activeOpacity={0.7}
+                >
                   <Text style={s.resetText}>Reset filters</Text>
                 </TouchableOpacity>
               )}
             </View>
           )}
-          <CardList />
+
+          {cardList}
         </>
       )}
+
+      {/* ── Route Alert Sheet ─────────────────────────────── */}
+      <RouteAlertSheet
+        visible={showAlert}
+        initialFrom={originCityName}
+        initialTo={destCityName}
+        initialDate={departFromDate}
+        profile={profile}
+        onClose={() => setShowAlert(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -351,7 +769,6 @@ export default function ResultsScreen() {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background.secondary },
 
-  // Header — always at top, full width
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -382,7 +799,6 @@ const s = StyleSheet.create({
   filterBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterBadge: { fontSize: 11, fontWeight: '700', color: Colors.white },
 
-  // Wide layout
   wideBody: { flex: 1, flexDirection: 'row' },
   sidebar: {
     flex: 1,
@@ -391,24 +807,14 @@ const s = StyleSheet.create({
     borderRightColor: Colors.border.light,
   },
   sidebarContent: { padding: Spacing.base, gap: Spacing.sm },
-  sidebarDivider: {
-    height: 1,
-    backgroundColor: Colors.border.light,
-    marginVertical: Spacing.sm,
-  },
+  sidebarDivider: { height: 1, backgroundColor: Colors.border.light, marginVertical: Spacing.sm },
   sidebarSortCol: { gap: Spacing.xs },
-  sidebarSortItem: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.md,
-  },
+  sidebarSortItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm, borderRadius: BorderRadius.md },
   sidebarSortItemActive: { backgroundColor: Colors.primaryLight },
   sidebarSortText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text.secondary },
   sidebarSortTextActive: { fontWeight: '700', color: Colors.text.primary },
-  dirCol: { gap: Spacing.xs },
   cardArea: { flex: 2 },
 
-  // Mobile sort bar
   sortRow: {
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
@@ -425,7 +831,6 @@ const s = StyleSheet.create({
   sortChipText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text.secondary },
   sortChipTextActive: { color: Colors.white, fontWeight: '700' },
 
-  // Mobile filter panel
   filterPanel: {
     backgroundColor: Colors.white,
     padding: Spacing.base,
@@ -437,18 +842,6 @@ const s = StyleSheet.create({
     fontSize: 10, fontWeight: '800', letterSpacing: 1,
     color: Colors.text.tertiary, marginBottom: 2,
   },
-  dirRow: { flexDirection: 'row', gap: Spacing.sm },
-  dirChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    backgroundColor: Colors.white,
-  },
-  dirChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dirChipText: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.text.secondary },
-  dirChipTextActive: { color: Colors.white, fontWeight: '700' },
   inputRow: { flexDirection: 'row', gap: Spacing.base },
   inputGroup: { flex: 1, gap: 4 },
   inputWrap: {
@@ -472,23 +865,294 @@ const s = StyleSheet.create({
   resetBtn: { alignSelf: 'flex-start', marginTop: Spacing.xs },
   resetText: { fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
 
-  // Card list
   list: { padding: Spacing.base, flexGrow: 1 },
+
+  sectionHeader: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: 0,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  sectionHeaderText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    color: Colors.text.tertiary,
+    textTransform: 'uppercase',
+  },
 });
+
+// ─── Empty state styles ───────────────────────────────────────────────────────
 
 const empty = StyleSheet.create({
   root: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: Spacing.xl, paddingVertical: Spacing['4xl'],
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing['4xl'],
+    paddingBottom: Spacing.xl,
   },
-  emoji: { fontSize: 48, marginBottom: Spacing.base },
-  title: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.sm, textAlign: 'center' },
-  desc: { fontSize: FontSize.sm, color: Colors.text.secondary, textAlign: 'center', lineHeight: 22, marginBottom: Spacing.xl },
-  btn: {
-    backgroundColor: Colors.primary,
+  emoji: { fontSize: 52, marginBottom: Spacing.base }, // 🚛
+  title: {
+    fontSize: FontSize.xl, fontWeight: '800',
+    color: Colors.text.primary, textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  desc: {
+    fontSize: FontSize.sm, color: Colors.text.secondary,
+    textAlign: 'center', lineHeight: 22,
+    marginBottom: Spacing.xl,
+  },
+  secondaryBtn: {
+    borderWidth: 1,
+    borderColor: Colors.border.light,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.xl,
   },
-  btnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+  secondaryBtnText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
+
+  alertCard: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  alertCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
+  alertCardTitle: {
+    fontSize: FontSize.base, fontWeight: '700',
+    color: Colors.text.primary, marginBottom: 3,
+  },
+  alertCardDesc: {
+    fontSize: FontSize.sm, color: Colors.text.secondary, lineHeight: 20,
+  },
+  alertBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  alertBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+});
+
+// ─── Alert sheet styles ───────────────────────────────────────────────────────
+
+const alert = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background.primary },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  headerTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+  closeBtn: { padding: Spacing.sm },
+
+  body: { padding: Spacing.base, gap: 0 },
+  desc: {
+    fontSize: FontSize.sm, color: Colors.text.secondary,
+    lineHeight: 22, marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
+  },
+  label: {
+    fontSize: 10, fontWeight: '800', letterSpacing: 1,
+    color: Colors.text.tertiary, marginBottom: Spacing.xs,
+  },
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.base,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  fieldValue: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
+  fieldPlaceholder: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  fieldChevron: { fontSize: 22, color: Colors.text.tertiary },
+
+  loginNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.md,
+  },
+  loginNoticeText: { fontSize: FontSize.sm, color: Colors.text.tertiary },
+  dateHint: {
+    fontSize: FontSize.xs, color: Colors.text.secondary,
+    marginBottom: Spacing.sm,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    fontSize: FontSize.sm, color: Colors.error,
+    fontWeight: '600', marginTop: Spacing.md,
+  },
+
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.base,
+    marginTop: Spacing.xl,
+  },
+  submitBtnDisabled: { opacity: 0.35 },
+  submitBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+
+  // Success
+  successRoot: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    padding: Spacing.xl,
+  },
+  successIcon: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: Colors.secondary,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.xl,
+  },
+  successTitle: {
+    fontSize: FontSize['2xl'], fontWeight: '800',
+    color: Colors.text.primary, marginBottom: Spacing.md,
+  },
+  successDesc: {
+    fontSize: FontSize.base, color: Colors.text.secondary,
+    textAlign: 'center', lineHeight: 24, marginBottom: Spacing['2xl'],
+  },
+  successBold: { fontWeight: '700', color: Colors.text.primary },
+  doneBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.base,
+    paddingHorizontal: Spacing['2xl'],
+  },
+  doneBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+});
+
+// ─── Inline date picker styles ───────────────────────────────────────────────
+
+const dp = StyleSheet.create({
+  root: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    padding: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  monthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  navBtn: {
+    width: 32, height: 32, borderRadius: BorderRadius.md,
+    backgroundColor: Colors.white,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  navBtnOff: { opacity: 0.3 },
+  navArrow: { fontSize: 20, color: Colors.text.primary, lineHeight: 24 },
+  navArrowOff: { color: Colors.text.tertiary },
+  monthLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+
+  dowRow: { flexDirection: 'row', marginBottom: 2 },
+  dowLabel: {
+    flex: 1, textAlign: 'center',
+    fontSize: 10, fontWeight: '700',
+    color: Colors.text.tertiary,
+    letterSpacing: 0.3,
+  },
+
+  week: { flexDirection: 'row', gap: 2, marginBottom: 2 },
+  cell: {
+    flex: 1, aspectRatio: 1,
+    borderRadius: BorderRadius.sm,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cellSel: { backgroundColor: Colors.primary },
+  cellToday: { borderWidth: 1.5, borderColor: Colors.primary },
+  cellNum: { fontSize: 12, fontWeight: '600', color: Colors.text.primary },
+  cellNumPast: { color: Colors.text.tertiary },
+  cellNumSel: { color: Colors.white },
+  cellNumToday: { fontWeight: '800' },
+
+  anyTime: {
+    alignSelf: 'center',
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.background.tertiary,
+  },
+  anyTimeText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary },
+});
+
+// ─── City picker modal styles ─────────────────────────────────────────────────
+
+const cp = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background.primary },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  title: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+  closeBtn: { padding: Spacing.sm },
+  closeText: { fontSize: FontSize.lg, color: Colors.text.secondary },
+  searchWrap: { padding: Spacing.base, paddingBottom: 0 },
+  search: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    fontSize: FontSize.base,
+    color: Colors.text.primary,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.background.secondary,
+  },
+  sectionFlag: { fontSize: 16 },
+  sectionName: {
+    fontSize: FontSize.xs, fontWeight: '700',
+    color: Colors.text.secondary, textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.base,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  cityName: { fontSize: FontSize.base, fontWeight: '500', color: Colors.text.primary },
+  chevron: { fontSize: 18, color: Colors.text.tertiary },
 });

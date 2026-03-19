@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
 import { ChevronRight, MapPin, Package } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { Spacing, BorderRadius } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -25,6 +26,7 @@ import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile } = useAuthStore();
   const { routes, fetchRoutes, isLoading: routesLoading } = useDriverRouteStore();
   const { bookings, stats, fetchBookings, getMonthlyRevenue, isLoading: bookingsLoading } = useDriverBookingStore();
@@ -57,8 +59,8 @@ export default function DriverDashboardScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Hello, {firstName} 👋</Text>
-            <Text style={styles.subGreeting}>Here's your driver overview</Text>
+            <Text style={styles.greeting}>{t('dashboard.greeting', { name: firstName })}</Text>
+            <Text style={styles.subGreeting}>{t('dashboard.subGreeting')}</Text>
           </View>
         </View>
 
@@ -73,18 +75,18 @@ export default function DriverDashboardScreen() {
 
         {/* Stats row */}
         <View style={styles.statsRow}>
-          <StatCard icon="🗓️" label="Upcoming Trips" value={upcomingRoutes.length} />
-          <StatCard icon="📦" label="Pending" value={stats.pending} accent={Colors.warning} />
-          <StatCard icon="🚚" label="In Transit" value={stats.inTransit} accent={Colors.secondary} />
+          <StatCard icon="🗓️" label={t('dashboard.upcomingTrips')} value={upcomingRoutes.length} />
+          <StatCard icon="📦" label={t('dashboard.pending')} value={stats.pending} accent={Colors.warning} />
+          <StatCard icon="🚚" label={t('dashboard.inTransit')} value={stats.inTransit} accent={Colors.secondary} />
         </View>
 
         {/* Pending bookings */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pending Bookings</Text>
+            <Text style={styles.sectionTitle}>{t('dashboard.pendingBookings')}</Text>
             {stats.pending > 0 && (
               <TouchableOpacity onPress={() => router.push('/(driver-tabs)/bookings' as any)}>
-                <Text style={styles.seeAll}>See all</Text>
+                <Text style={styles.seeAll}>{t('common.seeAll')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -92,7 +94,7 @@ export default function DriverDashboardScreen() {
           {pendingBookings.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyIcon}>📭</Text>
-              <Text style={styles.emptyText}>No pending bookings</Text>
+              <Text style={styles.emptyText}>{t('dashboard.noPending')}</Text>
             </View>
           ) : (
             pendingBookings.map((booking) => (
@@ -122,21 +124,21 @@ export default function DriverDashboardScreen() {
         {/* Upcoming trips */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Trips</Text>
+            <Text style={styles.sectionTitle}>{t('dashboard.upcomingTripsSection')}</Text>
             <TouchableOpacity onPress={() => router.push('/(driver-tabs)/routes' as any)}>
-              <Text style={styles.seeAll}>See all</Text>
+              <Text style={styles.seeAll}>{t('common.seeAll')}</Text>
             </TouchableOpacity>
           </View>
 
           {upcomingRoutes.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyIcon}>🗺️</Text>
-              <Text style={styles.emptyText}>No upcoming trips</Text>
+              <Text style={styles.emptyText}>{t('dashboard.noTrips')}</Text>
               <TouchableOpacity
                 style={styles.createButton}
                 onPress={() => router.push('/driver/routes/new' as any)}
               >
-                <Text style={styles.createButtonText}>Create your first route</Text>
+                <Text style={styles.createButtonText}>{t('dashboard.createFirstRoute')}</Text>
               </TouchableOpacity>
             </View>
           ) : (

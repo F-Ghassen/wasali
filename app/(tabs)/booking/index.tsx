@@ -14,8 +14,10 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   Check, ChevronDown, X, Plus, CreditCard, Lock,
 } from 'lucide-react-native';
@@ -27,6 +29,7 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
 import { OrderSummary } from '@/components/booking/OrderSummary';
+import { EU_ORIGIN_CITIES, type City } from '@/constants/cities';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,54 +52,7 @@ const COUNTRY_CODES = [
   { flag: '🇺🇸', code: '+1',   name: 'United States' },
 ];
 
-const PACKAGE_TYPES = [
-  { key: 'clothing',    label: 'Clothing' },
-  { key: 'food',        label: 'Food' },
-  { key: 'electronics', label: 'Electronics' },
-  { key: 'documents',   label: 'Documents' },
-  { key: 'mixed',       label: 'Mixed' },
-  { key: 'other',       label: 'Other' },
-];
-
 const WEIGHT_CHIPS = [2, 7, 15, 25];
-
-const COLLECTION_OPTIONS: { key: CollectionMethod; label: string; desc: string; price: string }[] = [
-  {
-    key: 'dropoff',
-    label: 'Drop-off point',
-    desc: 'Bring to a shared collection point. Exact address & time confirmed after booking.',
-    price: '+€0',
-  },
-  {
-    key: 'pickup',
-    label: 'Driver picks up',
-    desc: 'Driver collects from your door. Your address from sender info will be used.',
-    price: '+€8',
-  },
-];
-
-const DELIVERY_OPTIONS: { key: DeliveryMethod; label: string; desc: string; price: string }[] = [
-  {
-    key: 'collect',
-    label: 'Recipient collects',
-    desc: 'Pick up from shared point in drop-off city. Exact address & time confirmed after booking.',
-    price: '+€0',
-  },
-  {
-    key: 'home',
-    label: 'Home delivery by driver',
-    desc: 'Driver delivers to the door. Recipient address required.',
-    price: '+€10',
-  },
-];
-
-const STEPS = [
-  { num: 1, key: 'details',   label: 'Details' },
-  { num: 2, key: 'logistics', label: 'Logistics' },
-  { num: 3, key: 'package',   label: 'Package' },
-  { num: 4, key: 'recipient', label: 'Recipient' },
-  { num: 5, key: 'payment',   label: 'Payment' },
-];
 
 // ─── CountryCodePicker ────────────────────────────────────────────────────────
 
@@ -173,10 +129,10 @@ function CityPickerModal({
 
 // ─── StepIndicator ────────────────────────────────────────────────────────────
 
-function StepIndicator({ currentStep }: { currentStep: number }) {
+function StepIndicator({ currentStep, steps }: { currentStep: number; steps: { num: number; key: string; label: string }[] }) {
   return (
     <View style={si.root}>
-      {STEPS.map((step, i) => {
+      {steps.map((step, i) => {
         const done   = currentStep > step.num;
         const active = currentStep === step.num;
         return (
@@ -192,7 +148,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 {step.label}
               </Text>
             </View>
-            {i < STEPS.length - 1 && (
+            {i < steps.length - 1 && (
               <View style={[si.line, done && si.lineDone]} />
             )}
           </React.Fragment>
@@ -275,17 +231,66 @@ function RadioCard({
 
 export default function BookingScreen() {
   const router   = useRouter();
+  const { t } = useTranslation();
   const { profile }        = useAuthStore();
   const bookingStore = useBookingStore();
   const { selectedRoute: route, isLoading: isSubmitting } = bookingStore;
   const { width } = useWindowDimensions();
   const isWide   = width >= 768;
 
+  const STEPS = [
+    { num: 1, key: 'details',   label: t('booking.steps.details') },
+    { num: 2, key: 'logistics', label: t('booking.steps.logistics') },
+    { num: 3, key: 'package',   label: t('booking.steps.package') },
+    { num: 4, key: 'recipient', label: t('booking.steps.recipient') },
+    { num: 5, key: 'payment',   label: t('booking.steps.payment') },
+  ];
+
+  const PACKAGE_TYPES = [
+    { key: 'clothing',    label: t('booking.packageTypes.clothing') },
+    { key: 'food',        label: t('booking.packageTypes.food') },
+    { key: 'electronics', label: t('booking.packageTypes.electronics') },
+    { key: 'documents',   label: t('booking.packageTypes.documents') },
+    { key: 'mixed',       label: t('booking.packageTypes.mixed') },
+    { key: 'other',       label: t('booking.packageTypes.other') },
+  ];
+
+  const COLLECTION_OPTIONS: { key: CollectionMethod; label: string; desc: string; price: string }[] = [
+    {
+      key: 'dropoff',
+      label: t('booking.collection.dropoff'),
+      desc: t('booking.collection.dropoffDesc'),
+      price: '+€0',
+    },
+    {
+      key: 'pickup',
+      label: t('booking.collection.pickup'),
+      desc: t('booking.collection.pickupDesc'),
+      price: '+€8',
+    },
+  ];
+
+  const DELIVERY_OPTIONS: { key: DeliveryMethod; label: string; desc: string; price: string }[] = [
+    {
+      key: 'collect',
+      label: t('booking.delivery.collect'),
+      desc: t('booking.delivery.collectDesc'),
+      price: '+€0',
+    },
+    {
+      key: 'home',
+      label: t('booking.delivery.home'),
+      desc: t('booking.delivery.homeDesc'),
+      price: '+€10',
+    },
+  ];
+
   const [currentStep, setCurrentStep] = useState(1);
 
   // ── Step 1: Sender details ─────────────────────────────────────────────────
   const [senderMode, setSenderMode]             = useState<SenderMode>('own');
   // "own" editable fields
+  const [ownName, setOwnName]                   = useState(profile?.full_name ?? '');
   const [ownCC, setOwnCC]                       = useState('+49');
   const [ownPhone, setOwnPhone]                 = useState(profile?.phone ?? '');
   const [ownPhoneIsWhatsapp, setOwnPhoneIsWhatsapp] = useState(false);
@@ -301,6 +306,7 @@ export default function BookingScreen() {
   const [postalCode, setPostalCode]             = useState('');
   const [addressCity, setAddressCity]           = useState('');
   const [addressCountry, setAddressCountry]     = useState('');
+  const [showAddressCityPicker, setShowAddressCityPicker] = useState(false);
 
   // ── Step 2: Logistics ──────────────────────────────────────────────────────
   const [collectionMethod, setCollectionMethod] = useState<CollectionMethod>('dropoff');
@@ -354,44 +360,31 @@ export default function BookingScreen() {
 
     const senderName = senderMode === 'own' ? myName : behalfName;
 
-    // Sync entire form state into the store before submitting
+    // Sync form fields that exist in BookingDraft into the store before submitting
     bookingStore.setDraft({
-      senderMode,
-      senderPhoneCC: ownCC,
-      senderPhone: ownPhone,
-      senderPhoneIsWhatsapp: ownPhoneIsWhatsapp,
-      senderStreet: street,
-      senderPostalCode: postalCode,
-      senderCity: addressCity,
-      senderCountry: addressCountry,
-      behalfName,
-      behalfPhoneCC: behalfCC,
-      behalfPhone,
-      collectionMethod,
-      collectionCity,
-      collectionCityDate,
-      deliveryMethod,
-      dropoffCity,
-      dropoffCityDate,
-      packageWeightKg: weightNum,
+      packageWeightKg:          weightNum,
       packageTypes,
-      packagePhotos: photos,
+      packagePhotos:            photos,
+      pickupType:               collectionMethod === 'pickup' ? 'driver_pickup' : 'sender_dropoff',
+      pickupAddress:            street ? `${street}, ${postalCode} ${addressCity}` : '',
+      dropoffType:              deliveryMethod === 'home' ? 'home_delivery' : 'recipient_pickup',
+      dropoffAddress:           `${recipientAddrLine1}${recipientAddrLine2 ? ', ' + recipientAddrLine2 : ''}`,
       recipientName,
-      recipientPhoneCC: recipientCC,
+      recipientPhoneCC:         recipientCC,
       recipientPhone,
       recipientPhoneIsWhatsapp,
-      recipientAddressLine1: recipientAddrLine1,
-      recipientAddressLine2: recipientAddrLine2,
       driverNotes,
-      paymentMethod: paymentMethod === 'paypal' ? 'card' : paymentMethod,
     });
     bookingStore.computePrice();
 
     try {
-      const bookingId = await bookingStore.submitBooking(profile.id, senderName);
-      router.push(`/tracking/${bookingId}` as any);
-    } catch {
-      // submitBooking never throws (has fallback), but guard just in case
+      const bookingId = await bookingStore.submitBooking(profile.id);
+      router.push(`/(tabs)/tracking/${bookingId}` as any);
+    } catch (err) {
+      Alert.alert(
+        t('booking.error.title'),
+        err instanceof Error ? err.message : t('booking.error.fallback'),
+      );
     }
   }
 
@@ -446,7 +439,7 @@ export default function BookingScreen() {
       contentContainerStyle={f.scrollContent}
     >
       {/* ── Sticky step indicator ──────────────────────── */}
-      <StepIndicator currentStep={currentStep} />
+      <StepIndicator currentStep={currentStep} steps={STEPS} />
 
       {/* ════════════════════════════════════════════════
           Step 1 — Your Details
@@ -473,7 +466,7 @@ export default function BookingScreen() {
               activeOpacity={0.75}
             >
               <Text style={[f.tabText, senderMode === mode && f.tabTextActive]}>
-                {mode === 'own' ? 'My details' : 'On behalf of someone'}
+                {mode === 'own' ? t('booking.senderMode.own') : t('booking.senderMode.behalf')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -481,13 +474,15 @@ export default function BookingScreen() {
 
         {senderMode === 'own' ? (
           <>
-            {/* Full name — read-only */}
+            {/* Full name — editable, pre-filled from profile */}
             <Text style={f.fieldLabel}>Full name</Text>
-            <View style={f.readOnlyInput}>
-              <Text style={myName ? f.readOnlyValue : f.selectPlaceholder}>
-                {myName || 'Not set in profile'}
-              </Text>
-            </View>
+            <TextInput
+              style={f.input}
+              placeholder="Your full name"
+              placeholderTextColor={Colors.text.tertiary}
+              value={ownName}
+              onChangeText={setOwnName}
+            />
 
             {/* Phone — editable */}
             <Text style={f.fieldLabel}>Phone number</Text>
@@ -562,11 +557,48 @@ export default function BookingScreen() {
           </View>
           <View style={f.twoColRight}>
             <Text style={f.fieldLabel}>City</Text>
-            <TextInput style={f.input} placeholder="Berlin" placeholderTextColor={Colors.text.tertiary} value={addressCity} onChangeText={setAddressCity} />
+            <TouchableOpacity
+              style={[f.input, f.cityPickerBtn]}
+              onPress={() => setShowAddressCityPicker(true)}
+              activeOpacity={0.75}
+            >
+              <Text style={addressCity ? f.cityPickerValue : f.selectPlaceholder} numberOfLines={1}>
+                {addressCity || 'Select city'}
+              </Text>
+              <ChevronDown size={16} color={Colors.text.tertiary} />
+            </TouchableOpacity>
           </View>
         </View>
-        <Text style={f.fieldLabel}>Country</Text>
-        <TextInput style={f.input} placeholder="Germany" placeholderTextColor={Colors.text.tertiary} value={addressCountry} onChangeText={setAddressCountry} />
+
+        {/* Address city picker modal */}
+        <Modal visible={showAddressCityPicker} transparent animationType="slide">
+          <TouchableOpacity style={pk.overlay} activeOpacity={1} onPress={() => setShowAddressCityPicker(false)}>
+            <View style={pk.sheet}>
+              <Text style={pk.sheetTitle}>Select your city</Text>
+              <FlatList
+                data={EU_ORIGIN_CITIES}
+                keyExtractor={(c) => c.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={pk.item}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setAddressCity(item.name);
+                      setAddressCountry(item.country);
+                      setShowAddressCityPicker(false);
+                    }}
+                  >
+                    <Text style={pk.itemFlag}>{item.flag}</Text>
+                    <View>
+                      <Text style={pk.itemName}>{item.name}</Text>
+                      <Text style={pk.itemCountry}>{item.country}</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Update profile toggle (own mode only) */}
         {senderMode === 'own' && (
@@ -792,7 +824,7 @@ export default function BookingScreen() {
         </View>
 
         {/* Delivery address */}
-        <Text style={f.fieldLabel}>Delivery address <Text style={f.fieldLabelOpt}>(optional)</Text></Text>
+        <Text style={f.fieldLabel}>Delivery address <Text style={f.fieldLabel}>(optional)</Text></Text>
         <TextInput
           style={f.input}
           placeholder="Street, apartment…"
@@ -845,7 +877,7 @@ export default function BookingScreen() {
           activeOpacity={0.85}
           disabled={!step4Valid}
         >
-          <Text style={f.continueBtnText}>Review & pay →</Text>
+          <Text style={f.continueBtnText}>{t('booking.reviewPay')}</Text>
         </TouchableOpacity>
       </StepCard>
 
@@ -857,9 +889,9 @@ export default function BookingScreen() {
         isActive={currentStep === 5} isCompleted={false} isLocked={currentStep < 5}
       >
         {([
-          { key: 'card',   label: '💳  Credit / Debit card' },
-          { key: 'paypal', label: '🅿️  PayPal' },
-          { key: 'cash',   label: '💵  Cash to driver' },
+          { key: 'card',   label: `💳  ${t('booking.payment.card')}` },
+          { key: 'paypal', label: `🅿️  ${t('booking.payment.paypal')}` },
+          { key: 'cash',   label: `💵  ${t('booking.payment.cash')}` },
         ] as { key: PaymentMethod; label: string }[]).map((pm) => (
           <TouchableOpacity
             key={pm.key}
@@ -889,7 +921,7 @@ export default function BookingScreen() {
         <View style={f.escrowNote}>
           <Lock size={13} color={Colors.text.secondary} strokeWidth={2} />
           <Text style={f.escrowText}>
-            Escrow protection — Payment released only on confirmed delivery (coming soon)
+            {t('booking.escrow')}
           </Text>
         </View>
 
@@ -901,7 +933,7 @@ export default function BookingScreen() {
         >
           {isSubmitting
             ? <ActivityIndicator size="small" color={Colors.white} />
-            : <Text style={f.payBtnText}>Confirm & pay →</Text>
+            : <Text style={f.payBtnText}>{t('booking.confirmPay')}</Text>
           }
         </TouchableOpacity>
       </StepCard>
@@ -1177,6 +1209,8 @@ const f = StyleSheet.create({
   },
   selectValue:       { fontSize: FontSize.base, color: Colors.text.primary, fontWeight: '500' },
   selectPlaceholder: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  cityPickerBtn:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  cityPickerValue: { fontSize: FontSize.base, color: Colors.text.primary, flex: 1 },
 
   // Privacy note
   privacyNote: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginVertical: Spacing.sm },
@@ -1324,6 +1358,8 @@ const pk = StyleSheet.create({
     paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border.light,
   },
   itemActive: { backgroundColor: Colors.primaryLight },
-  itemName:   { fontSize: FontSize.base, color: Colors.text.primary },
-  itemCode:   { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '600' },
+  itemName:    { fontSize: FontSize.base, color: Colors.text.primary },
+  itemCode:    { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '600' },
+  itemFlag:    { fontSize: 22, marginRight: Spacing.sm },
+  itemCountry: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 1 },
 });

@@ -103,7 +103,7 @@ export function NotificationList({ visible, onClose }: NotificationListProps) {
             data={notifications}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <NotificationRow item={item} role={profile?.role} onPress={handlePress} />
+              <NotificationRow item={item} role={profile?.role as 'sender' | 'driver' | undefined} onPress={handlePress} />
             )}
             contentContainerStyle={styles.list}
           />

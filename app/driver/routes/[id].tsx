@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { format } from 'date-fns';
 import { ArrowLeft, MapPin, Package, ExternalLink } from 'lucide-react-native';
 import { Linking } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -33,6 +34,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export default function DriverRouteDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
   const { routes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
@@ -51,27 +53,24 @@ export default function DriverRouteDetailScreen() {
 
   const handleCancel = () => {
     if (hasActiveBookings) {
-      Alert.alert(
-        'Cannot Cancel',
-        'This route has confirmed or in-transit bookings. Please resolve them before cancelling.'
-      );
+      Alert.alert(t('routeDetail.alerts.cannotCancel'), t('routeDetail.alerts.cannotCancelMsg'));
       return;
     }
     Alert.alert(
-      'Cancel Route',
-      'Are you sure you want to cancel this route? This cannot be undone.',
+      t('routeDetail.alerts.cancelTitle'),
+      t('routeDetail.alerts.cancelMsg'),
       [
-        { text: 'Keep Route', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Cancel Route',
+          text: t('routeDetail.actions.cancel'),
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelRoute(id);
-              showToast('Route cancelled', 'info');
+              showToast(t('routeDetail.toast.cancelled'), 'info');
               router.back();
             } catch {
-              showToast('Failed to cancel route', 'error');
+              showToast(t('routeDetail.toast.cancelFailed'), 'error');
             }
           },
         },
@@ -80,16 +79,16 @@ export default function DriverRouteDetailScreen() {
   };
 
   const handleMarkFull = () => {
-    Alert.alert('Mark as Full', 'No new bookings will be accepted.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('routeDetail.alerts.markFullTitle'), t('routeDetail.alerts.markFullMsg'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Mark Full',
+        text: t('routeDetail.actions.markFull'),
         onPress: async () => {
           try {
             await markRouteFull(id);
-            showToast('Route marked as full', 'success');
+            showToast(t('routeDetail.toast.markedFull'), 'success');
           } catch {
-            showToast('Failed to update route', 'error');
+            showToast(t('routeDetail.toast.updateFailed'), 'error');
           }
         },
       },
@@ -103,11 +102,11 @@ export default function DriverRouteDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ArrowLeft size={24} color={Colors.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.navTitle}>Route Detail</Text>
+          <Text style={styles.navTitle}>{t('routeDetail.title')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.centered}>
-          <Text style={styles.notFoundText}>Route not found</Text>
+          <Text style={styles.notFoundText}>{t('routeDetail.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -121,7 +120,7 @@ export default function DriverRouteDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Route Detail</Text>
+        <Text style={styles.navTitle}>{t('routeDetail.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -144,21 +143,21 @@ export default function DriverRouteDetailScreen() {
 
           <View style={styles.metaGrid}>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Departure</Text>
+              <Text style={styles.metaLabel}>{t('routeDetail.labels.departure')}</Text>
               <Text style={styles.metaValue}>{format(new Date(route.departure_date), 'MMM d, yyyy')}</Text>
             </View>
             {route.estimated_arrival_date && (
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Est. Arrival</Text>
+                <Text style={styles.metaLabel}>{t('routeDetail.labels.arrival')}</Text>
                 <Text style={styles.metaValue}>{format(new Date(route.estimated_arrival_date), 'MMM d, yyyy')}</Text>
               </View>
             )}
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Capacity</Text>
+              <Text style={styles.metaLabel}>{t('routeDetail.labels.capacity')}</Text>
               <Text style={styles.metaValue}>{route.available_weight_kg} kg</Text>
             </View>
             <View style={styles.metaItem}>
-              <Text style={styles.metaLabel}>Price/kg</Text>
+              <Text style={styles.metaLabel}>{t('routeDetail.labels.pricePerKg')}</Text>
               <Text style={styles.metaValue}>€{route.price_per_kg_eur}</Text>
             </View>
           </View>
@@ -205,7 +204,7 @@ export default function DriverRouteDetailScreen() {
         {/* Collection stops */}
         {route.route_stops?.filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type).length > 0 && (
           <View>
-            <Text style={styles.sectionTitle}>Collection Stops</Text>
+            <Text style={styles.sectionTitle}>{t('routeDetail.sections.collectionStops')}</Text>
             {route.route_stops
               .filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type)
               .map((stop, idx) => (
@@ -236,7 +235,7 @@ export default function DriverRouteDetailScreen() {
         {/* Drop-off stops */}
         {route.route_stops?.filter((s) => (s as any).stop_type === 'dropoff').length > 0 && (
           <View>
-            <Text style={styles.sectionTitle}>Drop-off Stops</Text>
+            <Text style={styles.sectionTitle}>{t('routeDetail.sections.dropoffStops')}</Text>
             {route.route_stops
               .filter((s) => (s as any).stop_type === 'dropoff')
               .map((stop, idx) => (
@@ -268,13 +267,13 @@ export default function DriverRouteDetailScreen() {
         {isActive && (
           <View style={styles.actionsCard}>
             <Button
-              label="Mark as Full"
+              label={t('routeDetail.actions.markFull')}
               onPress={handleMarkFull}
               variant="outline"
               size="md"
             />
             <Button
-              label="Cancel Route"
+              label={t('routeDetail.actions.cancel')}
               onPress={handleCancel}
               variant="destructive"
               size="md"
@@ -297,14 +296,14 @@ export default function DriverRouteDetailScreen() {
           const isLowActual = !isGoodActual && actualGross < expectedGross * 0.8;
           return (
             <View style={styles.analyticsCard}>
-              <Text style={styles.sectionTitle}>Est. Performance</Text>
+              <Text style={styles.sectionTitle}>{t('routeDetail.sections.performance')}</Text>
               <View style={styles.analyticRow}>
                 <View style={styles.analyticItem}>
-                  <Text style={styles.analyticLabel}>Expected gross</Text>
+                  <Text style={styles.analyticLabel}>{t('routeDetail.analytics.expectedGross')}</Text>
                   <Text style={styles.analyticValue}>€{expectedGross.toFixed(0)}</Text>
                 </View>
                 <View style={styles.analyticItem}>
-                  <Text style={styles.analyticLabel}>Actual gross</Text>
+                  <Text style={styles.analyticLabel}>{t('routeDetail.analytics.actualGross')}</Text>
                   <Text style={[
                     styles.analyticValue,
                     isGoodActual && styles.analyticGood,
@@ -313,7 +312,7 @@ export default function DriverRouteDetailScreen() {
                 </View>
               </View>
               <View style={styles.fillRow}>
-                <Text style={styles.analyticLabel}>Fill rate</Text>
+                <Text style={styles.analyticLabel}>{t('routeDetail.analytics.fillRate')}</Text>
                 <View style={styles.fillBar}>
                   {Array.from({ length: fillBarCount }).map((_, i) => (
                     <View
@@ -333,13 +332,13 @@ export default function DriverRouteDetailScreen() {
 
         {/* Bookings on this route */}
         <Text style={styles.sectionTitle}>
-          Bookings ({routeBookings.length})
+          {t('routeDetail.sections.bookings')} ({routeBookings.length})
         </Text>
 
         {routeBookings.length === 0 ? (
           <View style={styles.emptyCard}>
             <Package size={32} color={Colors.text.tertiary} />
-            <Text style={styles.emptyText}>No bookings yet</Text>
+            <Text style={styles.emptyText}>{t('driverBookings.emptyAll')}</Text>
           </View>
         ) : (
           routeBookings.map((booking) => (

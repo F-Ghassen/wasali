@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -16,6 +17,7 @@ import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { NotificationList } from '@/components/ui/NotificationList';
+import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
 
 function ProfileRow({
   icon,
@@ -49,11 +51,13 @@ function ProfileRow({
 
 export default function DriverProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile, signOut } = useAuthStore();
   const { stats } = useDriverBookingStore();
   const { showToast } = useUIStore();
   const { unreadCount, fetchNotifications, subscribeRealtime } = useNotificationStore();
   const [notifVisible, setNotifVisible] = useState(false);
+  const [langVisible, setLangVisible] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -66,7 +70,7 @@ export default function DriverProfileScreen() {
     try {
       await signOut();
     } catch {
-      showToast('Failed to sign out. Please try again.', 'error');
+      showToast(t('profile.signOutError'), 'error');
     }
   };
 
@@ -81,39 +85,41 @@ export default function DriverProfileScreen() {
         </View>
         <Text style={styles.name}>{profile?.full_name ?? 'Driver'}</Text>
         <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>🚗 Traveller</Text>
+          <Text style={styles.roleText}>🚗 {t('driverProfile.roleBadge')}</Text>
         </View>
 
         {/* Driver stats */}
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.delivered}</Text>
-            <Text style={styles.statLabel}>Delivered</Text>
+            <Text style={styles.statLabel}>{t('driverProfile.stats.delivered')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>€{stats.totalEarnings.toFixed(0)}</Text>
-            <Text style={styles.statLabel}>Earned</Text>
+            <Text style={styles.statLabel}>{t('driverProfile.stats.earned')}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{stats.confirmed}</Text>
-            <Text style={styles.statLabel}>Active</Text>
+            <Text style={styles.statLabel}>{t('driverProfile.stats.active')}</Text>
           </View>
         </View>
 
         {/* Account section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('driverProfile.account')}</Text>
           <View style={styles.card}>
-            <ProfileRow icon="✏️" label="Edit Profile" onPress={() => router.push('/profile/edit')} />
+            <ProfileRow icon="✏️" label={t('driverProfile.editProfile')} onPress={() => router.push('/profile/edit')} />
             <View style={styles.separator} />
             <ProfileRow
               icon="🔔"
-              label="Notifications"
+              label={t('profile.notifications')}
               badge={unreadCount}
               onPress={() => setNotifVisible(true)}
             />
+            <View style={styles.separator} />
+            <ProfileRow icon="🌐" label={t('profile.language')} onPress={() => setLangVisible(true)} />
           </View>
         </View>
 
@@ -121,20 +127,22 @@ export default function DriverProfileScreen() {
 
         {/* Support section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>{t('driverProfile.support')}</Text>
           <View style={styles.card}>
-            <ProfileRow icon="❓" label="Help Center" onPress={() => {}} />
+            <ProfileRow icon="❓" label={t('profile.helpCenter')} onPress={() => {}} />
             <View style={styles.separator} />
-            <ProfileRow icon="📜" label="Terms & Privacy" onPress={() => {}} />
+            <ProfileRow icon="📜" label={t('profile.termsPrivacy')} onPress={() => {}} />
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.card}>
-            <ProfileRow icon="🚪" label="Sign Out" onPress={handleSignOut} isDestructive />
+            <ProfileRow icon="🚪" label={t('profile.signOut')} onPress={handleSignOut} isDestructive />
           </View>
         </View>
       </ScrollView>
+
+      <LanguagePickerModal visible={langVisible} onClose={() => setLangVisible(false)} />
     </SafeAreaView>
   );
 }

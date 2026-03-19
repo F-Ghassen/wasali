@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -15,6 +16,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { NotificationList } from '@/components/ui/NotificationList';
+import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
 
 function ProfileRow({
   icon,
@@ -45,10 +47,12 @@ function ProfileRow({
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile, signOut } = useAuthStore();
   const { showToast } = useUIStore();
   const { unreadCount, fetchNotifications, subscribeRealtime } = useNotificationStore();
   const [notifVisible, setNotifVisible] = useState(false);
+  const [langVisible, setLangVisible] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -60,9 +64,8 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      // navigation handled automatically by SIGNED_OUT event in _layout.tsx
     } catch {
-      showToast('Failed to sign out. Please try again.', 'error');
+      showToast(t('profile.signOutError'), 'error');
     }
   };
 
@@ -77,38 +80,42 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{profile?.full_name ?? 'User'}</Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('senderProfile.account')}</Text>
           <View style={styles.card}>
-            <ProfileRow icon="✏️" label="Edit Profile" onPress={() => router.push('/profile/edit')} />
+            <ProfileRow icon="✏️" label={t('senderProfile.editProfile')} onPress={() => router.push('/profile/edit')} />
             <View style={styles.separator} />
-            <ProfileRow icon="📍" label="Saved Addresses" onPress={() => router.push('/profile/addresses')} />
+            <ProfileRow icon="📍" label={t('senderProfile.savedAddresses')} onPress={() => router.push('/profile/addresses')} />
             <View style={styles.separator} />
             <ProfileRow
               icon="🔔"
-              label="Notifications"
+              label={t('profile.notifications')}
               badge={unreadCount}
               onPress={() => setNotifVisible(true)}
             />
+            <View style={styles.separator} />
+            <ProfileRow icon="🌐" label={t('profile.language')} onPress={() => setLangVisible(true)} />
           </View>
         </View>
 
         <NotificationList visible={notifVisible} onClose={() => setNotifVisible(false)} />
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support</Text>
+          <Text style={styles.sectionTitle}>{t('senderProfile.support')}</Text>
           <View style={styles.card}>
-            <ProfileRow icon="❓" label="Help Center" onPress={() => {}} />
+            <ProfileRow icon="❓" label={t('profile.helpCenter')} onPress={() => {}} />
             <View style={styles.separator} />
-            <ProfileRow icon="📜" label="Terms & Privacy" onPress={() => {}} />
+            <ProfileRow icon="📜" label={t('profile.termsPrivacy')} onPress={() => {}} />
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.card}>
-            <ProfileRow icon="🚪" label="Sign Out" onPress={handleSignOut} isDestructive />
+            <ProfileRow icon="🚪" label={t('profile.signOut')} onPress={handleSignOut} isDestructive />
           </View>
         </View>
       </ScrollView>
+
+      <LanguagePickerModal visible={langVisible} onClose={() => setLangVisible(false)} />
     </SafeAreaView>
   );
 }

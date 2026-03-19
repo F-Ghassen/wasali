@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Phone, ScanLine } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -24,6 +25,7 @@ import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverBookingDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
   const {
@@ -47,7 +49,7 @@ export default function DriverBookingDetailScreen() {
 
   const handleAction = (label: string, action: () => Promise<void>, message: string) => {
     Alert.alert(label, message, [
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
         text: label,
         onPress: async () => {
@@ -55,7 +57,7 @@ export default function DriverBookingDetailScreen() {
             await action();
             showToast(`Booking ${label.toLowerCase()}d`, 'success');
           } catch {
-            showToast('Action failed. Please try again.', 'error');
+            showToast(t('bookingDetail.toast.failed'), 'error');
           }
         },
       },
@@ -69,11 +71,11 @@ export default function DriverBookingDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <ArrowLeft size={24} color={Colors.text.primary} />
           </TouchableOpacity>
-          <Text style={styles.navTitle}>Booking Detail</Text>
+          <Text style={styles.navTitle}>{t('bookingDetail.title')}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.centered}>
-          <Text style={styles.notFoundText}>Booking not found</Text>
+          <Text style={styles.notFoundText}>{t('bookingDetail.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -85,7 +87,7 @@ export default function DriverBookingDetailScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Booking Detail</Text>
+        <Text style={styles.navTitle}>{t('bookingDetail.title')}</Text>
         <StatusBadge status={booking.status as BookingStatus} showIcon={false} />
       </View>
 
@@ -93,7 +95,7 @@ export default function DriverBookingDetailScreen() {
 
         {/* Sender info */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sender</Text>
+          <Text style={styles.cardTitle}>{t('bookingDetail.sections.sender')}</Text>
           <Text style={styles.senderName}>{sender?.full_name ?? '—'}</Text>
           {sender?.phone && (
             <TouchableOpacity
@@ -108,61 +110,61 @@ export default function DriverBookingDetailScreen() {
 
         {/* Package details */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Package</Text>
+          <Text style={styles.cardTitle}>{t('bookingDetail.sections.package')}</Text>
           <View style={styles.grid}>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Category</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.category')}</Text>
               <Text style={styles.gridValue}>{booking.package_category}</Text>
             </View>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Weight</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.weight')}</Text>
               <Text style={styles.gridValue}>{booking.package_weight_kg} kg</Text>
             </View>
             {booking.declared_value_eur && (
               <View style={styles.gridItem}>
-                <Text style={styles.gridLabel}>Declared Value</Text>
+                <Text style={styles.gridLabel}>{t('bookingDetail.labels.declaredValue')}</Text>
                 <Text style={styles.gridValue}>€{booking.declared_value_eur}</Text>
               </View>
             )}
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Total Price</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.totalPrice')}</Text>
               <Text style={[styles.gridValue, styles.price]}>€{booking.price_eur}</Text>
             </View>
           </View>
-          {booking.notes && (
+          {booking.driver_notes && (
             <View style={styles.notesRow}>
-              <Text style={styles.gridLabel}>Sender notes</Text>
-              <Text style={styles.notesText}>{booking.notes}</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.senderNotes')}</Text>
+              <Text style={styles.notesText}>{booking.driver_notes}</Text>
             </View>
           )}
         </View>
 
         {/* Logistics */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Logistics</Text>
+          <Text style={styles.cardTitle}>{t('bookingDetail.sections.logistics')}</Text>
           <View style={styles.grid}>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Pickup</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.pickup')}</Text>
               <Text style={styles.gridValue}>
-                {booking.pickup_type === 'driver_pickup' ? 'Driver collects' : 'Sender drops off'}
+                {booking.pickup_type === 'driver_pickup' ? t('bookingDetail.logisticsValues.driverCollects') : t('bookingDetail.logisticsValues.senderDropsOff')}
               </Text>
             </View>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Delivery</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.delivery')}</Text>
               <Text style={styles.gridValue}>
-                {booking.dropoff_type === 'home_delivery' ? 'Home delivery' : 'Recipient pickup'}
+                {booking.dropoff_type === 'home_delivery' ? t('bookingDetail.logisticsValues.homeDelivery') : t('bookingDetail.logisticsValues.recipientPickup')}
               </Text>
             </View>
           </View>
           {booking.pickup_address && (
             <View style={styles.notesRow}>
-              <Text style={styles.gridLabel}>Pickup address</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.pickupAddress')}</Text>
               <Text style={styles.notesText}>{booking.pickup_address}</Text>
             </View>
           )}
           {booking.dropoff_address && (
             <View style={styles.notesRow}>
-              <Text style={styles.gridLabel}>Delivery address</Text>
+              <Text style={styles.gridLabel}>{t('bookingDetail.labels.deliveryAddress')}</Text>
               <Text style={styles.notesText}>{booking.dropoff_address}</Text>
             </View>
           )}
@@ -173,17 +175,17 @@ export default function DriverBookingDetailScreen() {
           {booking.status === 'pending' && (
             <>
               <Button
-                label="Confirm Booking"
+                label={t('bookingDetail.actions.confirm')}
                 onPress={() =>
-                  handleAction('Confirm', () => confirmBooking(id), 'Accept this booking and notify the sender?')
+                  handleAction(t('bookingDetail.alerts.confirmTitle'), () => confirmBooking(id), t('bookingDetail.alerts.confirmMsg'))
                 }
                 isLoading={isLoading}
                 size="lg"
               />
               <Button
-                label="Reject Booking"
+                label={t('bookingDetail.actions.reject')}
                 onPress={() =>
-                  handleAction('Reject', () => rejectBooking(id), 'Reject this booking? The sender will be notified.')
+                  handleAction(t('bookingDetail.alerts.rejectTitle'), () => rejectBooking(id), t('bookingDetail.alerts.rejectMsg'))
                 }
                 variant="destructive"
                 size="md"
@@ -199,12 +201,12 @@ export default function DriverBookingDetailScreen() {
                 disabled={isLoading}
               >
                 <ScanLine size={18} color={Colors.white} />
-                <Text style={styles.scanBtnText}>Scan Sender's QR</Text>
+                <Text style={styles.scanBtnText}>{t('bookingDetail.actions.scanQR')}</Text>
               </TouchableOpacity>
               <Button
-                label="Mark as In Transit"
+                label={t('bookingDetail.actions.markInTransit')}
                 onPress={() =>
-                  handleAction('Mark In Transit', () => markInTransit(id), 'Confirm you have picked up this package?')
+                  handleAction(t('bookingDetail.alerts.inTransitTitle'), () => markInTransit(id), t('bookingDetail.alerts.inTransitMsg'))
                 }
                 isLoading={isLoading}
                 size="lg"
@@ -215,9 +217,9 @@ export default function DriverBookingDetailScreen() {
 
           {booking.status === 'in_transit' && (
             <Button
-              label="Mark as Delivered"
+              label={t('bookingDetail.actions.markDelivered')}
               onPress={() =>
-                handleAction('Mark Delivered', () => markDelivered(id), 'Confirm this package has been delivered?')
+                handleAction(t('bookingDetail.alerts.deliveredTitle'), () => markDelivered(id), t('bookingDetail.alerts.deliveredMsg'))
               }
               isLoading={isLoading}
               size="lg"
@@ -232,9 +234,9 @@ export default function DriverBookingDetailScreen() {
         onSuccess={async () => {
           try {
             await markInTransit(id);
-            showToast('Package marked as in transit', 'success');
+            showToast(t('bookingDetail.toast.inTransit'), 'success');
           } catch {
-            showToast('Failed to update status', 'error');
+            showToast(t('bookingDetail.toast.updateFailed'), 'error');
           }
         }}
         onClose={() => setScannerVisible(false)}

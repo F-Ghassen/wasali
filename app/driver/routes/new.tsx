@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/Button';
 import { DateInput } from '@/components/ui/DateInput';
 import { URLInput } from '@/components/ui/URLInput';
 import { CityPickerInput } from '@/components/ui/CityPickerInput';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -52,11 +53,11 @@ interface DropoffStop {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STEPS = [
-  { num: 1, key: 'collection', label: 'Collect' },
-  { num: 2, key: 'dropoff',    label: 'Drop-off' },
-  { num: 3, key: 'notes',      label: 'Notes' },
-  { num: 4, key: 'services',   label: 'Services' },
-  { num: 5, key: 'pricing',    label: 'Pricing' },
+  { num: 1, key: 'collection', tKey: 'routeWizard.steps.collect' as const },
+  { num: 2, key: 'dropoff',    tKey: 'routeWizard.steps.dropoff' as const },
+  { num: 3, key: 'notes',      tKey: 'routeWizard.steps.notes' as const },
+  { num: 4, key: 'services',   tKey: 'routeWizard.steps.services' as const },
+  { num: 5, key: 'pricing',    tKey: 'routeWizard.steps.pricing' as const },
 ];
 
 const PAYMENT_METHODS = ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'];
@@ -79,32 +80,14 @@ interface LogisticsOpt {
   price: string;
 }
 
-const COLLECTION_LOGISTICS: { key: string; label: string; desc: string; free?: boolean }[] = [
-  {
-    key: 'drop_off',
-    label: 'Drop-off at collection point',
-    desc: 'Sender brings packages to an agreed meeting point before departure.',
-    free: true,
-  },
-  {
-    key: 'home_pickup',
-    label: 'Home pick-up by driver',
-    desc: 'You collect the package directly from the sender\'s address.',
-  },
+const COLLECTION_LOGISTICS_KEYS: { key: string; labelKey: string; descKey: string; free?: boolean }[] = [
+  { key: 'drop_off', labelKey: 'routeWizard.logistics.dropoffPoint', descKey: 'routeWizard.logistics.dropoffDesc', free: true },
+  { key: 'home_pickup', labelKey: 'routeWizard.logistics.homePickup', descKey: 'routeWizard.logistics.homePickupDesc' },
 ];
 
-const DELIVERY_LOGISTICS: { key: string; label: string; desc: string; free?: boolean }[] = [
-  {
-    key: 'recipient_collect',
-    label: 'Recipient collects',
-    desc: 'Recipient picks up from a drop-off point in the destination city.',
-    free: true,
-  },
-  {
-    key: 'home_delivery',
-    label: 'Home delivery by driver',
-    desc: 'You deliver the package directly to the recipient\'s door.',
-  },
+const DELIVERY_LOGISTICS_KEYS: { key: string; labelKey: string; descKey: string; free?: boolean }[] = [
+  { key: 'recipient_collect', labelKey: 'routeWizard.logistics.recipientCollects', descKey: 'routeWizard.logistics.recipientCollectsDesc', free: true },
+  { key: 'home_delivery', labelKey: 'routeWizard.logistics.homeDelivery', descKey: 'routeWizard.logistics.homeDeliveryDesc' },
 ];
 
 const COLLECTION_DEFAULTS: LogisticsOpt[] = [
@@ -130,6 +113,7 @@ const PROHIBITED_PRESETS = [
 // ─── StepIndicator ────────────────────────────────────────────────────────────
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
+  const { t } = useTranslation();
   return (
     <View style={si.root}>
       {STEPS.map((step, i) => {
@@ -145,7 +129,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 }
               </View>
               <Text style={[si.label, active && si.labelActive, done && si.labelDone]} numberOfLines={1}>
-                {step.label}
+                {t(step.tKey)}
               </Text>
             </View>
             {i < STEPS.length - 1 && (
@@ -173,6 +157,7 @@ function StepCard({
   onEdit?: () => void;
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={[sc.card, isLocked && sc.cardLocked]}>
       <View style={sc.header}>
@@ -187,7 +172,7 @@ function StepCard({
         <Text style={[sc.title, isLocked && sc.titleLocked]}>{title}</Text>
         {isCompleted && !isActive && onEdit && (
           <TouchableOpacity onPress={onEdit} style={sc.editBtn} activeOpacity={0.7}>
-            <Text style={sc.editText}>Edit</Text>
+            <Text style={sc.editText}>{t('common.edit')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -209,6 +194,7 @@ function LogisticsOptionCard({
   label: string; desc: string; free?: boolean; enabled: boolean; price: string;
   onToggle: () => void; onChangePrice: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={[lg.card, enabled && lg.cardActive]}>
       <TouchableOpacity style={lg.row} onPress={onToggle} activeOpacity={0.75}>
@@ -221,13 +207,13 @@ function LogisticsOptionCard({
         </View>
         {free && enabled && (
           <View style={lg.freeBadge}>
-            <Text style={lg.freeBadgeText}>Free</Text>
+            <Text style={lg.freeBadgeText}>{t('routeWizard.services.free')}</Text>
           </View>
         )}
       </TouchableOpacity>
       {enabled && !free && (
         <View style={lg.priceRow}>
-          <Text style={lg.priceLabel}>Your fee per booking</Text>
+          <Text style={lg.priceLabel}>{t('routeWizard.services.feeLabel')}</Text>
           <View style={lg.priceInputWrap}>
             <Text style={lg.priceSymbol}>€</Text>
             <TextInput
@@ -249,6 +235,7 @@ function LogisticsOptionCard({
 
 export default function NewRouteScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile } = useAuthStore();
   const { createRoute, publishRoute, isLoading, routes } = useDriverRouteStore();
   const { showToast } = useUIStore();
@@ -385,8 +372,8 @@ export default function NewRouteScreen() {
   })();
 
   const step4Summary = (() => {
-    const coll = collectionOptions.filter((o) => o.enabled).map((o) => COLLECTION_LOGISTICS.find((l) => l.key === o.key)?.label.split(' ')[0]).filter(Boolean).join(', ');
-    const delv = deliveryOptions.filter((o) => o.enabled).map((o) => DELIVERY_LOGISTICS.find((l) => l.key === o.key)?.label.split(' ')[0]).filter(Boolean).join(', ');
+    const coll = collectionOptions.filter((o) => o.enabled).map((o) => t(COLLECTION_LOGISTICS_KEYS.find((l) => l.key === o.key)?.labelKey ?? '').split(' ')[0]).filter(Boolean).join(', ');
+    const delv = deliveryOptions.filter((o) => o.enabled).map((o) => t(DELIVERY_LOGISTICS_KEYS.find((l) => l.key === o.key)?.labelKey ?? '').split(' ')[0]).filter(Boolean).join(', ');
     return coll || delv ? `Collection: ${coll || '—'}  ·  Delivery: ${delv || '—'}` : '';
   })();
 
@@ -472,7 +459,7 @@ export default function NewRouteScreen() {
   // ── Submit ─────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!profile) return;
-    if (!step5Valid) { showToast('Please fill in all pricing fields', 'error'); return; }
+    if (!step5Valid) { showToast(t('routeWizard.pricing.errors.fillPricing'), 'error'); return; }
 
     const derivedOriginCity = collectionStops.find(s => s.city)?.city ?? '';
     const derivedDestCity   = dropoffStops.find(s => s.city)?.city ?? '';
@@ -490,10 +477,10 @@ export default function NewRouteScreen() {
 
     if (existing) {
       Alert.alert(
-        'Duplicate Route',
-        'You already have a route on this corridor for this date.',
+        t('routeWizard.pricing.errors.duplicate'),
+        t('routeWizard.pricing.errors.duplicateMsg'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           { text: 'Create Anyway', onPress: () => doCreate() },
         ]
       );
@@ -571,7 +558,7 @@ export default function NewRouteScreen() {
       await publishRoute(routeId);
 
       if (draftKey) await AsyncStorage.removeItem(draftKey);
-      showToast('Route published successfully!', 'success');
+      showToast(t('routeWizard.pricing.toast.success'), 'success');
       router.back();
     } catch (err) {
       const message = (err as Error)?.message ?? '';
@@ -584,12 +571,12 @@ export default function NewRouteScreen() {
             promoExpiresAt, promoLabel, collectionStops, dropoffStops,
             profileId: profile.id,
           }));
-          showToast('No connection — route saved locally.', 'info');
+          showToast(t('routeWizard.pricing.toast.offline'), 'info');
         } catch {
-          showToast('Failed to create route. Please try again.', 'error');
+          showToast(t('routeWizard.pricing.toast.failed'), 'error');
         }
       } else {
-        showToast(message || 'Failed to create route. Please try again.', 'error');
+        showToast(message || t('routeWizard.pricing.toast.failed'), 'error');
       }
     }
   };
@@ -608,7 +595,7 @@ export default function NewRouteScreen() {
         <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
           <ArrowLeft size={24} color={Colors.text.primary} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>New Route</Text>
+        <Text style={styles.navTitle}>{t('routeWizard.navTitle')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -630,13 +617,13 @@ export default function NewRouteScreen() {
           {/* Draft recovery */}
           {showDraftBanner && (
             <View style={f.draftBanner}>
-              <Text style={f.draftBannerText}>You have an unsaved route draft.</Text>
+              <Text style={f.draftBannerText}>{t('routeWizard.draftBanner')}</Text>
               <View style={f.draftBannerActions}>
                 <TouchableOpacity onPress={restoreDraft}>
-                  <Text style={f.draftContinue}>Continue</Text>
+                  <Text style={f.draftContinue}>{t('common.continue')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={discardDraft}>
-                  <Text style={f.draftDiscard}>Discard</Text>
+                  <Text style={f.draftDiscard}>{t('common.discard')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -646,7 +633,7 @@ export default function NewRouteScreen() {
               Step 1 — Collection Stops
           ════════════════════════════════════════════════ */}
           <StepCard
-            stepNum={1} title="Collection Stops"
+            stepNum={1} title={t('routeWizard.collection.title')}
             isActive={currentStep === 1}
             isCompleted={currentStep > 1}
             isLocked={false}
@@ -670,28 +657,28 @@ export default function NewRouteScreen() {
                 <View style={f.stopHeader}>
                   <View style={f.stopHandleRow}>
                     <GripVertical size={14} color={Colors.text.tertiary} />
-                    <Text style={f.stopNum}>Stop {idx + 1}</Text>
+                    <Text style={f.stopNum}>{t('routeWizard.collection.stopNum', { num: idx + 1 })}</Text>
                   </View>
                   <TouchableOpacity onPress={() => removeCollectionStop(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Trash2 size={15} color={Colors.error} />
                   </TouchableOpacity>
                 </View>
-                <Text style={f.fieldLabel}>City</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.collection.cityLabel')}</Text>
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
                   cities={EU_ORIGIN_CITIES}
-                  placeholder="Select collection city"
+                  placeholder={t('routeWizard.collection.cityPlaceholder')}
                   onChange={(city, country) => updateCollectionStop(idx, { city, country })}
                 />
-                <Text style={f.fieldLabel}>{idx === 0 ? 'Departure date (optional)' : 'Collection date (optional)'}</Text>
+                <Text style={f.fieldLabel}>{idx === 0 ? t('routeWizard.collection.departureDateLabel') : t('routeWizard.collection.collectionDateLabel')}</Text>
                 <DateInput
                   value={stop.collection_date}
                   onChange={(v) => updateCollectionStop(idx, { collection_date: v })}
                   minDate={today}
                   placeholder="Optional"
                 />
-                <Text style={f.fieldLabel}>Meeting point link (optional)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.collection.meetingPointLabel')}</Text>
                 <URLInput
                   value={stop.meeting_point_url}
                   onChangeText={(t) => updateCollectionStop(idx, { meeting_point_url: t })}
@@ -708,15 +695,15 @@ export default function NewRouteScreen() {
             >
               <Plus size={16} color={collectionStops.length >= 8 ? Colors.text.tertiary : Colors.primary} strokeWidth={2.5} />
               <Text style={[f.addStopBtnText, collectionStops.length >= 8 && f.addStopBtnTextDisabled]}>
-                {collectionStops.length >= 8 ? 'Maximum 8 stops' : 'Add collection stop'}
+                {collectionStops.length >= 8 ? t('routeWizard.collection.maxStops') : t('routeWizard.collection.addStop')}
               </Text>
             </TouchableOpacity>
 
             <Button
-              label="Continue"
+              label={t('common.continue')}
               onPress={() => {
                 if (!step1Valid) {
-                  showToast('Add at least one collection stop with city and country', 'error');
+                  showToast(t('routeWizard.collection.error'), 'error');
                   return;
                 }
                 setCurrentStep(2);
@@ -730,7 +717,7 @@ export default function NewRouteScreen() {
               Step 2 — Drop-off Stops
           ════════════════════════════════════════════════ */}
           <StepCard
-            stepNum={2} title="Drop-off Stops"
+            stepNum={2} title={t('routeWizard.dropoff.title')}
             isActive={currentStep === 2}
             isCompleted={currentStep > 2}
             isLocked={currentStep < 2}
@@ -749,28 +736,28 @@ export default function NewRouteScreen() {
                 <View style={f.stopHeader}>
                   <View style={f.stopHandleRow}>
                     <GripVertical size={14} color={Colors.text.tertiary} />
-                    <Text style={f.stopNum}>Stop {idx + 1}</Text>
+                    <Text style={f.stopNum}>{t('routeWizard.dropoff.stopNum', { num: idx + 1 })}</Text>
                   </View>
                   <TouchableOpacity onPress={() => removeDropoffStop(idx)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <Trash2 size={15} color={Colors.error} />
                   </TouchableOpacity>
                 </View>
-                <Text style={f.fieldLabel}>City</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.dropoff.cityLabel')}</Text>
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
                   cities={TN_DESTINATION_CITIES}
-                  placeholder="Select drop-off city"
+                  placeholder={t('routeWizard.dropoff.cityPlaceholder')}
                   onChange={(city, country) => updateDropoffStop(idx, { city, country })}
                 />
-                <Text style={f.fieldLabel}>Estimated arrival (optional)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.dropoff.arrivalLabel')}</Text>
                 <DateInput
                   value={stop.estimated_arrival_date}
                   onChange={(v) => updateDropoffStop(idx, { estimated_arrival_date: v })}
                   minDate={derivedDepartureDate ? new Date(derivedDepartureDate) : today}
                   placeholder="Optional"
                 />
-                <Text style={f.fieldLabel}>Meeting point link (optional)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.dropoff.meetingPointLabel')}</Text>
                 <URLInput
                   value={stop.meeting_point_url}
                   onChangeText={(t) => updateDropoffStop(idx, { meeting_point_url: t })}
@@ -787,15 +774,15 @@ export default function NewRouteScreen() {
             >
               <Plus size={16} color={dropoffStops.length >= 8 ? Colors.text.tertiary : Colors.primary} strokeWidth={2.5} />
               <Text style={[f.addStopBtnText, dropoffStops.length >= 8 && f.addStopBtnTextDisabled]}>
-                {dropoffStops.length >= 8 ? 'Maximum 8 stops' : 'Add drop-off stop'}
+                {dropoffStops.length >= 8 ? t('routeWizard.dropoff.maxStops') : t('routeWizard.dropoff.addStop')}
               </Text>
             </TouchableOpacity>
 
             <Button
-              label="Continue"
+              label={t('common.continue')}
               onPress={() => {
                 if (!step2Valid) {
-                  showToast('Add at least one drop-off stop with city and country', 'error');
+                  showToast(t('routeWizard.dropoff.error'), 'error');
                   return;
                 }
                 setCurrentStep(3);
@@ -809,7 +796,7 @@ export default function NewRouteScreen() {
               Step 3 — Notes & Rules
           ════════════════════════════════════════════════ */}
           <StepCard
-            stepNum={3} title="Notes & Rules"
+            stepNum={3} title={t('routeWizard.notes.title')}
             isActive={currentStep === 3}
             isCompleted={currentStep > 3}
             isLocked={currentStep < 3}
@@ -821,19 +808,19 @@ export default function NewRouteScreen() {
             </Text>
 
             {/* Notes */}
-            <Text style={f.fieldLabel}>Notes for senders (optional)</Text>
+            <Text style={f.fieldLabel}>{t('routeWizard.notes.senderNotesLabel')}</Text>
             <TextInput
               style={[f.input, f.inputMultiline]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Any additional info for senders…"
+              placeholder={t('routeWizard.notes.placeholder')}
               placeholderTextColor={Colors.text.tertiary}
               multiline
               numberOfLines={3}
             />
 
             {/* Prohibited items */}
-            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>Prohibited items</Text>
+            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>{t('routeWizard.notes.prohibitedItems')}</Text>
             <Text style={f.stepDesc}>
               Select items you won't transport. Senders see this before booking.
             </Text>
@@ -878,7 +865,7 @@ export default function NewRouteScreen() {
                 style={[f.input, { flex: 1, marginBottom: 0 }]}
                 value={customItemInput}
                 onChangeText={setCustomItemInput}
-                placeholder="Add custom item…"
+                placeholder={t('routeWizard.notes.addCustom')}
                 placeholderTextColor={Colors.text.tertiary}
                 onSubmitEditing={addCustomProhibitedItem}
                 returnKeyType="done"
@@ -893,7 +880,7 @@ export default function NewRouteScreen() {
             </View>
 
             <Button
-              label="Continue"
+              label={t('common.continue')}
               onPress={() => setCurrentStep(4)}
               size="lg"
               style={f.continueBtn}
@@ -904,7 +891,7 @@ export default function NewRouteScreen() {
               Step 4 — Services
           ════════════════════════════════════════════════ */}
           <StepCard
-            stepNum={4} title="Services"
+            stepNum={4} title={t('routeWizard.services.title')}
             isActive={currentStep === 4}
             isCompleted={currentStep > 4}
             isLocked={currentStep < 4}
@@ -915,14 +902,14 @@ export default function NewRouteScreen() {
               Choose what services you offer and set your fee for each. Senders see these options when booking.
             </Text>
 
-            <Text style={f.sectionSubtitle}>Collection</Text>
-            {COLLECTION_LOGISTICS.map((opt) => {
+            <Text style={f.sectionSubtitle}>{t('routeWizard.services.collection')}</Text>
+            {COLLECTION_LOGISTICS_KEYS.map((opt) => {
               const state = collectionOptions.find((o) => o.key === opt.key)!;
               return (
                 <LogisticsOptionCard
                   key={opt.key}
-                  label={opt.label}
-                  desc={opt.desc}
+                  label={t(opt.labelKey)}
+                  desc={t(opt.descKey)}
                   free={opt.free}
                   enabled={state.enabled}
                   price={state.price}
@@ -932,14 +919,14 @@ export default function NewRouteScreen() {
               );
             })}
 
-            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>Delivery</Text>
-            {DELIVERY_LOGISTICS.map((opt) => {
+            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>{t('routeWizard.services.delivery')}</Text>
+            {DELIVERY_LOGISTICS_KEYS.map((opt) => {
               const state = deliveryOptions.find((o) => o.key === opt.key)!;
               return (
                 <LogisticsOptionCard
                   key={opt.key}
-                  label={opt.label}
-                  desc={opt.desc}
+                  label={t(opt.labelKey)}
+                  desc={t(opt.descKey)}
                   free={opt.free}
                   enabled={state.enabled}
                   price={state.price}
@@ -950,10 +937,10 @@ export default function NewRouteScreen() {
             })}
 
             <Button
-              label="Continue"
+              label={t('common.continue')}
               onPress={() => {
                 if (!step4Valid) {
-                  showToast('Enable at least one collection and one delivery option', 'error');
+                  showToast(t('routeWizard.services.error'), 'error');
                   return;
                 }
                 setCurrentStep(5);
@@ -967,7 +954,7 @@ export default function NewRouteScreen() {
               Step 5 — Pricing & Settings
           ════════════════════════════════════════════════ */}
           <StepCard
-            stepNum={5} title="Pricing & Settings"
+            stepNum={5} title={t('routeWizard.pricing.title')}
             isActive={currentStep === 5}
             isCompleted={false}
             isLocked={currentStep < 5}
@@ -975,10 +962,10 @@ export default function NewRouteScreen() {
             onEdit={() => setCurrentStep(5)}
           >
             {/* Capacity */}
-            <Text style={f.sectionSubtitle}>Capacity</Text>
+            <Text style={f.sectionSubtitle}>{t('routeWizard.pricing.capacity')}</Text>
             <View style={f.capacityRow}>
               <View style={{ flex: 1 }}>
-                <Text style={f.fieldLabel}>Max capacity (kg)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.availableWeight')}</Text>
                 <TextInput
                   style={f.input}
                   value={weightKg}
@@ -989,7 +976,7 @@ export default function NewRouteScreen() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={f.fieldLabel}>Min per sender (kg)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.minWeight')}</Text>
                 <TextInput
                   style={f.input}
                   value={minWeightKg}
@@ -1008,8 +995,8 @@ export default function NewRouteScreen() {
             </View>
 
             {/* Pricing */}
-            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>Base Price</Text>
-            <Text style={f.fieldLabel}>Price per kg (€)</Text>
+            <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>{t('routeWizard.pricing.basePrice')}</Text>
+            <Text style={f.fieldLabel}>{t('routeWizard.pricing.pricePerKg')}</Text>
             <TextInput
               style={f.input}
               value={pricePerKg}
@@ -1026,12 +1013,12 @@ export default function NewRouteScreen() {
                 onValueChange={setPromoEnabled}
                 trackColor={{ true: Colors.primary }}
               />
-              <Text style={f.toggleLabel}>Offer a promotional rate</Text>
+              <Text style={f.toggleLabel}>{t('routeWizard.pricing.promo')}</Text>
             </View>
 
             {promoEnabled && (
               <View style={f.collapsibleContent}>
-                <Text style={f.fieldLabel}>Discount %</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.discount')}</Text>
                 <TextInput
                   style={f.input}
                   value={promoDiscountPct}
@@ -1047,14 +1034,14 @@ export default function NewRouteScreen() {
                     </Text>
                   </View>
                 )}
-                <Text style={f.fieldLabel}>Offer expires (optional)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.expiresAt')}</Text>
                 <DateInput
                   value={promoExpiresAt}
                   onChange={setPromoExpiresAt}
                   minDate={new Date(Date.now() + 86400000)}
                   placeholder="Optional"
                 />
-                <Text style={f.fieldLabel}>Promo label (optional)</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.promoLabel')}</Text>
                 <TextInput
                   style={f.input}
                   value={promoLabel}
@@ -1068,7 +1055,7 @@ export default function NewRouteScreen() {
 
             {/* Payment methods */}
             <Text style={[f.sectionSubtitle, { marginTop: Spacing.base }]}>
-              How will senders pay you?
+              {t('routeWizard.pricing.paymentMethods')}
             </Text>
             {PAYMENT_METHODS.map((method) => (
               <TouchableOpacity
@@ -1093,12 +1080,12 @@ export default function NewRouteScreen() {
                 onValueChange={setSaveAsTemplate}
                 trackColor={{ true: Colors.primary }}
               />
-              <Text style={f.toggleLabel}>Save as route template</Text>
+              <Text style={f.toggleLabel}>{t('routeWizard.pricing.saveTemplate')}</Text>
             </View>
 
             {saveAsTemplate && (
               <View style={f.collapsibleContent}>
-                <Text style={f.fieldLabel}>Template name</Text>
+                <Text style={f.fieldLabel}>{t('routeWizard.pricing.templateName')}</Text>
                 <TextInput
                   style={f.input}
                   value={templateName || [
@@ -1138,7 +1125,7 @@ export default function NewRouteScreen() {
             )}
 
             <Button
-              label={isLoading ? 'Creating…' : 'Create Route'}
+              label={isLoading ? t('routeWizard.pricing.submitting') : t('routeWizard.pricing.submit')}
               onPress={handleSubmit}
               isLoading={isLoading}
               size="lg"

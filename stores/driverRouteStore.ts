@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { RouteWithStops, RouteStatus, RouteTemplate } from '@/types/models';
-import type { Update } from '@/types/database';
+import type { TablesUpdate } from '@/types/database';
 import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
 
 type RouteFilter = 'active' | 'completed' | 'cancelled' | 'all';
@@ -189,7 +189,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
   updateRoute: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      const routeUpdate: Update<'routes'> = {
+      const routeUpdate: TablesUpdate<'routes'> = {
         updated_at: new Date().toISOString(),
       };
       if (updates.available_weight_kg !== undefined) routeUpdate.available_weight_kg = updates.available_weight_kg;

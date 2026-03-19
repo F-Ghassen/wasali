@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -19,19 +20,20 @@ import { EmptyState } from '@/components/ui/EmptyState';
 
 type FilterOption = 'all' | 'pending' | 'confirmed' | 'in_transit' | 'delivered';
 
-const FILTERS: { key: FilterOption; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'confirmed', label: 'Confirmed' },
-  { key: 'in_transit', label: 'In Transit' },
-  { key: 'delivered', label: 'Delivered' },
-];
-
 export default function DriverBookingsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile } = useAuthStore();
   const { bookings, fetchBookings, confirmBooking, rejectBooking, isLoading } = useDriverBookingStore();
   const [filter, setFilter] = useState<FilterOption>('all');
+
+  const FILTERS: { key: FilterOption; label: string }[] = [
+    { key: 'all', label: t('driverBookings.filters.all') },
+    { key: 'pending', label: t('driverBookings.filters.pending') },
+    { key: 'confirmed', label: t('driverBookings.filters.confirmed') },
+    { key: 'in_transit', label: t('driverBookings.filters.inTransit') },
+    { key: 'delivered', label: t('driverBookings.filters.delivered') },
+  ];
 
   const load = () => {
     if (profile) fetchBookings(profile.id, filter === 'all' ? 'all' : filter);
@@ -42,7 +44,7 @@ export default function DriverBookingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
+        <Text style={styles.title}>{t('driverBookings.title')}</Text>
       </View>
 
       {/* Filter chips */}
@@ -77,8 +79,8 @@ export default function DriverBookingsScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
-              title={filter === 'all' ? 'No bookings yet' : `No ${filter.replace('_', ' ')} bookings`}
-              description="Bookings on your routes will appear here."
+              title={filter === 'all' ? t('driverBookings.emptyAll') : t('driverBookings.emptyFiltered', { filter: filter.replace('_', ' ') })}
+              description={t('driverBookings.emptyDesc')}
             />
           ) : null
         }

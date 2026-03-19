@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -30,6 +31,7 @@ const STATUS_ORDER: BookingStatus[] = [
 
 export default function BookingDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [booking, setBooking] = useState<BookingWithRoute | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,9 +77,9 @@ export default function BookingDetailScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
-          <Text style={styles.backText}>‹ Back</Text>
+          <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Booking Details</Text>
+        <Text style={styles.headerTitle}>{t('bookingDetail.title')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -95,7 +97,7 @@ export default function BookingDetailScreen() {
 
         {/* Status Timeline */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Shipment Status</Text>
+          <Text style={styles.sectionTitle}>{t('tracking.shipmentProgress')}</Text>
           {STATUS_ORDER.map((status, i) => {
             const config = BOOKING_STATUS_CONFIG[status];
             const isCompleted = i < currentStatusIndex;
@@ -125,7 +127,7 @@ export default function BookingDetailScreen() {
         {booking.status === 'pending' && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Driver Confirmation</Text>
-            <Text style={styles.qrHint}>Show this QR code to your driver to confirm the booking</Text>
+            <Text style={styles.qrHint}>{t('booking.escrow')}</Text>
             <View style={styles.qrContainer}>
               <QRCode value={booking.id} size={180} />
             </View>
@@ -133,10 +135,10 @@ export default function BookingDetailScreen() {
         )}
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Package Info</Text>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Weight</Text><Text style={styles.infoValue}>{booking.package_weight_kg} kg</Text></View>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Category</Text><Text style={styles.infoValue}>{booking.package_category}</Text></View>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Total Paid</Text><Text style={[styles.infoValue, styles.price]}>{formatPrice(booking.price_eur)}</Text></View>
+          <Text style={styles.sectionTitle}>{t('bookingDetail.sections.package')}</Text>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>{t('bookingDetail.labels.weight')}</Text><Text style={styles.infoValue}>{booking.package_weight_kg} kg</Text></View>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>{t('bookingDetail.labels.category')}</Text><Text style={styles.infoValue}>{booking.package_category}</Text></View>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>{t('bookingDetail.labels.totalPrice')}</Text><Text style={[styles.infoValue, styles.price]}>{formatPrice(booking.price_eur)}</Text></View>
         </View>
 
         {booking.status === 'delivered' && (
@@ -144,6 +146,15 @@ export default function BookingDetailScreen() {
             label="Rate Driver"
             onPress={() => router.push(`/post-delivery/rate/${booking.id}`)}
             variant="outline"
+            size="lg"
+          />
+        )}
+
+        {(booking.status === 'confirmed' || booking.status === 'in_transit') && (
+          <Button
+            label="Track Shipment"
+            onPress={() => router.push(`/(tabs)/tracking/${booking.id}` as never)}
+            variant="primary"
             size="lg"
           />
         )}

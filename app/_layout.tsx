@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, ActivityIndicator, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { ToastContainer } from '@/components/ui/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
+import { initI18n } from '@/lib/i18n';
 
 const isStripeReady = Boolean(
   Platform.OS !== 'web' &&
@@ -28,6 +29,12 @@ function roleRoute(role?: string) {
 export default function RootLayout() {
   const { setSession, loadProfile, setInitialized, isInitialized, profile, session } = useAuthStore();
   const router = useRouter();
+  const [i18nReady, setI18nReady] = useState(false);
+
+  // i18n bootstrap — runs once, before anything is rendered
+  useEffect(() => {
+    initI18n().finally(() => setI18nReady(true));
+  }, []);
 
   // Session bootstrap — always call setInitialized so the spinner never hangs
   useEffect(() => {
@@ -60,14 +67,10 @@ export default function RootLayout() {
   // Role-based redirect: fires once profile loads after a sign-in
   useEffect(() => {
     if (!isInitialized || !session || !profile) return;
-    // Only redirect from the index screen — deep links like /dev stay untouched
-    const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-    if (currentPath === '/' || currentPath === '') {
-      router.replace(roleRoute(profile.role));
-    }
+    router.replace(roleRoute(profile.role));
   }, [isInitialized, session, profile]);
 
-  if (!isInitialized) {
+  if (!isInitialized || !i18nReady) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" />

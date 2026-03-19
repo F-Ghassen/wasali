@@ -3,12 +3,14 @@ import { Tabs, Redirect, useRouter } from 'expo-router';
 import { View, Text, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Home, MapPin, Package, User } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { Button } from '@/components/ui/Button';
+import { LanguageNavButton } from '@/components/ui/LanguageNavButton';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;
@@ -16,6 +18,7 @@ const ICON_SIZE_MOBILE = 22;
 function WrongRoleScreen({ targetRole }: { targetRole: 'driver' | 'sender' }) {
   const router = useRouter();
   const { signOut } = useAuthStore();
+  const { t } = useTranslation();
 
   const isDriverArea = targetRole === 'driver';
 
@@ -23,20 +26,18 @@ function WrongRoleScreen({ targetRole }: { targetRole: 'driver' | 'sender' }) {
     <SafeAreaView style={styles.center}>
       <Text style={styles.icon}>{isDriverArea ? '🚛' : '📦'}</Text>
       <Text style={styles.title}>
-        {isDriverArea ? 'Driver Area' : 'Sender Area'}
+        {isDriverArea ? t('roleGuard.driverTitle') : t('roleGuard.senderTitle')}
       </Text>
       <Text style={styles.message}>
-        {isDriverArea
-          ? 'This section is for registered drivers only. Your account is set up as a sender.'
-          : 'This section is for senders. Your account is set up as a driver.'}
+        {isDriverArea ? t('roleGuard.driverOnly') : t('roleGuard.senderOnly')}
       </Text>
       <Button
-        label={isDriverArea ? 'Go to Sender App' : 'Go to Driver Dashboard'}
+        label={isDriverArea ? t('roleGuard.goSender') : t('roleGuard.goDriver')}
         onPress={() => router.replace(isDriverArea ? '/(tabs)' : ('/(driver-tabs)' as any))}
         size="lg"
       />
       <Button
-        label="Sign Out"
+        label={t('profile.signOut')}
         onPress={signOut}
         variant="ghost"
         size="lg"
@@ -60,6 +61,7 @@ export default function DriverTabsLayout() {
   const iconSize = isWide ? ICON_SIZE_WIDE : ICON_SIZE_MOBILE;
   const { session, profile, isInitialized } = useAuthStore();
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const { t } = useTranslation();
 
   // 1. Still bootstrapping — show spinner
   if (!isInitialized) {
@@ -83,6 +85,7 @@ export default function DriverTabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
+      <LanguageNavButton />
       <Tabs
         screenOptions={{
           tabBarPosition: isWide ? 'top' : 'bottom',
@@ -124,28 +127,28 @@ export default function DriverTabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Dashboard',
+            title: t('driverTabs.dashboard'),
             tabBarIcon: ({ color }) => <Home size={iconSize} color={color} strokeWidth={2} />,
           }}
         />
         <Tabs.Screen
           name="routes"
           options={{
-            title: 'My Routes',
+            title: t('driverTabs.routes'),
             tabBarIcon: ({ color }) => <MapPin size={iconSize} color={color} strokeWidth={2} />,
           }}
         />
         <Tabs.Screen
           name="bookings"
           options={{
-            title: 'Bookings',
+            title: t('driverTabs.bookings'),
             tabBarIcon: ({ color }) => <Package size={iconSize} color={color} strokeWidth={2} />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: t('driverTabs.profile'),
             tabBarIcon: ({ color }) => (
               <BadgeIcon
                 icon={<User size={iconSize} color={color} strokeWidth={2} />}

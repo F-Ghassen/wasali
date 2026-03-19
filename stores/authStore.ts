@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       const redirectTo = Platform.OS === 'web'
         ? (typeof window !== 'undefined' ? window.location.origin : '')
         : Linking.createURL('/');
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -56,6 +56,11 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         },
       });
       if (error) throw error;
+      // If confirmation is disabled, Supabase returns a session immediately
+      if (data.session) {
+        // Session will be picked up by the onAuthStateChange listener — no OTP needed
+        return;
+      }
       set({ isOtpPending: true, pendingEmail: email });
     } finally {
       set({ isLoading: false });
@@ -119,9 +124,16 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
     const query = supabase.from('profiles').select('*').eq('id', userId).single();
     const result = await Promise.race([query, timeout]);
-    if (!result) return;
+    if (!result) {
+      console.warn('[loadProfile] timed out for', userId);
+      return;
+    }
     const { data, error } = result as Awaited<typeof query>;
-    if (!error && data) {
+    if (error) {
+      console.warn('[loadProfile] error:', error.message);
+      return;
+    }
+    if (data) {
       set({ profile: data as Profile });
       // Register push token in the background (non-blocking)
       registerForPushNotificationsAsync()

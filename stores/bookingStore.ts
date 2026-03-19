@@ -139,6 +139,11 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
           pickup_address:     draft.pickupAddress || null,
           dropoff_type:       draft.dropoffType,
           dropoff_address:    draft.dropoffAddress || null,
+          recipient_name:     draft.recipientName || null,
+          recipient_phone:    draft.recipientPhoneCC && draft.recipientPhone
+                                ? draft.recipientPhoneCC + draft.recipientPhone
+                                : null,
+          driver_notes:       draft.driverNotes || null,
           price_eur:          calculatedPriceEur,
           status:             'pending',
           payment_status:     'pending',

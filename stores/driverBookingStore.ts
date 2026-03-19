@@ -115,7 +115,49 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
   },
 
   confirmBooking: async (id) => {
-    await updateBookingStatus(id, 'confirmed', set, get);
+    set({ isLoading: true, error: null });
+    try {
+      // 1. Fetch booking to get route_id and package_weight_kg
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('route_id, package_weight_kg')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      // 2. Update booking status to confirmed
+      const { error: statusError } = await supabase
+        .from('bookings')
+        .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (statusError) throw statusError;
+
+      // 3. Atomically decrement route capacity (guarded: WHERE available_weight_kg >= weight)
+      const { error: rpcError } = await supabase.rpc('decrement_route_capacity', {
+        p_route_id:  booking.route_id,
+        p_weight_kg: booking.package_weight_kg ?? 0,
+      });
+      if (rpcError) {
+        // Roll back: reset booking status to pending
+        await supabase
+          .from('bookings')
+          .update({ status: 'pending', updated_at: new Date().toISOString() })
+          .eq('id', id);
+        throw new Error('Not enough capacity on this route. Booking reverted to pending.');
+      }
+
+      set({
+        bookings: get().bookings.map((b) =>
+          b.id === id ? { ...b, status: 'confirmed' } : b
+        ),
+      });
+      get().computeStats();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   rejectBooking: async (id) => {

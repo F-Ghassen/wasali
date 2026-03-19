@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,29 +6,32 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Check, Lock, MapPin, Package, Printer, Truck, Star } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { useBookingStore } from '@/stores/bookingStore';
+import { supabase } from '@/lib/supabase';
 import { ShipmentLabelModal, type LabelData } from '@/components/tracking/ShipmentLabelModal';
 
-// ─── Status lifecycle ─────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-type TrackingStatus =
-  | 'awaiting_payment'
-  | 'confirmed'
-  | 'collected'
-  | 'in_transit'
-  | 'delivered'
-  | 'rated';
+type TrackingStatus = 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'rated';
 
-const STATUS_ORDER: TrackingStatus[] = [
-  'confirmed', 'collected', 'in_transit', 'delivered', 'rated',
-];
+const STATUS_ORDER: TrackingStatus[] = ['confirmed', 'in_transit', 'delivered', 'rated'];
+
+interface StepContext {
+  destinationCity: string;
+  weightKg: number;
+  amountEur: number;
+  confirmedAt?: string;
+  inTransitAt?: string;
+  deliveredAt?: string;
+}
 
 interface StepData {
   key: TrackingStatus;
@@ -37,63 +40,9 @@ interface StepData {
   subtitle: (ctx: StepContext) => string;
 }
 
-interface StepContext {
-  destinationCity: string;
-  weightKg: number;
-  amountEur: number;
-  confirmedAt?: string;
-  collectedAt?: string;
-  inTransitAt?: string;
-  deliveredAt?: string;
-}
-
-const STEPS: StepData[] = [
-  {
-    key: 'confirmed',
-    label: 'Booking confirmed',
-    icon: <Check size={14} color={Colors.white} strokeWidth={3} />,
-    subtitle: (ctx) =>
-      ctx.confirmedAt
-        ? `${ctx.confirmedAt} · Payment secured in escrow`
-        : 'Payment secured in escrow',
-  },
-  {
-    key: 'collected',
-    label: 'Package collected',
-    icon: <Package size={14} color={Colors.white} strokeWidth={2.5} />,
-    subtitle: (ctx) =>
-      ctx.collectedAt
-        ? `${ctx.collectedAt} · Confirmed by driver · ${ctx.weightKg} kg`
-        : 'Pending',
-  },
-  {
-    key: 'in_transit',
-    label: 'In transit',
-    icon: <Truck size={14} color={Colors.white} strokeWidth={2.5} />,
-    subtitle: (ctx) =>
-      ctx.inTransitAt
-        ? `${ctx.inTransitAt} · En route to ${ctx.destinationCity}`
-        : `En route to ${ctx.destinationCity}`,
-  },
-  {
-    key: 'delivered',
-    label: 'Delivered',
-    icon: <MapPin size={14} color={Colors.white} strokeWidth={2.5} />,
-    subtitle: (ctx) =>
-      ctx.deliveredAt
-        ? `${ctx.deliveredAt} · Confirmed by driver`
-        : 'Pending',
-  },
-  {
-    key: 'rated',
-    label: 'Escrow released',
-    icon: <Lock size={14} color={Colors.white} strokeWidth={2.5} />,
-    subtitle: (ctx) =>
-      ctx.amountEur > 0
-        ? `€${ctx.amountEur.toFixed(2)} released to driver`
-        : 'Coming soon for online payments',
-  },
-];
+// STEPS are built inside the component so they can use t()
+// kept here as a reference for keys only
+const STEP_KEYS: TrackingStatus[] = ['confirmed', 'in_transit', 'delivered', 'rated'];
 
 function stepStatus(
   stepKey: TrackingStatus,
@@ -101,6 +50,7 @@ function stepStatus(
 ): 'done' | 'current' | 'pending' {
   const stepIdx    = STATUS_ORDER.indexOf(stepKey);
   const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+  if (currentStatus === 'pending') return 'pending';
   if (stepIdx < currentIdx)  return 'done';
   if (stepIdx === currentIdx) return 'current';
   return 'pending';
@@ -109,21 +59,19 @@ function stepStatus(
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<TrackingStatus, string> = {
-  awaiting_payment: 'Awaiting payment',
-  confirmed:   'Confirmed',
-  collected:   'Collected',
-  in_transit:  'In transit',
-  delivered:   'Delivered',
-  rated:       'Completed',
+  pending:    'Pending',
+  confirmed:  'Confirmed',
+  in_transit: 'In transit',
+  delivered:  'Delivered',
+  rated:      'Completed',
 };
 
 const STATUS_COLORS: Record<TrackingStatus, { bg: string; text: string }> = {
-  awaiting_payment: { bg: Colors.warningLight,  text: Colors.warning },
-  confirmed:        { bg: Colors.secondary, text: Colors.white },
-  collected:        { bg: Colors.successLight,   text: Colors.success },
-  in_transit:       { bg: Colors.successLight,   text: Colors.success },
-  delivered:        { bg: Colors.successLight,   text: Colors.success },
-  rated:            { bg: Colors.primaryLight,   text: Colors.text.primary },
+  pending:    { bg: Colors.warningLight,  text: Colors.warning },
+  confirmed:  { bg: Colors.secondary,     text: Colors.white },
+  in_transit: { bg: Colors.successLight,  text: Colors.success },
+  delivered:  { bg: Colors.successLight,  text: Colors.success },
+  rated:      { bg: Colors.primaryLight,  text: Colors.text.primary },
 };
 
 function StatusBadge({ status }: { status: TrackingStatus }) {
@@ -150,7 +98,6 @@ function TimelineStep({
 
   return (
     <View style={tl.row}>
-      {/* Dot + connecting line */}
       <View style={tl.dotCol}>
         <View style={[
           tl.dot,
@@ -164,12 +111,9 @@ function TimelineStep({
             <View style={tl.dotCurrentInner} />
           ) : null}
         </View>
-        {!isLast && (
-          <View style={[tl.line, isDone && tl.lineDone]} />
-        )}
+        {!isLast && <View style={[tl.line, isDone && tl.lineDone]} />}
       </View>
 
-      {/* Content */}
       <View style={tl.content}>
         <Text style={[
           tl.label,
@@ -182,7 +126,6 @@ function TimelineStep({
         <Text style={[tl.subtitle, !isDone && !isCurrent && tl.subtitlePending]}>
           {step.subtitle(ctx)}
         </Text>
-        {/* Escrow "coming soon" note */}
         {step.key === 'rated' && status !== 'done' && (
           <View style={tl.escrowNote}>
             <Lock size={11} color={Colors.text.tertiary} strokeWidth={2} />
@@ -196,50 +139,155 @@ function TimelineStep({
 
 // ─── TrackingScreen ───────────────────────────────────────────────────────────
 
-// Mock data — replace with real Supabase fetch once DB is live
-const MOCK_STATUS: TrackingStatus = 'confirmed';
-const MOCK_CONTEXT: StepContext = {
-  destinationCity: 'Tunis',
-  weightKg: 7,
-  amountEur: 41.50,
-  confirmedAt: 'Mar 7',
-};
-
-const MOCK_LABEL: LabelData = {
-  trackingId: 'WSL-20483',
-  originCity: 'Berlin',
-  originFlag: '🇩🇪',
-  destCity: 'Tunis',
-  destFlag: '🇹🇳',
-  departureDate: 'Mar 10',
-  arrivalDate: 'Mar 16',
-  driverName: 'Khalil H.',
-  driverRating: 4.9,
-  driverTrips: 63,
-  senderName: 'Amira Bensalem',
-  senderPhone: '+49 176 4821 0033',
-  recipientName: 'Mohamed Bensalem',
-  recipientPhone: '+216 98 123 456',
-  recipientAddressLine1: '12 Rue de la République',
-  recipientAddressLine2: 'Tunis 1001',
-  weightKg: 7,
-  deliveryMethod: 'Home delivery',
+type BookingRow = {
+  id: string;
+  status: string;
+  package_weight_kg: number | null;
+  price_eur: number | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+  route: {
+    origin_city: string;
+    destination_city: string;
+    departure_date: string | null;
+    estimated_arrival_date: string | null;
+    driver: { full_name: string | null; avatar_url: string | null } | null;
+  } | null;
+  sender: { full_name: string | null; phone: string | null } | null;
 };
 
 export default function TrackingScreen() {
-  const router             = useRouter();
-  const { bookingId }      = useLocalSearchParams<{ bookingId: string }>();
-  const { selectedRoute }  = useBookingStore();
-  const { width }          = useWindowDimensions();
-  const isWide             = width >= 768;
+  const router        = useRouter();
+  const { t }         = useTranslation();
+  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const { width }     = useWindowDimensions();
+  const isWide        = width >= 768;
 
+  const [booking, setBooking]       = useState<BookingRow | null>(null);
+  const [isLoading, setIsLoading]   = useState(true);
   const [labelVisible, setLabelVisible] = useState(false);
 
-  // In production: fetch booking + status from Supabase by bookingId
-  const currentStatus = MOCK_STATUS;
-  const ctx           = MOCK_CONTEXT;
+  const STEPS: StepData[] = [
+    {
+      key: 'confirmed',
+      label: t('tracking.steps.confirmed'),
+      icon: <Check size={14} color={Colors.white} strokeWidth={3} />,
+      subtitle: (ctx) =>
+        ctx.confirmedAt ? `${ctx.confirmedAt} · Payment secured in escrow` : 'Payment secured in escrow',
+    },
+    {
+      key: 'in_transit',
+      label: t('tracking.steps.in_transit'),
+      icon: <Truck size={14} color={Colors.white} strokeWidth={2.5} />,
+      subtitle: (ctx) =>
+        ctx.inTransitAt
+          ? `${ctx.inTransitAt} · ${ctx.weightKg} kg · En route to ${ctx.destinationCity}`
+          : `En route to ${ctx.destinationCity}`,
+    },
+    {
+      key: 'delivered',
+      label: t('tracking.steps.delivered'),
+      icon: <MapPin size={14} color={Colors.white} strokeWidth={2.5} />,
+      subtitle: (ctx) =>
+        ctx.deliveredAt ? `${ctx.deliveredAt} · Confirmed by driver` : 'Pending',
+    },
+    {
+      key: 'rated',
+      label: t('tracking.steps.rated'),
+      icon: <Lock size={14} color={Colors.white} strokeWidth={2.5} />,
+      subtitle: (ctx) =>
+        ctx.amountEur > 0
+          ? `€${ctx.amountEur.toFixed(2)} released to driver`
+          : 'Coming soon for online payments',
+    },
+  ];
 
-  const route = selectedRoute;
+  useEffect(() => {
+    if (!bookingId) return;
+
+    const load = async () => {
+      const { data } = await supabase
+        .from('bookings')
+        .select(`
+          id, status, package_weight_kg, price_eur, recipient_name, recipient_phone,
+          updated_at, created_at,
+          route:routes!route_id(
+            origin_city, destination_city, departure_date, estimated_arrival_date,
+            driver:profiles!driver_id(full_name, avatar_url)
+          ),
+          sender:profiles!sender_id(full_name, phone)
+        `)
+        .eq('id', bookingId)
+        .single();
+      setBooking(data as unknown as BookingRow);
+      setIsLoading(false);
+    };
+    load();
+
+    const channel = supabase
+      .channel(`tracking-${bookingId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bookings',
+        filter: `id=eq.${bookingId}`,
+      }, (payload) => {
+        setBooking((prev) => prev ? { ...prev, ...payload.new } : null);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [bookingId]);
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={s.root}>
+        <View style={s.center}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!booking) return null;
+
+  const currentStatus = booking.status as TrackingStatus;
+  const route = booking.route;
+
+  const ctx: StepContext = {
+    destinationCity: route?.destination_city ?? 'destination',
+    weightKg:        booking.package_weight_kg ?? 0,
+    amountEur:       booking.price_eur ?? 0,
+    confirmedAt:     currentStatus !== 'pending' && booking.updated_at
+                       ? formatDate(booking.updated_at) : undefined,
+    inTransitAt:     (currentStatus === 'in_transit' || currentStatus === 'delivered' || currentStatus === 'rated')
+                       && booking.updated_at ? formatDate(booking.updated_at) : undefined,
+    deliveredAt:     (currentStatus === 'delivered' || currentStatus === 'rated')
+                       && booking.updated_at ? formatDate(booking.updated_at) : undefined,
+  };
+
+  const labelData: LabelData = {
+    trackingId:           `WSL-${booking.id.slice(0, 6).toUpperCase()}`,
+    originCity:           route?.origin_city ?? '',
+    originFlag:           '🇩🇪',
+    destCity:             route?.destination_city ?? '',
+    destFlag:             '🇹🇳',
+    departureDate:        route?.departure_date ? formatDate(route.departure_date) : '—',
+    arrivalDate:          route?.estimated_arrival_date ? formatDate(route.estimated_arrival_date) : '—',
+    driverName:           route?.driver?.full_name ?? '—',
+    driverRating:         0,
+    driverTrips:          0,
+    senderName:           booking.sender?.full_name ?? '—',
+    senderPhone:          booking.sender?.phone ?? '',
+    recipientName:        booking.recipient_name ?? '—',
+    recipientPhone:       booking.recipient_phone ?? '',
+    recipientAddressLine1: '',
+    recipientAddressLine2: '',
+    weightKg:             booking.package_weight_kg ?? 0,
+    deliveryMethod:       'Home delivery',
+  };
 
   return (
     <SafeAreaView style={s.root}>
@@ -249,8 +297,8 @@ export default function TrackingScreen() {
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerTitle}>Shipment tracking</Text>
-          {bookingId && bookingId !== 'mock' && (
+          <Text style={s.headerTitle}>{t('tracking.title')}</Text>
+          {bookingId && (
             <Text style={s.headerId}>#{bookingId.slice(0, 8).toUpperCase()}</Text>
           )}
         </View>
@@ -263,6 +311,16 @@ export default function TrackingScreen() {
       >
         <View style={isWide ? s.wideLayout : undefined}>
 
+          {/* ── Pending banner ───────────────────────────── */}
+          {currentStatus === 'pending' && (
+            <View style={s.pendingBanner}>
+              <Package size={16} color={Colors.warning} strokeWidth={2} />
+              <Text style={s.pendingBannerText}>
+                {t('tracking.pendingBanner')}
+              </Text>
+            </View>
+          )}
+
           {/* ── Booking summary card ─────────────────────── */}
           <View style={s.summaryCard}>
             <View style={s.summaryHeader}>
@@ -271,48 +329,52 @@ export default function TrackingScreen() {
                   {route?.origin_city ?? 'Origin'} → {route?.destination_city ?? 'Destination'}
                 </Text>
               </View>
-              <Text style={s.totalAmount}>
-                €{ctx.amountEur.toFixed(2)}
-              </Text>
+              <Text style={s.totalAmount}>€{ctx.amountEur.toFixed(2)}</Text>
             </View>
 
             <View style={s.summaryRows}>
-              <SummaryRow label="Departure"    value={route?.departure_date ? formatDate(route.departure_date) : '—'} />
-              <SummaryRow label="Est. arrival" value={route?.estimated_arrival_date ? formatDate(route.estimated_arrival_date) : '—'} />
-              <SummaryRow label="Weight"       value={`${ctx.weightKg} kg`} />
+              <SummaryRow label={t('tracking.departure')}    value={route?.departure_date ? formatDate(route.departure_date) : '—'} />
+              <SummaryRow label={t('tracking.estArrival')} value={route?.estimated_arrival_date ? formatDate(route.estimated_arrival_date) : '—'} />
+              <SummaryRow label={t('tracking.weight')}       value={`${ctx.weightKg} kg`} />
             </View>
 
             <View style={s.escrowBanner}>
               <Lock size={13} color={Colors.success} strokeWidth={2} />
               <Text style={s.escrowBannerText}>
-                Payment held in escrow — released only on confirmed delivery
+                {t('tracking.escrowNote')}
               </Text>
             </View>
           </View>
 
           {/* ── Timeline ─────────────────────────────────── */}
-          <View style={s.timelineCard}>
-            <Text style={s.timelineTitle}>Shipment progress</Text>
-            <View style={s.timeline}>
-              {STEPS.map((step, i) => (
-                <TimelineStep
-                  key={step.key}
-                  step={step}
-                  status={stepStatus(step.key, currentStatus)}
-                  isLast={i === STEPS.length - 1}
-                  ctx={ctx}
-                />
-              ))}
+          {currentStatus !== 'pending' && (
+            <View style={s.timelineCard}>
+              <Text style={s.timelineTitle}>{t('tracking.shipmentProgress')}</Text>
+              <View style={s.timeline}>
+                {STEPS.map((step, i) => (
+                  <TimelineStep
+                    key={step.key}
+                    step={step}
+                    status={stepStatus(step.key, currentStatus)}
+                    isLast={i === STEPS.length - 1}
+                    ctx={ctx}
+                  />
+                ))}
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* ── Actions ──────────────────────────────────── */}
+          {/* ── Rate driver ──────────────────────────────── */}
           {currentStatus === 'delivered' && (
             <View style={s.actionCard}>
-              <Text style={s.actionTitle}>Everything arrived safely?</Text>
-              <TouchableOpacity style={s.actionBtn} activeOpacity={0.85}>
+              <Text style={s.actionTitle}>{t('tracking.rateTitle')}</Text>
+              <TouchableOpacity
+                style={s.actionBtn}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/post-delivery/rate/${bookingId}` as never)}
+              >
                 <Star size={16} color={Colors.white} strokeWidth={2} />
-                <Text style={s.actionBtnText}>Rate your driver</Text>
+                <Text style={s.actionBtnText}>{t('tracking.rateBtn')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -324,16 +386,16 @@ export default function TrackingScreen() {
             onPress={() => setLabelVisible(true)}
           >
             <Printer size={16} color={Colors.text.primary} strokeWidth={2} />
-            <Text style={s.labelBtnText}>Print shipment label</Text>
+            <Text style={s.labelBtnText}>{t('tracking.printLabel')}</Text>
           </TouchableOpacity>
 
-          {/* ── Home ─────────────────────────────────────── */}
+          {/* ── My bookings ──────────────────────────────── */}
           <TouchableOpacity
             style={s.homeBtn}
             activeOpacity={0.85}
-            onPress={() => router.replace('/(tabs)/bookings')}
+            onPress={() => router.replace('/(tabs)/bookings' as never)}
           >
-            <Text style={s.homeBtnText}>My bookings</Text>
+            <Text style={s.homeBtnText}>{t('tracking.myBookings')}</Text>
           </TouchableOpacity>
 
         </View>
@@ -342,7 +404,7 @@ export default function TrackingScreen() {
       <ShipmentLabelModal
         visible={labelVisible}
         onClose={() => setLabelVisible(false)}
-        data={MOCK_LABEL}
+        data={labelData}
       />
     </SafeAreaView>
   );
@@ -371,7 +433,8 @@ function formatDate(dateStr: string): string {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background.secondary },
+  root:   { flex: 1, backgroundColor: Colors.background.secondary },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   header: {
     flexDirection: 'row',
@@ -383,17 +446,27 @@ const s = StyleSheet.create({
     borderBottomColor: Colors.border.light,
     gap: Spacing.sm,
   },
-  backBtn: { padding: Spacing.xs },
-  backText: { fontSize: 28, color: Colors.text.primary, lineHeight: 32 },
+  backBtn:      { padding: Spacing.xs },
+  backText:     { fontSize: 28, color: Colors.text.primary, lineHeight: 32 },
   headerCenter: { flex: 1 },
-  headerTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
-  headerId:    { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
+  headerTitle:  { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
+  headerId:     { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
 
   scroll:     { padding: Spacing.base, gap: Spacing.md },
   scrollWide: { maxWidth: 720, alignSelf: 'center', width: '100%' },
   wideLayout: { gap: Spacing.md },
 
-  // Summary card
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.warningLight,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+  },
+  pendingBannerText: { flex: 1, fontSize: FontSize.sm, color: Colors.warning, fontWeight: '500', lineHeight: 18 },
+
   summaryCard: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
@@ -416,10 +489,10 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
   },
-  routePillText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
-  totalAmount:   { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary },
-  summaryRows:   { gap: 6 },
-  summaryRow:    { flexDirection: 'row', justifyContent: 'space-between' },
+  routePillText:   { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  totalAmount:     { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary },
+  summaryRows:     { gap: 6 },
+  summaryRow:      { flexDirection: 'row', justifyContent: 'space-between' },
   summaryRowLabel: { fontSize: FontSize.sm, color: Colors.text.secondary },
   summaryRowValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary },
   escrowBanner: {
@@ -433,7 +506,6 @@ const s = StyleSheet.create({
   },
   escrowBannerText: { flex: 1, fontSize: FontSize.xs, color: Colors.success, fontWeight: '500', lineHeight: 18 },
 
-  // Timeline card
   timelineCard: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
@@ -452,7 +524,6 @@ const s = StyleSheet.create({
   },
   timeline: { gap: 0 },
 
-  // Action card
   actionCard: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
@@ -465,7 +536,7 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  actionTitle: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
+  actionTitle:   { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -477,7 +548,6 @@ const s = StyleSheet.create({
   },
   actionBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
 
-  // Label button
   labelBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -494,13 +564,8 @@ const s = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  labelBtnText: {
-    fontSize: FontSize.base,
-    fontWeight: '700',
-    color: Colors.text.primary,
-  },
+  labelBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
 
-  // My bookings button
   homeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -509,33 +574,17 @@ const s = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     paddingVertical: Spacing.md,
   },
-  homeBtnText: {
-    fontSize: FontSize.base,
-    fontWeight: '700',
-    color: Colors.white,
-  },
+  homeBtnText: { fontSize: FontSize.base, fontWeight: '700', color: Colors.white },
 });
 
-// Status badge
 const b = StyleSheet.create({
-  badge: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
-  },
+  badge: { borderRadius: BorderRadius.full, paddingHorizontal: Spacing.md, paddingVertical: 5 },
   badgeText: { fontSize: FontSize.xs, fontWeight: '700' },
 });
 
-// Timeline
 const tl = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-  },
-  dotCol: {
-    alignItems: 'center',
-    width: 28,
-  },
+  row:    { flexDirection: 'row', gap: Spacing.md },
+  dotCol: { alignItems: 'center', width: 28 },
   dot: {
     width: 28,
     height: 28,
@@ -546,51 +595,19 @@ const tl = StyleSheet.create({
     borderColor: Colors.border.medium,
     backgroundColor: Colors.background.secondary,
   },
-  dotDone: {
-    backgroundColor: Colors.success,
-    borderColor: Colors.success,
-  },
-  dotCurrent: {
-    backgroundColor: Colors.white,
-    borderColor: Colors.success,
-    borderWidth: 2.5,
-  },
-  dotCurrentInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.success,
-  },
-  dotPending: {
-    backgroundColor: Colors.background.tertiary,
-    borderColor: Colors.border.light,
-  },
-  line: {
-    flex: 1,
-    width: 2,
-    minHeight: 32,
-    backgroundColor: Colors.border.light,
-    marginVertical: 2,
-  },
-  lineDone: {
-    backgroundColor: Colors.success,
-  },
-  content: {
-    flex: 1,
-    paddingBottom: Spacing.lg,
-    gap: 3,
-  },
+  dotDone:    { backgroundColor: Colors.success,              borderColor: Colors.success },
+  dotCurrent: { backgroundColor: Colors.white,                borderColor: Colors.success, borderWidth: 2.5 },
+  dotCurrentInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.success },
+  dotPending: { backgroundColor: Colors.background.tertiary,  borderColor: Colors.border.light },
+  line:     { flex: 1, width: 2, minHeight: 32, backgroundColor: Colors.border.light, marginVertical: 2 },
+  lineDone: { backgroundColor: Colors.success },
+  content:  { flex: 1, paddingBottom: Spacing.lg, gap: 3 },
   label:        { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
   labelDone:    { color: Colors.text.primary },
   labelCurrent: { color: Colors.success },
   labelPending: { color: Colors.text.tertiary, fontWeight: '500' },
   subtitle:        { fontSize: FontSize.sm, color: Colors.text.secondary },
   subtitlePending: { color: Colors.text.tertiary },
-  escrowNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
+  escrowNote: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
   escrowText: { fontSize: 11, color: Colors.text.tertiary },
 });

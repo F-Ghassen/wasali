@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   format,
   addDays,
@@ -169,6 +170,7 @@ function DatePickerModal({
   onSelect: (d: Date | null) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const today = new Date();
   const [viewMonth, setViewMonth] = useState(startOfMonth(today));
 
@@ -185,7 +187,7 @@ function DatePickerModal({
       <SafeAreaView style={dateS.root}>
         {/* Sheet header */}
         <View style={dateS.header}>
-          <Text style={dateS.title}>Depart before</Text>
+          <Text style={dateS.title}>{t('home.departBeforeTitle')}</Text>
           <TouchableOpacity onPress={onClose} style={dateS.closeBtn}>
             <Text style={dateS.closeText}>✕</Text>
           </TouchableOpacity>
@@ -193,7 +195,7 @@ function DatePickerModal({
 
         {/* Any time */}
         <TouchableOpacity style={dateS.anyTime} onPress={() => handleSelect(null)} activeOpacity={0.7}>
-          <Text style={dateS.anyTimeText}>Any time</Text>
+          <Text style={dateS.anyTimeText}>{t('home.anyTime')}</Text>
           {!selected && <Text style={dateS.anyTimeTick}>✓</Text>}
         </TouchableOpacity>
 
@@ -281,6 +283,7 @@ type FeaturedRoute = {
 };
 
 function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={bannerS.card}>
       <View style={bannerS.topRow}>
@@ -306,11 +309,11 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
 
       {r.isFull ? (
         <View style={bannerS.fullBox}>
-          <Text style={bannerS.fullText}>Route full — search for alternatives</Text>
+          <Text style={bannerS.fullText}>{t('home.routeFull')}</Text>
         </View>
       ) : (
         <TouchableOpacity style={bannerS.primaryBtn} onPress={onBook} activeOpacity={0.85}>
-          <Text style={bannerS.primaryBtnText}>📦  Book this slot →</Text>
+          <Text style={bannerS.primaryBtnText}>{t('home.bookSlot')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -318,6 +321,7 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
 }
 
 function FeaturedRoutesSection({ routes, onBook, onSeeAll }: { routes: FeaturedRoute[]; onBook: () => void; onSeeAll: () => void }) {
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const slideY = useRef(new Animated.Value(24)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -338,7 +342,7 @@ function FeaturedRoutesSection({ routes, onBook, onSeeAll }: { routes: FeaturedR
 
   return (
     <Animated.View style={[bannerS.section, { transform: [{ translateY: slideY }], opacity }]}>
-      <Text style={s.sectionLabel}>FEATURED ROUTES</Text>
+      <Text style={s.sectionLabel}>{t('home.featuredRoutes')}</Text>
 
       <View style={[bannerS.grid, { gap: GAP }]}>
         {visible.map((route) => (
@@ -349,7 +353,7 @@ function FeaturedRoutesSection({ routes, onBook, onSeeAll }: { routes: FeaturedR
       </View>
 
       <TouchableOpacity style={bannerS.seeAllBtn} onPress={onSeeAll} activeOpacity={0.7}>
-        <Text style={bannerS.seeAllBtnText}>Show all routes</Text>
+        <Text style={bannerS.seeAllBtnText}>{t('home.showAllRoutes')}</Text>
       </TouchableOpacity>
     </Animated.View>
   );
@@ -415,6 +419,7 @@ function ShipDocsBanner({ onPress }: { onPress: () => void }) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { fromCity, fromCountry, toCity, toCountry, setFromCity, setToCity, setDate, isSearching } =
     useSearchStore();
 
@@ -463,11 +468,7 @@ export default function HomeScreen() {
         {/* ── Hero ────────────────────────────────────────────── */}
         <SafeAreaView style={s.heroSafe}>
           <View style={s.hero}>
-            <Text style={s.heroHeading}>
-              Ship it.{' '}
-              <Text style={s.heroAccent}>Trust it.</Text>
-              {'\n'}Done.
-            </Text>
+            <Text style={s.heroHeading}>{t('home.heroTitle')}</Text>
 
             <View style={s.statsBand}>
               <Text style={s.statsText}>100+ Verified drivers</Text>
@@ -493,7 +494,7 @@ export default function HomeScreen() {
                   <Text style={s.fieldCountry}>{fromCountry}</Text>
                 </>
               ) : (
-                <Text style={s.fieldPlaceholder}>Select city</Text>
+                <Text style={s.fieldPlaceholder}>{t('home.selectCity')}</Text>
               )}
             </View>
             <Text style={s.fieldChevron}>›</Text>
@@ -513,7 +514,7 @@ export default function HomeScreen() {
                   <Text style={s.fieldCountry}>{toCountry}</Text>
                 </>
               ) : (
-                <Text style={s.fieldPlaceholder}>Select city</Text>
+                <Text style={s.fieldPlaceholder}>{t('home.selectCity')}</Text>
               )}
             </View>
             <Text style={s.fieldChevron}>›</Text>
@@ -530,7 +531,7 @@ export default function HomeScreen() {
               {selectedDate ? (
                 <Text style={s.fieldCity}>{format(selectedDate, 'EEE, MMM d')}</Text>
               ) : (
-                <Text style={s.fieldPlaceholder}>Depart before…</Text>
+                <Text style={s.fieldPlaceholder}>{t('home.departBefore')}</Text>
               )}
             </View>
             <Text style={s.fieldChevron}>›</Text>
@@ -544,7 +545,7 @@ export default function HomeScreen() {
             activeOpacity={0.85}
           >
             <Text style={s.searchBtnText}>
-              {isSearching ? 'Searching…' : 'Search drivers →'}
+              {isSearching ? t('home.searching') : t('home.searchDrivers')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -583,13 +584,13 @@ export default function HomeScreen() {
       {/* ── Modals ──────────────────────────────────────────────── */}
       <CityPicker
         visible={showFrom}
-        title="From — Select City"
+        title={t('home.fromSelectCity')}
         onSelect={(c) => setFromCity(c.name, c.country)}
         onClose={() => setShowFrom(false)}
       />
       <CityPicker
         visible={showTo}
-        title="To — Select City"
+        title={t('home.toSelectCity')}
         onSelect={(c) => setToCity(c.name, c.country)}
         onClose={() => setShowTo(false)}
       />

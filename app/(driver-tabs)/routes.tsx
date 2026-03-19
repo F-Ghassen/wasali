@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -21,19 +22,20 @@ import { EmptyState } from '@/components/ui/EmptyState';
 
 type FilterOption = 'all' | 'active' | 'completed' | 'cancelled';
 
-const FILTERS: { key: FilterOption; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'completed', label: 'Completed' },
-  { key: 'cancelled', label: 'Cancelled' },
-];
-
 export default function DriverRoutesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { profile } = useAuthStore();
   const { routes, fetchRoutes, isLoading } = useDriverRouteStore();
   const { bookings, fetchBookings } = useDriverBookingStore();
   const [filter, setFilter] = useState<FilterOption>('all');
+
+  const FILTERS: { key: FilterOption; label: string }[] = [
+    { key: 'all', label: t('driverRoutes.filters.all') },
+    { key: 'active', label: t('driverRoutes.filters.active') },
+    { key: 'completed', label: t('driverRoutes.filters.completed') },
+    { key: 'cancelled', label: t('driverRoutes.filters.cancelled') },
+  ];
 
   const load = () => {
     if (!profile) return;
@@ -50,7 +52,7 @@ export default function DriverRoutesScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>My Routes</Text>
+        <Text style={styles.title}>{t('driverRoutes.title')}</Text>
         <TouchableOpacity
           style={styles.fab}
           onPress={() => router.push('/driver/routes/new' as any)}
@@ -90,8 +92,8 @@ export default function DriverRoutesScreen() {
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
-              title={filter === 'all' ? 'No routes yet' : `No ${filter} routes`}
-              description={filter === 'all' ? 'Create your first route to start accepting packages.' : undefined}
+              title={filter === 'all' ? t('driverRoutes.emptyAll') : t('driverRoutes.emptyFiltered', { filter })}
+              description={filter === 'all' ? t('driverRoutes.emptyDesc') : undefined}
             />
           ) : null
         }

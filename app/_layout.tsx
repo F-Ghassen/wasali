@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Platform, ActivityIndicator, View } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +30,7 @@ export default function RootLayout() {
   const { setSession, loadProfile, setInitialized, isInitialized, profile, session } = useAuthStore();
   const router = useRouter();
   const [i18nReady, setI18nReady] = useState(false);
+  const hasRedirected = useRef(false);
 
   // i18n bootstrap — runs once, before anything is rendered
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function RootLayout() {
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
       setSession(s);
-      if (event === 'SIGNED_OUT') { router.replace('/(auth)/welcome'); return; }
+      if (event === 'SIGNED_OUT') { hasRedirected.current = false; router.replace('/(auth)/welcome'); return; }
       if (event === 'PASSWORD_RECOVERY') { router.replace('/(auth)/reset-password'); return; }
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s?.user) {
         await loadProfile(s.user.id);
@@ -64,9 +65,13 @@ export default function RootLayout() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Role-based redirect: fires once profile loads after a sign-in
+  // Role-based redirect: fires once per sign-in session.
+  // Guard with hasRedirected to prevent TOKEN_REFRESHED / tab-focus events
+  // from re-triggering router.replace and resetting the navigation stack.
   useEffect(() => {
     if (!isInitialized || !session || !profile) return;
+    if (hasRedirected.current) return;
+    hasRedirected.current = true;
     router.replace(roleRoute(profile.role));
   }, [isInitialized, session, profile]);
 

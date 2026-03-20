@@ -1,6 +1,6 @@
 # Wasali — Product
 
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-20_
 
 ---
 
@@ -79,9 +79,10 @@ A person already travelling from Europe to Tunisia (or within the corridor) who 
 |---|---|
 | **Route search** | Search by EU origin city + TN destination city + date |
 | **Driver profiles** | See driver rating, route history, prohibited items |
-| **5-step booking wizard** | Guided flow: details → logistics → package → recipient → payment |
-| **Logistics options** | Choose: driver home pickup / drop-off point, home delivery / recipient collects |
-| **Multiple payment methods** | Cash, bank transfer, PayPal, Stripe card |
+| **6-step booking wizard** | Guided flow: itinerary → logistics → sender → recipient → package → payment |
+| **Logistics options** | Choose: drop-off at meeting point / driver pickup; recipient self-collect / door delivery / local post |
+| **Meeting point display** | Logistics step shows driver-set location name and Google Maps link for each option |
+| **Payment methods** | Cash on collection / cash on delivery (enabled); card & PayPal visible, coming soon |
 | **Escrow protection** | Card payments held until delivery confirmed |
 | **Package tracking** | Real-time status timeline with push notifications |
 | **Ratings & disputes** | Rate driver after delivery; open dispute if issues |
@@ -94,6 +95,7 @@ A person already travelling from Europe to Tunisia (or within the corridor) who 
 |---|---|
 | **5-step route wizard** | Collection stops → drop-off stops → notes & rules → services → pricing |
 | **Multi-stop routes** | Up to 8 collection stops + 8 drop-off stops per route |
+| **Stop location fields** | Set location name + Google Maps meeting point URL per stop (shown to senders in booking) |
 | **Service pricing** | Set fees for home pickup, home delivery (collection/recipient-collect is free) |
 | **Prohibited items** | Select from presets (drugs, weapons, alcohol…) or add custom |
 | **Promo pricing** | Discount %, optional expiry date, custom label ("Early bird") |
@@ -231,6 +233,15 @@ Per-route prohibited items (driver choice): alcohol, tobacco, live animals, peri
 
 ## Roadmap
 
+### Shipped (2026-03-20)
+- [x] 6-step booking wizard (Itinerary → Logistics → Sender → Recipient → Package → Payment)
+- [x] Read-only city fields auto-filled from itinerary stop selection
+- [x] Human-readable logistics labels in completed-step summary
+- [x] Stop-level location name + meeting point URL (driver sets, sender sees)
+- [x] Payment step: cash enabled, card/PayPal gated as "Coming soon"
+- [x] Booking confirmation: tracking timeline, WhatsApp deep link to driver, ShipmentLabelModal
+- [x] Web deployment at https://wasali.vercel.app (auto-builds on push)
+
 ### Near-term
 - [ ] Stripe Connect onboarding UI for drivers
 - [ ] Platform fee capture before driver payout
@@ -238,6 +249,7 @@ Per-route prohibited items (driver choice): alcohol, tobacco, live animals, peri
 - [ ] In-app messaging (sender ↔ driver)
 - [ ] Route duplication ("Create similar route")
 - [ ] Advanced route filters (price range, rating, logistics options)
+- [ ] Card / PayPal payment enablement (remove "Coming soon" gates)
 
 ### Medium-term
 - [ ] Tunisia → Europe reverse corridor
@@ -268,3 +280,56 @@ Per-route prohibited items (driver choice): alcohol, tobacco, live animals, peri
 | Push | Expo Push Notifications |
 | Forms | react-hook-form + Zod v4 |
 | Icons | Lucide React Native |
+
+---
+
+## Booking Wizard — Product Design Decisions
+
+_Added: 2026-03-19_
+
+### Why 6 steps (not the previous 5)?
+
+The previous 5-step wizard (Logistics → Sender → Package → Recipient → Payment) had two problems:
+
+1. **Logistics step was conflated.** It combined city selection (itinerary) with service selection (logistics options). These are logically distinct: first the sender picks *where* they'll hand off, then *how* the handoff happens. Splitting them clarifies the mental model.
+
+2. **City selection had no stop ID.** The old wizard captured city *names* as strings but not the stop UUID. This meant the booking couldn't be linked to a specific `route_stop`, which is required for per-city collection services and location display.
+
+The new order: **Itinerary → Logistics → Sender → Recipient → Package → Payment**. Package stays last before payment to match driver-focused flow (driver needs to know what's coming before sender fills in package details).
+
+_Wait — Package is Step 4 in the current spec (unchanged component). Order: 0 Itinerary, 1 Logistics, 2 Sender, 3 Recipient, 4 Package, 5 Payment._
+
+### Multi-stop model
+
+A route has:
+- **Collection stops** (`stop_type = 'collection'`): cities in Europe where the driver will pick up packages
+- **Drop-off stops** (`stop_type = 'dropoff'`): cities in Tunisia where the driver will deliver/meet recipients
+- Each collection stop can have its own **collection services** (linked via `route_stop_id`)
+- Delivery services are country-wide (no stop binding — `route_stop_id IS NULL`)
+
+This allows a driver doing Paris → Lyon → Tunis → Sfax to offer different pickup times and methods in each European city, while delivery options apply uniformly.
+
+### Step reset logic rationale
+
+- **Changing collection stop resets logistics:** Services are bound to specific stops; changing the stop means the previously-selected service may not apply to the new stop.
+- **Changing collection method from `driver_pickup` resets sender address:** If the sender switches away from driver pickup, their address is no longer relevant. Keeping it silently would result in stale address in the booking.
+- **Changing delivery method does NOT reset recipient address:** The address fields are the same regardless of whether the driver delivers or the recipient collects; only the label changes.
+
+### Launch limitations
+
+| Feature | Status |
+|---------|--------|
+| Cash on collection | ✅ Launch |
+| Cash on delivery | 🚧 Coming soon (backend ready, UI disabled) |
+| Card / PayPal | 🚧 Coming soon (Stripe integration pending) |
+| Estimated collection date picker | ✅ Launch |
+| Package photos | ✅ Launch |
+| Draft persistence | ✅ Launch |
+| Multi-package bookings | ❌ Out of scope — one package per booking |
+| Customs declaration | ❌ Out of scope — future |
+| Insurance | ❌ Out of scope — future |
+
+### Platform service fee
+
+Currently €0 (free for launch). An "Included · Free" line item appears in `OrderSummary` as a placeholder. The fee model will be defined before charging begins.
+

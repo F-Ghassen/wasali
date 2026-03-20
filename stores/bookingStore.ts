@@ -2,189 +2,59 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { RouteWithStops } from '@/types/models';
 
-// ─── Draft — fields captured across the booking form ─────────────────────────
+// ─── Last booking snapshot (for confirmation screen) ─────────────────────────
 
-export interface BookingDraft {
-  // Package
-  packageWeightKg: number;
-  packageCategory: string;
-  packageTypes: string[];
-  packagePhotos: string[];
-  declaredValueEur: number | null;
-  notes: string;
-
-  // Logistics — field names match DB schema and screen expectations
-  pickupType: 'driver_pickup' | 'sender_dropoff';
-  pickupAddress: string;
-  dropoffType: 'home_delivery' | 'recipient_pickup';
-  dropoffAddress: string;
-
-  // Extended logistics (new columns)
-  collectionServiceId: string | null;
-  deliveryServiceId: string | null;
-  collectionServicePriceEur: number;
-  deliveryServicePriceEur: number;
-
-  // Sender address
-  senderAddressStreet: string;
-  senderAddressCity: string;
-  senderAddressPostalCode: string;
-
-  // Recipient
+export interface LastBooking {
+  id: string;
+  totalPrice: number;
+  collectionStopCity: string;
+  dropoffStopCity: string;
+  collectionStopDate: string;
+  dropoffStopDate: string;
+  collectionServiceType: string | null;
+  deliveryServiceType: string | null;
+  senderName: string;
   recipientName: string;
-  recipientPhoneCC: string;
   recipientPhone: string;
-  recipientPhoneIsWhatsapp: boolean;
-  recipientAddressStreet: string;
-  recipientAddressCity: string;
-  recipientAddressPostalCode: string;
-  driverNotes: string;
-
-  // Payment
+  packageWeightKg: number;
+  packageTypes: string[];
   paymentType: string;
+  driverName: string | null;
+  driverPhone: string | null;
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface BookingState {
-  step: number;
   selectedRoute: RouteWithStops | null;
-  draft: BookingDraft;
-  calculatedPriceEur: number;
-  pendingBookingId: string | null;
-  submittedAt: string | null;
   isLoading: boolean;
   submitError: string | null;
+  lastBooking: LastBooking | null;
 }
 
 interface BookingActions {
-  setStep: (step: number) => void;
   setRoute: (route: RouteWithStops) => void;
-  setDraft: (fields: Partial<BookingDraft>) => void;
-  setPackageDetails: (details: Partial<BookingDraft>) => void;
-  setLogistics: (logistics: Partial<BookingDraft>) => void;
-  computePrice: () => void;
-  submitBooking: (senderId: string) => Promise<string>;
+  submitBooking: (payload: Record<string, unknown>) => Promise<string>;
+  setLastBooking: (booking: LastBooking) => void;
   reset: () => void;
 }
 
-// ─── Defaults ─────────────────────────────────────────────────────────────────
-
-export const defaultDraft: BookingDraft = {
-  packageWeightKg: 1,
-  packageCategory: '',
-  packageTypes: [],
-  packagePhotos: [],
-  declaredValueEur: null,
-  notes: '',
-  pickupType: 'sender_dropoff',
-  pickupAddress: '',
-  dropoffType: 'home_delivery',
-  dropoffAddress: '',
-  collectionServiceId: null,
-  deliveryServiceId: null,
-  collectionServicePriceEur: 0,
-  deliveryServicePriceEur: 0,
-  senderAddressStreet: '',
-  senderAddressCity: '',
-  senderAddressPostalCode: '',
-  recipientName: '',
-  recipientPhoneCC: '+216',
-  recipientPhone: '',
-  recipientPhoneIsWhatsapp: false,
-  recipientAddressStreet: '',
-  recipientAddressCity: '',
-  recipientAddressPostalCode: '',
-  driverNotes: '',
-  paymentType: 'cash_on_collection',
-};
-
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-export const useBookingStore = create<BookingState & BookingActions>((set, get) => ({
-  step: 1,
-  selectedRoute: null,
-  draft: defaultDraft,
-  calculatedPriceEur: 0,
-  pendingBookingId: null,
-  submittedAt: null,
-  isLoading: false,
-  submitError: null,
+export const useBookingStore = create<BookingState & BookingActions>((set) => ({
+  selectedRoute:  null,
+  isLoading:      false,
+  submitError:    null,
+  lastBooking:    null,
 
-  setStep: (step) => set({ step }),
+  setRoute: (route) => set({ selectedRoute: route, submitError: null }),
 
-  setRoute: (route) => {
-    set({
-      step: 1,
-      selectedRoute: route,
-      draft: defaultDraft,
-      calculatedPriceEur: 0,
-      pendingBookingId: null,
-      submittedAt: null,
-      submitError: null,
-    });
-  },
-
-  setDraft: (fields) => {
-    set((state) => ({ draft: { ...state.draft, ...fields } }));
-  },
-
-  setPackageDetails: (details) => {
-    set((state) => ({ draft: { ...state.draft, ...details } }));
-    get().computePrice();
-  },
-
-  setLogistics: (logistics) => {
-    set((state) => ({ draft: { ...state.draft, ...logistics } }));
-    get().computePrice();
-  },
-
-  computePrice: () => {
-    const { selectedRoute, draft } = get();
-    if (!selectedRoute) return;
-    const base              = selectedRoute.price_per_kg_eur * draft.packageWeightKg;
-    const pickupSurcharge   = draft.collectionServicePriceEur;
-    const deliverySurcharge = draft.deliveryServicePriceEur;
-    set({ calculatedPriceEur: Math.round((base + pickupSurcharge + deliverySurcharge) * 100) / 100 });
-  },
-
-  submitBooking: async (senderId) => {
-    const { selectedRoute, draft, calculatedPriceEur } = get();
-    if (!selectedRoute) throw new Error('No route selected');
-
+  submitBooking: async (payload) => {
     set({ isLoading: true, submitError: null });
     try {
       const { data: booking, error } = await supabase
         .from('bookings')
-        .insert({
-          sender_id:                    senderId,
-          route_id:                     selectedRoute.id,
-          package_weight_kg:            draft.packageWeightKg,
-          package_category:             draft.packageCategory || 'general',
-          package_photos:               draft.packagePhotos,
-          declared_value_eur:           draft.declaredValueEur,
-          pickup_type:                  draft.pickupType,
-          pickup_address:               draft.pickupAddress || null,
-          dropoff_type:                 draft.dropoffType,
-          dropoff_address:              draft.dropoffAddress || null,
-          collection_service_id:        draft.collectionServiceId,
-          delivery_service_id:          draft.deliveryServiceId,
-          sender_address_street:        draft.senderAddressStreet || null,
-          sender_address_city:          draft.senderAddressCity || null,
-          sender_address_postal_code:   draft.senderAddressPostalCode || null,
-          recipient_name:               draft.recipientName || null,
-          recipient_phone:              draft.recipientPhoneCC && draft.recipientPhone
-                                          ? draft.recipientPhoneCC + draft.recipientPhone
-                                          : null,
-          recipient_address_street:     draft.recipientAddressStreet || null,
-          recipient_address_city:       draft.recipientAddressCity || null,
-          recipient_address_postal_code: draft.recipientAddressPostalCode || null,
-          driver_notes:                 draft.driverNotes || null,
-          payment_type:                 draft.paymentType || null,
-          price_eur:                    calculatedPriceEur,
-          status:                       'pending',
-          payment_status:               'pending',
-        })
+        .insert(payload as any)
         .select('id')
         .single();
 
@@ -194,7 +64,6 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
       }
 
       const id = (booking as { id: string }).id;
-      set({ pendingBookingId: id, submittedAt: new Date().toISOString() });
       return id;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create booking';
@@ -205,15 +74,12 @@ export const useBookingStore = create<BookingState & BookingActions>((set, get) 
     }
   },
 
-  reset: () =>
-    set({
-      step: 1,
-      selectedRoute: null,
-      draft: defaultDraft,
-      calculatedPriceEur: 0,
-      pendingBookingId: null,
-      submittedAt: null,
-      isLoading: false,
-      submitError: null,
-    }),
+  setLastBooking: (booking) => set({ lastBooking: booking }),
+
+  reset: () => set({
+    selectedRoute: null,
+    isLoading:     false,
+    submitError:   null,
+    lastBooking:   null,
+  }),
 }));

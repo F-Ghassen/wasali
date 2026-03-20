@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-20_
 
 ## Test Architecture
 
@@ -411,3 +411,195 @@ Font sizes: `xs(11) sm(13) base(15) md(16) lg(18) xl(20) 2xl(24)`
 | `Alert.alert` not available on web | Replaced throughout with `useUIStore().showToast` |
 | SSR hydration errors | `app.json` web output `"single"` (SPA mode) |
 | Deno types conflict | `supabase/functions/` excluded from root `tsconfig.json` |
+
+---
+
+## Booking Wizard Architecture (Migration 018)
+
+_Added: 2026-03-19_
+
+### Component tree
+
+```
+app/(tabs)/booking/index.tsx          ← wizard shell
+  ├─ hooks/useRouteData.ts            ← parallel fetch: route + stops + services + payment methods
+  ├─ hooks/useBookingForm.ts          ← useReducer + AsyncStorage draft, stepValidity, totalPrice
+  ├─ hooks/useSavedRecipients.ts      ← fetch/upsert recipients
+  ├─ stores/bookingStore.ts           ← submitBooking, isLoading, lastBooking
+  │
+  ├─ components/booking/ItineraryStep.tsx    ← Step 0: pick collection + dropoff stop
+  ├─ components/booking/LogisticsStep.tsx    ← Step 1: collection/delivery service + date
+  ├─ components/booking/SenderStep.tsx       ← Step 2: sender details + conditional address
+  ├─ components/booking/RecipientStep.tsx    ← Step 3: recipient + address + notes
+  ├─ components/booking/PackageStep.tsx      ← Step 4: weight, types, photos (DO NOT MODIFY)
+  ├─ components/booking/PaymentStep.tsx      ← Step 5: payment method selection
+  ├─ components/booking/OrderSummary.tsx     ← sidebar (wide) / footer summary
+  │
+  ├─ components/ui/ServiceOption.tsx    ← reusable radio card for route service
+  └─ components/ui/PaymentOption.tsx    ← reusable radio card for payment method
+
+app/(tabs)/booking/confirmation.tsx
+  └─ bookingStore.lastBooking           ← data source (no re-fetch)
+```
+
+### State management
+
+| Concern | Owner |
+|---------|-------|
+| Route data (stops, services, payment methods) | `useRouteData` hook (local state) |
+| Form fields across all 6 steps | `useBookingForm` hook (useReducer + AsyncStorage) |
+| Saved recipients list | `useSavedRecipients` hook (local state) |
+| Submit loading / error / lastBooking | `bookingStore` (Zustand) |
+| Selected route (passed from search) | `bookingStore.selectedRoute` (Zustand) |
+
+### Cascade reset logic
+
+| Trigger | Action |
+|---------|--------|
+| User changes collection stop (Step 0) | `RESET_LOGISTICS` — clears `collectionServiceId`, `deliveryServiceId`, `estimatedCollectionDate` |
+| User changes collection method from `driver_pickup` to other | `RESET_SENDER_ADDRESS` — clears `senderAddressStreet/City/PostalCode` |
+
+### Step validity rules
+
+```
+Step 0: collectionStopId && dropoffStopId
+Step 1: collectionServiceId && deliveryServiceId
+Step 2: (name + phone ≥5 chars) && IF driver_pickup: (street + city + postal code)
+Step 3: recipientName + recipientPhone ≥5 chars
+         AND IF driver_delivery: (street + city)   ← address only needed for door delivery
+         (recipient_collects / local_post → no address required)
+Step 4: weight > 0 && packageTypes.length > 0
+Step 5: always true (payment type defaults to cash_on_collection)
+```
+
+### City sync effects
+
+`senderAddressCity` and `recipientAddressCity` are **read-only** — locked to the city of the selected stop. Two `useEffect`s in `booking/index.tsx` enforce this:
+
+```typescript
+// Guard against draft-load race: include both values in deps so the effect
+// re-runs if LOAD_DRAFT resets the city while the stop city is unchanged.
+useEffect(() => {
+  if (fs.collectionStopCity && fs.senderAddressCity !== fs.collectionStopCity)
+    setField({ senderAddressCity: fs.collectionStopCity });
+}, [fs.collectionStopCity, fs.senderAddressCity]);
+
+useEffect(() => {
+  if (fs.dropoffStopCity && fs.recipientAddressCity !== fs.dropoffStopCity)
+    setField({ recipientAddressCity: fs.dropoffStopCity });
+}, [fs.dropoffStopCity, fs.recipientAddressCity]);
+```
+
+### DB constraint mapping
+
+`bookings` has legacy two-value CHECK constraints. The new service types map as follows before insert:
+
+| `collectionServiceType` | `pickup_type` (DB) |
+|---|---|
+| `driver_pickup` | `driver_pickup` |
+| anything else | `sender_dropoff` |
+
+| `deliveryServiceType` | `dropoff_type` (DB) |
+|---|---|
+| `recipient_collects` | `recipient_pickup` |
+| anything else | `home_delivery` |
+
+### Price computation
+
+```typescript
+effectiveRate = promotion_active
+  ? price_per_kg_eur * (1 - promotion_percentage / 100)
+  : price_per_kg_eur
+
+totalPrice = Math.round(
+  (weightKg * effectiveRate + collectionServicePrice + deliveryServicePrice) * 100
+) / 100
+```
+
+### AsyncStorage draft key
+
+```
+booking_draft_{routeId}   ← full BookingFormState, persisted on SET (debounced 500ms)
+```
+
+### Payment step gating
+
+Two layers of enablement control which payment methods are shown:
+
+| Layer | Owner | Mechanism |
+|---|---|---|
+| Platform | App code | `PLATFORM_COMING_SOON = Set(['credit_debit_card', 'paypal'])` — always shown but disabled with "Coming soon" badge |
+| Driver | DB `route_payment_methods` table | `enabled` flag per route; falls back to `{ cash_on_collection: true, cash_on_delivery: true }` when no rows |
+
+### Logistics step service labels
+
+Raw `service_type` values are mapped to human-readable labels before display:
+
+```
+sender_dropoff     → "Drop-off at meeting point"
+driver_pickup      → "Driver pickup"
+recipient_collects → "Recipient self-collects"
+driver_delivery    → "Door delivery"
+local_post         → "Local post"
+```
+
+This mapping lives in both `ServiceOption.tsx` (`SERVICE_LABEL`) and `booking/index.tsx` (`SERVICE_TYPE_LABEL`) for the completed-step summary chip.
+
+### Stop location fields
+
+`route_stops` rows have `location_name` and `location_address` (used as meeting point URL). These are set in the driver route wizard (Steps 1 & 2) and surfaced in the sender booking wizard:
+
+- **Sender drop-off** (`sender_dropoff`) → collection stop's `location_name` + `location_address`
+- **Recipient self-collect** (`recipient_collects`) → dropoff stop's `location_name` + `location_address`
+- `location_address` starting with `http` renders as a tappable "View on map" link in `ServiceOption.tsx`
+
+---
+
+## Confirmation Screen
+
+`app/(tabs)/booking/confirmation.tsx` — shown after successful booking submit.
+
+### Data source
+
+`bookingStore.lastBooking` (set by `booking/index.tsx` after submit succeeds). No re-fetch.
+
+### Features
+
+| Feature | Implementation |
+|---|---|
+| Booking reference | `WSL-{bookingId.slice(0,6).toUpperCase()}` |
+| Summary card | Route, dates, weight, recipient, payment, total, driver name |
+| Tracking timeline | Static 4-step preview (Confirmed → In transit → Delivered → Rate & complete) — all pending style |
+| Print shipping label | Opens `ShipmentLabelModal` (same component as tracking page) with QR code + Print/PDF action |
+| Message driver on WhatsApp | Pre-filled message with full booking summary + `wasali://driver/bookings/{id}` deep link; opens WhatsApp |
+| View my bookings | Navigates to `/(tabs)/bookings` |
+
+### WhatsApp deep link format
+
+```
+wasali://driver/bookings/{bookingId}
+```
+
+Opens the Wasali driver app directly on the booking detail screen where the driver can confirm or decline.
+
+---
+
+## Web Deployment (Vercel)
+
+The app is deployed as a **static SPA** via Vercel.
+
+- **URL:** https://wasali.vercel.app
+- **Build command:** `npx expo export --platform web`
+- **Output directory:** `dist/`
+- **SPA routing:** `vercel.json` rewrites all paths to `index.html`
+
+```json
+{
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}
+```
+
+Vercel auto-builds on every push to the linked GitHub repo (`F-Ghassen/wasali`).
+

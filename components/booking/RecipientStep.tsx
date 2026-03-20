@@ -1,23 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Switch,
-  Modal,
-  FlatList,
-  StyleSheet,
+  View, Text, TextInput, TouchableOpacity, Switch, StyleSheet,
 } from 'react-native';
+import { MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { AddressFields } from '@/components/ui/AddressFields';
-import { TN_DESTINATION_CITIES } from '@/constants/cities';
-import type { Tables } from '@/types/database';
-
-type Recipient = Tables<'recipients'>;
+import type { SavedRecipient } from '@/hooks/useSavedRecipients';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -25,15 +16,17 @@ export interface RecipientStepProps {
   recipientName: string;
   recipientCC: string;
   recipientPhone: string;
-  recipientPhoneIsWhatsapp: boolean;
+  recipientWhatsapp: boolean;
   recipientAddressStreet: string;
   recipientAddressCity: string;
   recipientAddressPostalCode: string;
   saveRecipient: boolean;
   driverNotes: string;
-  savedRecipients: Recipient[];
-  deliveryServiceType?: string;
-  dropoffCity: string;
+  savedRecipients: SavedRecipient[];
+  deliveryServiceType: string | null;
+  dropoffStopLocationName: string | null;
+  dropoffStopLocationAddress: string | null;
+  dropoffStopCity: string;
   isValid: boolean;
   onSet: (fields: Record<string, any>) => void;
   onContinue: () => void;
@@ -42,22 +35,28 @@ export interface RecipientStepProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function RecipientStep({
-  recipientName, recipientCC, recipientPhone, recipientPhoneIsWhatsapp,
+  recipientName, recipientCC, recipientPhone, recipientWhatsapp,
   recipientAddressStreet, recipientAddressCity, recipientAddressPostalCode,
-  saveRecipient, driverNotes, savedRecipients, deliveryServiceType, dropoffCity,
+  saveRecipient, driverNotes, savedRecipients,
+  deliveryServiceType, dropoffStopLocationName, dropoffStopLocationAddress, dropoffStopCity,
   isValid, onSet, onContinue,
 }: RecipientStepProps) {
-  const [showCityPicker, setShowCityPicker] = useState(false);
-  const showAddressSection = deliveryServiceType === 'driver_delivery';
 
-  function fillFromRecipient(r: Recipient) {
+  const isRecipientCollects = deliveryServiceType === 'recipient_collects';
+  const isDoorDelivery      = deliveryServiceType === 'driver_delivery';
+
+  const addressLabel = isDoorDelivery
+    ? 'Delivery address'
+    : "Recipient's address (optional)";
+
+  function fillFromRecipient(r: SavedRecipient) {
     onSet({
-      recipientName: r.name,
-      recipientPhone: r.phone.replace(/^\+\d+/, ''),
-      recipientPhoneIsWhatsapp: r.whatsapp_enabled,
-      recipientAddressStreet: r.address_street ?? '',
-      recipientAddressCity: r.address_city ?? '',
-      recipientAddressPostalCode: r.address_postal_code ?? '',
+      recipientName:               r.name,
+      recipientPhone:              r.phone.replace(/^\+\d+/, ''),
+      recipientWhatsapp:           r.whatsapp_enabled,
+      recipientAddressStreet:      r.address_street ?? '',
+      recipientAddressCity:        r.address_city ?? '',
+      recipientAddressPostalCode:  r.address_postal_code ?? '',
     });
   }
 
@@ -70,7 +69,7 @@ export function RecipientStep({
         </Text>
       </View>
 
-      {/* Saved recipients */}
+      {/* Saved recipients chips */}
       {savedRecipients.length > 0 && (
         <>
           <Text style={s.sectionTitle}>Saved recipients</Text>
@@ -108,60 +107,39 @@ export function RecipientStep({
         onCountryCodeChange={(v) => onSet({ recipientCC: v })}
         phone={recipientPhone}
         onPhoneChange={(v) => onSet({ recipientPhone: v })}
-        isWhatsapp={recipientPhoneIsWhatsapp}
-        onWhatsappChange={(v) => onSet({ recipientPhoneIsWhatsapp: v })}
+        isWhatsapp={recipientWhatsapp}
+        onWhatsappChange={(v) => onSet({ recipientWhatsapp: v })}
       />
 
-      {/* Address */}
-      {showAddressSection && (
-        <>
-          <AddressFields
-            label="Delivery address"
-            street={recipientAddressStreet}
-            postalCode={recipientAddressPostalCode}
-            city={recipientAddressCity}
-            cityOptions={TN_DESTINATION_CITIES}
-            onChange={(field, value) => {
-              if (field === 'street') onSet({ recipientAddressStreet: value });
-              else if (field === 'postalCode') onSet({ recipientAddressPostalCode: value });
-              else if (field === 'city') onSet({ recipientAddressCity: value });
-            }}
-            onCityPickerOpen={() => setShowCityPicker(true)}
-          />
-          <Modal visible={showCityPicker} transparent animationType="slide">
-            <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setShowCityPicker(false)}>
-              <View style={s.sheet}>
-                <Text style={s.sheetTitle}>Select city</Text>
-                <FlatList
-                  data={TN_DESTINATION_CITIES}
-                  keyExtractor={(c) => c.id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={s.sheetItem}
-                      activeOpacity={0.7}
-                      onPress={() => {
-                        onSet({ recipientAddressCity: item.name });
-                        setShowCityPicker(false);
-                      }}
-                    >
-                      <Text style={s.sheetItemFlag}>{item.flag}</Text>
-                      <Text style={s.sheetItemName}>{item.name}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-            </TouchableOpacity>
-          </Modal>
-        </>
-      )}
+      {/* Drop-off location (when recipient self-collects) */}
+      {isRecipientCollects && (dropoffStopLocationName || dropoffStopCity) ? (
+        <View style={s.locationBanner}>
+          <MapPin size={13} color={Colors.secondary} strokeWidth={2.5} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.locationBannerLabel}>Collection point</Text>
+            <Text style={s.locationBannerValue}>
+              {dropoffStopLocationName ?? dropoffStopCity}
+            </Text>
+            {dropoffStopLocationAddress ? (
+              <Text style={s.locationBannerAddr}>{dropoffStopLocationAddress}</Text>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
 
-      {/* Drop-off city read-only */}
-      <Text style={s.fieldLabel}>Drop-off city</Text>
-      <View style={s.readOnly}>
-        <Text style={dropoffCity ? s.readOnlyValue : s.readOnlyPlaceholder}>
-          {dropoffCity || 'Set in logistics step'}
-        </Text>
-      </View>
+      {/* Address */}
+      <Text style={[s.fieldLabel, { marginTop: Spacing.base }]}>{addressLabel}</Text>
+      <AddressFields
+        label=""
+        street={recipientAddressStreet}
+        postalCode={recipientAddressPostalCode}
+        city={recipientAddressCity}
+        readOnlyCity
+        onChange={(field, value) => {
+          if (field === 'street') onSet({ recipientAddressStreet: value });
+          else if (field === 'postalCode') onSet({ recipientAddressPostalCode: value });
+        }}
+      />
 
       {/* Driver notes */}
       <Text style={[s.fieldLabel, { marginTop: Spacing.base }]}>Notes for driver (optional)</Text>
@@ -175,7 +153,7 @@ export function RecipientStep({
         onChangeText={(v) => onSet({ driverNotes: v })}
       />
 
-      {/* Save recipient */}
+      {/* Save recipient toggle */}
       <View style={s.toggleRow}>
         <View style={{ flex: 1 }}>
           <Text style={s.toggleLabel}>Save for next time</Text>
@@ -189,13 +167,22 @@ export function RecipientStep({
         />
       </View>
 
+      {!isValid && (
+        <View style={s.debugHint}>
+          {recipientName.trim().length === 0 && <Text style={s.debugLine}>• Full name required</Text>}
+          {recipientPhone.trim().length < 5 && <Text style={s.debugLine}>• Phone number required (min 5 digits)</Text>}
+          {isDoorDelivery && recipientAddressStreet.trim().length === 0 && <Text style={s.debugLine}>• Delivery street address required</Text>}
+          {isDoorDelivery && recipientAddressCity.trim().length === 0 && <Text style={s.debugLine}>• Delivery city required</Text>}
+        </View>
+      )}
+
       <TouchableOpacity
         style={[s.continueBtn, !isValid && s.continueBtnDisabled]}
         onPress={() => isValid && onContinue()}
         activeOpacity={0.85}
         disabled={!isValid}
       >
-        <Text style={s.continueBtnText}>Review & Pay →</Text>
+        <Text style={s.continueBtnText}>Continue →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -205,106 +192,60 @@ export function RecipientStep({
 
 const s = StyleSheet.create({
   tooltip: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.base,
+    backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.lg,
+    padding: Spacing.md, marginBottom: Spacing.base,
   },
   tooltipText: { fontSize: FontSize.sm, color: Colors.text.secondary, lineHeight: 20 },
   tooltipBold: { fontWeight: '700', color: Colors.text.primary },
 
   sectionTitle: {
-    fontSize: FontSize.xs,
-    fontWeight: '800',
-    color: Colors.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: Spacing.sm,
-    marginTop: Spacing.sm,
+    fontSize: FontSize.xs, fontWeight: '800', color: Colors.text.tertiary,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: Spacing.sm, marginTop: Spacing.sm,
   },
   savedRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
   savedChip: {
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
+    borderWidth: 1, borderColor: Colors.border.light, borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: Colors.white,
   },
-  savedChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  savedChipText: { fontSize: FontSize.sm, color: Colors.text.secondary },
+  savedChipActive:     { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  savedChipText:       { fontSize: FontSize.sm, color: Colors.text.secondary },
   savedChipTextActive: { color: Colors.primary, fontWeight: '700' },
 
   fieldLabel: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: Spacing.xs,
-    marginTop: Spacing.sm,
+    fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary,
+    marginBottom: Spacing.xs, marginTop: Spacing.sm,
   },
   input: {
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    fontSize: FontSize.base,
-    color: Colors.text.primary,
-    backgroundColor: Colors.white,
+    borderWidth: 1, borderColor: Colors.border.light, borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.base, paddingVertical: Spacing.md,
+    fontSize: FontSize.base, color: Colors.text.primary, backgroundColor: Colors.white,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
 
-  readOnly: {
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    backgroundColor: Colors.background.secondary,
+  locationBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,
+    backgroundColor: 'rgba(39,110,241,0.07)',
+    borderRadius: BorderRadius.lg, padding: Spacing.md, marginTop: Spacing.base,
+    borderWidth: 1, borderColor: 'rgba(39,110,241,0.2)',
   },
-  readOnlyValue: { fontSize: FontSize.base, color: Colors.text.primary },
-  readOnlyPlaceholder: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  locationBannerLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.secondary, textTransform: 'uppercase' },
+  locationBannerValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary, marginTop: 2 },
+  locationBannerAddr:  { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
 
   toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    gap: Spacing.base,
-    marginTop: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border.light,
+    gap: Spacing.base, marginTop: Spacing.sm,
   },
   toggleLabel: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
-  toggleDesc: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
+  toggleDesc:  { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
 
   continueBtn: {
-    marginTop: Spacing.xl,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
+    marginTop: Spacing.xl, backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg, paddingVertical: Spacing.md, alignItems: 'center',
   },
   continueBtnDisabled: { opacity: 0.35 },
   continueBtnText: { color: Colors.white, fontSize: FontSize.base, fontWeight: '700' },
-
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  sheet: {
-    backgroundColor: Colors.white,
-    borderTopLeftRadius: BorderRadius['2xl'],
-    borderTopRightRadius: BorderRadius['2xl'],
-    padding: Spacing.base,
-    maxHeight: '60%',
-  },
-  sheetTitle: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text.primary, marginBottom: Spacing.md },
-  sheetItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  sheetItemFlag: { fontSize: 20 },
-  sheetItemName: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
+  debugHint: { marginTop: Spacing.base, padding: Spacing.md, backgroundColor: '#FFF3CD', borderRadius: BorderRadius.md, gap: 4 },
+  debugLine: { fontSize: FontSize.xs, color: '#856404' },
 });

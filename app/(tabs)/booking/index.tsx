@@ -1,88 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  FlatList,
-  Alert,
-  useWindowDimensions,
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, ActivityIndicator, Alert, useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { Check, Lock } from 'lucide-react-native';
+import { Check, Lock, AlertCircle } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useBookingStore } from '@/stores/bookingStore';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
-import { OrderSummary } from '@/components/booking/OrderSummary';
-import { PackageStep } from '@/components/booking/PackageStep';
-import { LogisticsStep, type RouteService } from '@/components/booking/LogisticsStep';
-import { SenderStep } from '@/components/booking/SenderStep';
-import { RecipientStep } from '@/components/booking/RecipientStep';
-import { PaymentStep } from '@/components/booking/PaymentStep';
-import { useBookingForm } from '@/hooks/useBookingForm';
 import { supabase } from '@/lib/supabase';
-import type { Tables } from '@/types/database';
 
-type RoutePaymentMethod = Tables<'route_payment_methods'>;
-type Recipient = Tables<'recipients'>;
+import { useRouteData } from '@/hooks/useRouteData';
+import { useBookingForm, computeTotalPrice } from '@/hooks/useBookingForm';
+import { useSavedRecipients } from '@/hooks/useSavedRecipients';
 
-// ─── Step labels ──────────────────────────────────────────────────────────────
+import { ItineraryStep }  from '@/components/booking/ItineraryStep';
+import { LogisticsStep }  from '@/components/booking/LogisticsStep';
+import { SenderStep }     from '@/components/booking/SenderStep';
+import { RecipientStep }  from '@/components/booking/RecipientStep';
+import { PackageStep }    from '@/components/booking/PackageStep';
+import { PaymentStep }    from '@/components/booking/PaymentStep';
+import { OrderSummary }   from '@/components/booking/OrderSummary';
 
-const BOOKING_STEPS = [
-  { num: 1, key: 'logistics', label: 'Logistics' },
-  { num: 2, key: 'sender',    label: 'Your Details' },
-  { num: 3, key: 'package',   label: 'Package' },
-  { num: 4, key: 'recipient', label: 'Recipient' },
-  { num: 5, key: 'payment',   label: 'Payment' },
-];
-
-// ─── UUID guard — synthetic IDs (legacy-*, default-*) are not real DB rows ────
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-function isRealUuid(id: string | null | undefined): id is string {
-  return !!id && UUID_RE.test(id);
-}
-
-// ─── Helpers to synthesise services from legacy logistics_options ─────────────
-
-function getServicesFromRoute(route: any): { collection: RouteService[]; delivery: RouteService[] } {
-  const opts: any[] = Array.isArray(route.logistics_options) ? route.logistics_options : [];
-  const collection: RouteService[] = [];
-  const delivery: RouteService[]   = [];
-
-  for (const opt of opts) {
-    if (opt.type === 'collection') {
-      collection.push({
-        id: `legacy-${opt.key}`,
-        service_type: opt.key === 'drop_off' ? 'sender_dropoff' : 'driver_pickup',
-        price_eur: opt.price_eur ?? 0,
-        location_name: null, location_address: null, instructions: null,
-      });
-    } else if (opt.type === 'delivery') {
-      delivery.push({
-        id: `legacy-${opt.key}`,
-        service_type: opt.key === 'recipient_collect' ? 'recipient_collects' : 'driver_delivery',
-        price_eur: opt.price_eur ?? 0,
-        location_name: null, location_address: null, instructions: null,
-      });
-    }
-  }
-
-  // Fallback if no logistics_options: offer basic drop-off + self-collect
-  if (collection.length === 0) {
-    collection.push({ id: 'default-dropoff', service_type: 'sender_dropoff', price_eur: 0, location_name: null, location_address: null, instructions: null });
-  }
-  if (delivery.length === 0) {
-    delivery.push({ id: 'default-collect', service_type: 'recipient_collects', price_eur: 0, location_name: null, location_address: null, instructions: null });
-  }
-  return { collection, delivery };
-}
+import type { FetchedStop } from '@/hooks/useRouteData';
 
 // ─── StepCard ─────────────────────────────────────────────────────────────────
 
@@ -119,196 +63,371 @@ function StepCard({
   );
 }
 
-
 // ─── BookingScreen ────────────────────────────────────────────────────────────
 
 export default function BookingScreen() {
-  const router      = useRouter();
-  const { t }       = useTranslation();
-  const { profile } = useAuthStore();
-  const bookingStore = useBookingStore();
-  const { selectedRoute: route, isLoading: isSubmitting } = bookingStore;
-  const { width }   = useWindowDimensions();
-  const isWide      = width >= 768;
+  const router        = useRouter();
+  const { profile }   = useAuthStore();
+  const bookingStore  = useBookingStore();
+  const { selectedRoute: route } = bookingStore;
+  const { width }     = useWindowDimensions();
+  const isWide        = width >= 768;
 
-  const form = useBookingForm(profile?.full_name ?? '', profile?.phone ?? '');
-  const { state: fs, set: setField, stepValidity } = form;
+  // ── Data hooks ──────────────────────────────────────────────────────────────
+  const { route: routeData, collectionStops, dropoffStops,
+    collectionServicesForStop, deliveryServices, paymentMethods,
+    isLoading: isRouteLoading, error: routeError, retry,
+  } = useRouteData(route?.id ?? null);
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [collectionServices, setCollectionServices] = useState<RouteService[]>([]);
-  const [deliveryServices,   setDeliveryServices]   = useState<RouteService[]>([]);
-  const [routePaymentMethods, setRoutePaymentMethods] = useState<RoutePaymentMethod[]>([]);
-  const [savedRecipients, setSavedRecipients]         = useState<Recipient[]>([]);
-  // Fetch route services + payment methods on mount
+  const form = useBookingForm(
+    route?.id ?? null,
+    profile?.full_name ?? '',
+    profile?.phone ?? '',
+  );
+  const { state: fs, set: setField, stepValidity, hasDraft,
+    clearDraft, resetLogistics, resetSenderAddress, buildSubmitPayload,
+  } = form;
+
+  const { recipients: savedRecipients, upsertRecipient } = useSavedRecipients(profile?.id ?? null);
+
+  // ── Step state ──────────────────────────────────────────────────────────────
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showDraftPrompt, setShowDraftPrompt] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Show draft prompt once after form loads
   useEffect(() => {
-    if (!route) return;
+    if (hasDraft) setShowDraftPrompt(true);
+  }, [hasDraft]);
 
-    supabase
-      .from('route_services' as any)
-      .select('*')
-      .eq('route_id', route.id)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          const services = data as unknown as RouteService[];
-          setCollectionServices(services.filter((s) =>
-            ['sender_dropoff', 'driver_pickup'].includes(s.service_type)
-          ));
-          setDeliveryServices(services.filter((s) =>
-            ['recipient_collects', 'driver_delivery', 'local_post'].includes(s.service_type)
-          ));
-        } else {
-          const { collection, delivery } = getServicesFromRoute(route);
-          setCollectionServices(collection);
-          setDeliveryServices(delivery);
-        }
-      });
-
-    supabase
-      .from('route_payment_methods' as any)
-      .select('*')
-      .eq('route_id', route.id)
-      .then(({ data }) => {
-        if (data) setRoutePaymentMethods(data as unknown as RoutePaymentMethod[]);
-      });
-  }, [route?.id]);
-
-  // Fetch saved recipients
+  // Auto-select single collection stop
   useEffect(() => {
-    if (!profile) return;
-    supabase
-      .from('recipients' as any)
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => {
-        if (data) setSavedRecipients(data as unknown as Recipient[]);
+    if (collectionStops.length === 1 && !fs.collectionStopId) {
+      handleSelectCollectionStop(collectionStops[0]);
+    }
+  }, [collectionStops.length]);
+
+  // Auto-select single dropoff stop (also seeds recipientAddressCity)
+  useEffect(() => {
+    if (dropoffStops.length === 1 && !fs.dropoffStopId) {
+      handleSelectDropoffStop(dropoffStops[0]);
+    }
+  }, [dropoffStops.length]);
+
+  // Keep senderAddressCity locked to the selected collection city.
+  // Depends on both values so it re-runs if a draft load resets senderAddressCity to ''
+  // while collectionStopCity is already populated (value unchanged → effect skipped bug).
+  useEffect(() => {
+    if (fs.collectionStopCity && fs.senderAddressCity !== fs.collectionStopCity) {
+      setField({ senderAddressCity: fs.collectionStopCity });
+    }
+  }, [fs.collectionStopCity, fs.senderAddressCity]);
+
+  // Keep recipientAddressCity locked to the selected dropoff city.
+  // Same draft-load guard as above.
+  useEffect(() => {
+    if (fs.dropoffStopCity && fs.recipientAddressCity !== fs.dropoffStopCity) {
+      setField({ recipientAddressCity: fs.dropoffStopCity });
+    }
+  }, [fs.dropoffStopCity, fs.recipientAddressCity]);
+
+  // Auto-select single collection service for selected stop
+  const stopServices = fs.collectionStopId ? collectionServicesForStop(fs.collectionStopId) : [];
+  useEffect(() => {
+    if (stopServices.length === 1 && !fs.collectionServiceId) {
+      setField({
+        collectionServiceId:    stopServices[0].id,
+        collectionServiceType:  stopServices[0].service_type,
+        collectionServicePrice: stopServices[0].price_eur,
       });
-  }, [profile?.id]);
+    }
+  }, [fs.collectionStopId, stopServices.length]);
 
-  const pickupOptions = route ? [
-    { city: route.origin_city, country: route.origin_country, date: route.departure_date },
-    ...route.route_stops
-      .filter((s) => s.is_pickup_available && s.city !== route.origin_city)
-      .map((s) => ({ city: s.city, country: s.country, date: s.arrival_date ?? '' })),
-  ] : [];
+  // Auto-select single delivery service
+  useEffect(() => {
+    if (deliveryServices.length === 1 && !fs.deliveryServiceId) {
+      setField({
+        deliveryServiceId:    deliveryServices[0].id,
+        deliveryServiceType:  deliveryServices[0].service_type,
+        deliveryServicePrice: deliveryServices[0].price_eur,
+      });
+    }
+  }, [deliveryServices.length]);
 
-  const dropoffOptions = route ? [
-    { city: route.destination_city, country: route.destination_country, date: route.estimated_arrival_date ?? '' },
-    ...route.route_stops
-      .filter((s) => s.is_dropoff_available && s.city !== route.destination_city)
-      .map((s) => ({
-      city: s.city, country: s.country, date: s.arrival_date ?? '',
-    })),
-  ] : [];
+  // ── Stop selection ──────────────────────────────────────────────────────────
 
-  // Look up selected service prices
-  const selectedCollSvc = collectionServices.find((s) => s.id === fs.collectionServiceId);
-  const selectedDelSvc  = deliveryServices.find((s) => s.id === fs.deliveryServiceId);
-  const weightNum = parseFloat(fs.weight) || 0;
+  function handleSelectCollectionStop(stop: FetchedStop) {
+    const prevStopId = fs.collectionStopId;
+    setField({
+      collectionStopId:              stop.id,
+      collectionStopCity:            stop.city,
+      collectionStopDate:            stop.arrival_date ?? '',
+      collectionStopLocationName:    stop.location_name,
+      collectionStopLocationAddress: stop.location_address,
+      senderAddressCity:             stop.city,
+    });
+    if (prevStopId && prevStopId !== stop.id) resetLogistics();
+  }
+
+  function handleSelectDropoffStop(stop: FetchedStop) {
+    setField({
+      dropoffStopId:              stop.id,
+      dropoffStopCity:            stop.city,
+      dropoffStopDate:            stop.arrival_date ?? '',
+      dropoffStopLocationName:    stop.location_name,
+      dropoffStopLocationAddress: stop.location_address,
+      recipientAddressCity:       stop.city,
+    });
+  }
+
+  // ── Computed values ─────────────────────────────────────────────────────────
+
+  const weightNum  = parseFloat(fs.weight) || 0;
+  const totalPrice = routeData
+    ? computeTotalPrice(weightNum, routeData, fs.collectionServicePrice, fs.deliveryServicePrice)
+    : 0;
+
+  // ── Summaries for completed steps ───────────────────────────────────────────
+
+  const itinerarySummary = fs.collectionStopCity && fs.dropoffStopCity
+    ? `${fs.collectionStopCity} → ${fs.dropoffStopCity}`
+    : '';
+
+  const SERVICE_TYPE_LABEL: Record<string, string> = {
+    sender_dropoff:     'Drop-off at meeting point',
+    driver_pickup:      'Driver pickup',
+    recipient_collects: 'Recipient self-collects',
+    driver_delivery:    'Door delivery',
+    local_post:         'Local post',
+  };
+
+  const logisticsSummary = (() => {
+    const coll = stopServices.find((s) => s.id === fs.collectionServiceId);
+    const delv = deliveryServices.find((s) => s.id === fs.deliveryServiceId);
+    return [
+      coll?.service_type ? (SERVICE_TYPE_LABEL[coll.service_type] ?? coll.service_type) : null,
+      delv?.service_type ? (SERVICE_TYPE_LABEL[delv.service_type] ?? delv.service_type) : null,
+    ].filter(Boolean).join(' · ');
+  })();
+
+  const senderSummary = fs.senderMode === 'own'
+    ? `${fs.senderName || '—'} · ${fs.senderCC} ${fs.senderPhone || ''}`
+    : `${fs.behalfName} · ${fs.behalfCC} ${fs.behalfPhone}`;
+
+  const packageSummary = fs.weight
+    ? `${fs.weight} kg · ${fs.packageTypes.join(', ') || '—'}`
+    : '';
+
+  const recipientSummary = fs.recipientName
+    ? `${fs.recipientName} · ${fs.recipientCC} ${fs.recipientPhone}`
+    : '';
+
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!profile || !route) return;
+    if (!profile || !routeData) return;
 
-    bookingStore.setDraft({
-      packageWeightKg:           weightNum,
-      packageTypes:              fs.packageTypes,
-      packagePhotos:             fs.photos,
-      pickupType:                fs.collectionServiceId ? 'driver_pickup' : 'sender_dropoff',
-      pickupAddress:             fs.senderAddressStreet
-                                   ? `${fs.senderAddressStreet}, ${fs.senderAddressPostalCode} ${fs.senderAddressCity}`
-                                   : '',
-      dropoffType:               fs.deliveryServiceId ? 'home_delivery' : 'recipient_pickup',
-      dropoffAddress:            fs.recipientAddressStreet
-                                   ? `${fs.recipientAddressStreet}, ${fs.recipientAddressPostalCode} ${fs.recipientAddressCity}`
-                                   : '',
-      collectionServiceId:       isRealUuid(fs.collectionServiceId) ? fs.collectionServiceId : null,
-      deliveryServiceId:         isRealUuid(fs.deliveryServiceId)   ? fs.deliveryServiceId   : null,
-      collectionServicePriceEur: selectedCollSvc?.price_eur ?? 0,
-      deliveryServicePriceEur:   selectedDelSvc?.price_eur ?? 0,
-      senderAddressStreet:       fs.senderAddressStreet,
-      senderAddressCity:         fs.senderAddressCity,
-      senderAddressPostalCode:   fs.senderAddressPostalCode,
-      recipientName:             fs.recipientName,
-      recipientPhoneCC:          fs.recipientCC,
-      recipientPhone:            fs.recipientPhone,
-      recipientPhoneIsWhatsapp:  fs.recipientPhoneIsWhatsapp,
-      recipientAddressStreet:    fs.recipientAddressStreet,
-      recipientAddressCity:      fs.recipientAddressCity,
-      recipientAddressPostalCode: fs.recipientAddressPostalCode,
-      driverNotes:               fs.driverNotes,
-      paymentType:               fs.paymentType,
-    });
-    bookingStore.computePrice();
+    // Validate all steps
+    const firstInvalid = ([0, 1, 2, 3, 4] as const).find((s) => !stepValidity[s]);
+    if (firstInvalid !== undefined) {
+      setCurrentStep(firstInvalid);
+      return;
+    }
 
+    setIsSubmitting(true);
     try {
-      const bookingId = await bookingStore.submitBooking(profile.id);
+      const payload = buildSubmitPayload(profile.id, routeData, totalPrice);
+      const bookingId = await bookingStore.submitBooking(payload as any);
 
       // Optionally save recipient
       if (fs.saveRecipient && fs.recipientName && fs.recipientPhone) {
-        await supabase.from('recipients' as any).upsert({
-          user_id: profile.id,
-          name: fs.recipientName,
-          phone: `${fs.recipientCC}${fs.recipientPhone}`,
-          whatsapp_enabled: fs.recipientPhoneIsWhatsapp,
-          address_street: fs.recipientAddressStreet || null,
-          address_city: fs.recipientAddressCity || null,
+        await upsertRecipient({
+          user_id:             profile.id,
+          name:                fs.recipientName,
+          phone:               `${fs.recipientCC}${fs.recipientPhone}`,
+          whatsapp_enabled:    fs.recipientWhatsapp,
+          address_street:      fs.recipientAddressStreet || null,
+          address_city:        fs.recipientAddressCity || null,
           address_postal_code: fs.recipientAddressPostalCode || null,
-        }, { onConflict: 'user_id,phone' });
+        });
       }
 
+      // Optionally update profile
+      if (fs.senderMode === 'own' && fs.updateMyProfile) {
+        await supabase.from('profiles').update({
+          full_name: fs.senderName,
+          phone:     `${fs.senderCC}${fs.senderPhone}`,
+        }).eq('id', profile.id);
+      }
+
+      // Store last booking snapshot for confirmation screen
+      bookingStore.setLastBooking({
+        id:                    bookingId,
+        totalPrice,
+        collectionStopCity:    fs.collectionStopCity,
+        dropoffStopCity:       fs.dropoffStopCity,
+        collectionStopDate:    fs.collectionStopDate,
+        dropoffStopDate:       fs.dropoffStopDate,
+        collectionServiceType: fs.collectionServiceType,
+        deliveryServiceType:   fs.deliveryServiceType,
+        senderName:            fs.senderMode === 'own' ? fs.senderName : fs.behalfName,
+        recipientName:         fs.recipientName,
+        recipientPhone:        `${fs.recipientCC}${fs.recipientPhone}`,
+        packageWeightKg:       weightNum,
+        packageTypes:          fs.packageTypes,
+        paymentType:           fs.paymentType,
+        driverName:            routeData.driver?.full_name ?? null,
+        driverPhone:           routeData.driver?.phone ?? null,
+      });
+
+      clearDraft();
       router.push(`/(tabs)/booking/confirmation?bookingId=${bookingId}` as any);
     } catch (err) {
       Alert.alert(
-        t('booking.error.title'),
-        err instanceof Error ? err.message : t('booking.error.fallback'),
+        'Booking failed',
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
       );
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
-  // ── Summaries for completed steps ──────────────────────────────────────────
+  // ── Guard states ────────────────────────────────────────────────────────────
 
-  const logisticsSummary = [
-    selectedCollSvc ? `${fs.collectionCity}` : fs.collectionCity,
-    selectedDelSvc  ? `${fs.dropoffCity}`    : fs.dropoffCity,
-  ].filter(Boolean).join(' → ');
+  if (!route) {
+    return (
+      <SafeAreaView style={bk.root}>
+        <View style={bk.center}>
+          <Text style={bk.errorText}>No route selected.</Text>
+          <TouchableOpacity onPress={() => router.back()} style={bk.retryBtn}>
+            <Text style={bk.retryText}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const senderSummary = fs.senderMode === 'own'
-    ? `${fs.ownName || '—'} · ${fs.ownCC} ${fs.ownPhone || 'no phone'}`
-    : `${fs.behalfName} · ${fs.behalfCC} ${fs.behalfPhone}`;
+  if (isRouteLoading) {
+    return (
+      <SafeAreaView style={bk.root}>
+        <View style={bk.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={bk.loadingText}>Loading route details…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const packageSummary = fs.weight ? `${fs.weight} kg · ${fs.packageTypes.join(', ') || '—'}` : '';
-  const recipientSummary = fs.recipientName ? `${fs.recipientName} · ${fs.recipientCC} ${fs.recipientPhone}` : '';
+  if (routeError) {
+    const msg = {
+      not_found:      'This route could not be found.',
+      route_full:     'This route is fully booked.',
+      route_departed: 'This route has already departed.',
+      network:        'Network error. Please check your connection.',
+    }[routeError] ?? 'Something went wrong.';
 
-  // ── Form content ───────────────────────────────────────────────────────────
+    return (
+      <SafeAreaView style={bk.root}>
+        <View style={bk.center}>
+          <AlertCircle size={40} color={Colors.error} strokeWidth={1.5} />
+          <Text style={bk.errorText}>{msg}</Text>
+          {routeError === 'network' && (
+            <TouchableOpacity onPress={retry} style={bk.retryBtn}>
+              <Text style={bk.retryText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={() => router.back()} style={[bk.retryBtn, { marginTop: 0 }]}>
+            <Text style={bk.retryText}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Form content ────────────────────────────────────────────────────────────
 
   const formContent = (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={f.scrollContent}>
 
+      {/* Draft resume prompt */}
+      {showDraftPrompt && (
+        <View style={bk.draftBanner}>
+          <Text style={bk.draftText}>You have an unfinished booking. Continue where you left off?</Text>
+          <View style={bk.draftBtns}>
+            <TouchableOpacity
+              onPress={() => setShowDraftPrompt(false)}
+              style={bk.draftBtnPrimary}
+            >
+              <Text style={bk.draftBtnPrimaryText}>Continue</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => { clearDraft(); form.reset(); setShowDraftPrompt(false); }}
+              style={bk.draftBtnGhost}
+            >
+              <Text style={bk.draftBtnGhostText}>Start fresh</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Step 0 — Itinerary */}
+      <StepCard
+        stepNum={0} title="Itinerary"
+        isActive={currentStep === 0} isCompleted={currentStep > 0} isLocked={false}
+        summary={itinerarySummary} onEdit={() => setCurrentStep(0)}
+      >
+        <ItineraryStep
+          collectionStops={collectionStops}
+          dropoffStops={dropoffStops}
+          selectedCollectionStopId={fs.collectionStopId}
+          selectedDropoffStopId={fs.dropoffStopId}
+          onSelectCollection={handleSelectCollectionStop}
+          onSelectDropoff={handleSelectDropoffStop}
+          isValid={stepValidity[0]}
+          onContinue={() => setCurrentStep(1)}
+        />
+      </StepCard>
+
       {/* Step 1 — Logistics */}
       <StepCard
         stepNum={1} title="Logistics"
-        isActive={currentStep === 1} isCompleted={currentStep > 1} isLocked={false}
+        isActive={currentStep === 1} isCompleted={currentStep > 1} isLocked={currentStep < 1}
         summary={logisticsSummary} onEdit={() => setCurrentStep(1)}
       >
-        <LogisticsStep
-          collectionServices={collectionServices}
-          deliveryServices={deliveryServices}
-          selectedCollectionId={fs.collectionServiceId}
-          selectedDeliveryId={fs.deliveryServiceId}
-          collectionCity={fs.collectionCity}
-          collectionCityDate={fs.collectionCityDate}
-          dropoffCity={fs.dropoffCity}
-          dropoffCityDate={fs.dropoffCityDate}
-          pickupOptions={pickupOptions}
-          dropoffOptions={dropoffOptions}
-          isValid={stepValidity[2]}
-          onSelectCollection={(id) => setField({ collectionServiceId: id })}
-          onSelectDelivery={(id)   => setField({ deliveryServiceId: id })}
-          onSelectCollectionCity={(city, date) => setField({ collectionCity: city, collectionCityDate: date })}
-          onSelectDropoffCity={(city, date)    => setField({ dropoffCity: city, dropoffCityDate: date })}
-          onContinue={() => setCurrentStep(2)}
-        />
+        {fs.collectionStopId && fs.dropoffStopId ? (
+          <LogisticsStep
+            collectionStop={collectionStops.find((s) => s.id === fs.collectionStopId)!}
+            dropoffStop={dropoffStops.find((s) => s.id === fs.dropoffStopId)!}
+            collectionServices={stopServices}
+            deliveryServices={deliveryServices}
+            selectedCollectionServiceId={fs.collectionServiceId}
+            selectedDeliveryServiceId={fs.deliveryServiceId}
+            isValid={stepValidity[1]}
+            onSelectCollection={(id) => {
+              const svc = stopServices.find((s) => s.id === id);
+              const prevType = fs.collectionServiceType;
+              setField({
+                collectionServiceId:    id,
+                collectionServiceType:  svc?.service_type ?? null,
+                collectionServicePrice: svc?.price_eur ?? 0,
+              });
+              if (prevType === 'driver_pickup' && svc?.service_type !== 'driver_pickup') {
+                resetSenderAddress();
+              }
+            }}
+            onSelectDelivery={(id) => {
+              const svc = deliveryServices.find((s) => s.id === id);
+              setField({
+                deliveryServiceId:    id,
+                deliveryServiceType:  svc?.service_type ?? null,
+                deliveryServicePrice: svc?.price_eur ?? 0,
+              });
+            }}
+            onContinue={() => setCurrentStep(2)}
+          />
+        ) : (
+          <Text style={f.hint}>Complete itinerary first.</Text>
+        )}
       </StepCard>
 
       {/* Step 2 — Sender */}
@@ -319,23 +438,49 @@ export default function BookingScreen() {
       >
         <SenderStep
           senderMode={fs.senderMode}
-          ownName={fs.ownName} ownCC={fs.ownCC} ownPhone={fs.ownPhone}
-          ownPhoneIsWhatsapp={fs.ownPhoneIsWhatsapp} updateMyProfile={fs.updateMyProfile}
+          senderName={fs.senderName} senderCC={fs.senderCC} senderPhone={fs.senderPhone}
+          senderWhatsapp={fs.senderWhatsapp} updateMyProfile={fs.updateMyProfile}
           behalfName={fs.behalfName} behalfCC={fs.behalfCC} behalfPhone={fs.behalfPhone}
-          behalfPhoneIsWhatsapp={fs.behalfPhoneIsWhatsapp} saveBehalfToRecipients={fs.saveBehalfToRecipients}
+          behalfWhatsapp={fs.behalfWhatsapp} saveBehalfToContacts={fs.saveBehalfToContacts}
+          collectionServiceType={fs.collectionServiceType}
+          collectionStopLocationName={fs.collectionStopLocationName}
           addressStreet={fs.senderAddressStreet} addressCity={fs.senderAddressCity}
           addressPostalCode={fs.senderAddressPostalCode}
-          isValid={stepValidity[1]}
+          isValid={stepValidity[2]}
           onSet={setField}
           onContinue={() => setCurrentStep(3)}
         />
       </StepCard>
 
-      {/* Step 3 — Package */}
+      {/* Step 3 — Recipient */}
       <StepCard
-        stepNum={3} title="Package"
+        stepNum={3} title="Recipient"
         isActive={currentStep === 3} isCompleted={currentStep > 3} isLocked={currentStep < 3}
-        summary={packageSummary} onEdit={() => setCurrentStep(3)}
+        summary={recipientSummary} onEdit={() => setCurrentStep(3)}
+      >
+        <RecipientStep
+          recipientName={fs.recipientName} recipientCC={fs.recipientCC}
+          recipientPhone={fs.recipientPhone} recipientWhatsapp={fs.recipientWhatsapp}
+          recipientAddressStreet={fs.recipientAddressStreet}
+          recipientAddressCity={fs.recipientAddressCity}
+          recipientAddressPostalCode={fs.recipientAddressPostalCode}
+          saveRecipient={fs.saveRecipient} driverNotes={fs.driverNotes}
+          savedRecipients={savedRecipients}
+          deliveryServiceType={fs.deliveryServiceType}
+          dropoffStopLocationName={fs.dropoffStopLocationName}
+          dropoffStopLocationAddress={fs.dropoffStopLocationAddress}
+          dropoffStopCity={fs.dropoffStopCity}
+          isValid={stepValidity[3]}
+          onSet={setField}
+          onContinue={() => setCurrentStep(4)}
+        />
+      </StepCard>
+
+      {/* Step 4 — Package */}
+      <StepCard
+        stepNum={4} title="Package"
+        isActive={currentStep === 4} isCompleted={currentStep > 4} isLocked={currentStep < 4}
+        summary={packageSummary} onEdit={() => setCurrentStep(4)}
       >
         <PackageStep
           weight={fs.weight}
@@ -344,7 +489,7 @@ export default function BookingScreen() {
           packageDesc={fs.packageDesc}
           photos={fs.photos}
           maxWeight={(route as any)?.max_single_package_kg}
-          isValid={stepValidity[3]}
+          isValid={stepValidity[4]}
           onWeightChange={(v) => setField({ weight: v })}
           onTogglePackageType={(key) => setField({
             packageTypes: fs.packageTypes.includes(key)
@@ -354,27 +499,6 @@ export default function BookingScreen() {
           onOtherDescChange={(v) => setField({ otherDesc: v })}
           onPackageDescChange={(v) => setField({ packageDesc: v })}
           onPhotosChange={(uris) => setField({ photos: uris })}
-          onContinue={() => setCurrentStep(4)}
-        />
-      </StepCard>
-
-      {/* Step 4 — Recipient */}
-      <StepCard
-        stepNum={4} title="Recipient"
-        isActive={currentStep === 4} isCompleted={currentStep > 4} isLocked={currentStep < 4}
-        summary={recipientSummary} onEdit={() => setCurrentStep(4)}
-      >
-        <RecipientStep
-          recipientName={fs.recipientName} recipientCC={fs.recipientCC}
-          recipientPhone={fs.recipientPhone} recipientPhoneIsWhatsapp={fs.recipientPhoneIsWhatsapp}
-          recipientAddressStreet={fs.recipientAddressStreet} recipientAddressCity={fs.recipientAddressCity}
-          recipientAddressPostalCode={fs.recipientAddressPostalCode}
-          saveRecipient={fs.saveRecipient} driverNotes={fs.driverNotes}
-          savedRecipients={savedRecipients}
-          deliveryServiceType={selectedDelSvc?.service_type}
-          dropoffCity={fs.dropoffCity}
-          isValid={stepValidity[4]}
-          onSet={setField}
           onContinue={() => setCurrentStep(5)}
         />
       </StepCard>
@@ -385,7 +509,7 @@ export default function BookingScreen() {
         isActive={currentStep === 5} isCompleted={false} isLocked={currentStep < 5}
       >
         <PaymentStep
-          routePaymentMethods={routePaymentMethods}
+          paymentMethods={paymentMethods}
           selectedType={fs.paymentType}
           isSubmitting={isSubmitting}
           onSelectType={(type) => setField({ paymentType: type })}
@@ -402,16 +526,16 @@ export default function BookingScreen() {
       {/* Header */}
       <View style={bk.header}>
         <TouchableOpacity
-          onPress={() => currentStep > 1 ? setCurrentStep((s) => s - 1) : router.back()}
+          onPress={() => currentStep > 0 ? setCurrentStep((s) => s - 1) : router.back()}
           style={bk.backBtn}
         >
           <Text style={bk.backText}>‹</Text>
         </TouchableOpacity>
         <View style={bk.headerCenter}>
           <Text style={bk.headerTitle}>Book shipment</Text>
-          {route && (
+          {routeData && (
             <Text style={bk.headerRoute}>
-              {route.driver?.full_name} · {route.origin_city} → {route.destination_city} · {formatDateShort(route.departure_date)}
+              {routeData.driver?.full_name} · {routeData.origin_city} → {routeData.destination_city} · {formatDateShort(routeData.departure_date)}
             </Text>
           )}
         </View>
@@ -421,24 +545,30 @@ export default function BookingScreen() {
         <View style={bk.wideBody}>
           <View style={bk.formArea}>{formContent}</View>
           <View style={bk.summaryArea}>
-            <OrderSummary
-              route={route}
-              collectionCity={fs.collectionCity}
-              dropoffCity={fs.dropoffCity}
-              collectionCityDate={fs.collectionCityDate}
-              dropoffCityDate={fs.dropoffCityDate}
-              weightKg={weightNum}
-              collectionServiceLabel={selectedCollSvc ? `Collection · ${selectedCollSvc.service_type}` : undefined}
-              collectionServicePrice={selectedCollSvc?.price_eur}
-              deliveryServiceLabel={selectedDelSvc ? `Delivery · ${selectedDelSvc.service_type}` : undefined}
-              deliveryServicePrice={selectedDelSvc?.price_eur}
-            />
+            {routeData && (
+              <OrderSummary
+                routeOriginCity={routeData.origin_city}
+                routeDestinationCity={routeData.destination_city}
+                pricePerKgEur={routeData.price_per_kg_eur}
+                promotionActive={routeData.promotion_active}
+                promotionPercentage={routeData.promotion_percentage}
+                collectionStopCity={fs.collectionStopCity}
+                collectionStopDate={fs.collectionStopDate}
+                dropoffStopCity={fs.dropoffStopCity}
+                dropoffStopDate={fs.dropoffStopDate}
+                weightKg={weightNum}
+                collectionServiceLabel={fs.collectionServiceType ?? undefined}
+                collectionServicePrice={fs.collectionServicePrice}
+                deliveryServiceLabel={fs.deliveryServiceType ?? undefined}
+                deliveryServicePrice={fs.deliveryServicePrice}
+                totalPrice={totalPrice}
+              />
+            )}
           </View>
         </View>
       ) : (
         formContent
       )}
-
     </SafeAreaView>
   );
 }
@@ -447,6 +577,12 @@ export default function BookingScreen() {
 
 const bk = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background.secondary },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.base },
+  loadingText: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.sm },
+  errorText:   { fontSize: FontSize.base, color: Colors.text.primary, textAlign: 'center', fontWeight: '600' },
+  retryBtn:    { marginTop: Spacing.base, paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.primary, borderRadius: BorderRadius.lg },
+  retryText:   { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.base, paddingVertical: Spacing.md,
@@ -454,22 +590,34 @@ const bk = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: Colors.border.light,
     gap: Spacing.sm,
   },
-  backBtn: { padding: Spacing.xs },
-  backText: { fontSize: 28, color: Colors.text.primary, lineHeight: 32 },
+  backBtn:      { padding: Spacing.xs },
+  backText:     { fontSize: 28, color: Colors.text.primary, lineHeight: 32 },
   headerCenter: { flex: 1 },
-  headerTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary },
-  headerRoute: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
-  wideBody: { flex: 1, flexDirection: 'row' },
-  formArea: { flex: 1 },
-  summaryArea: {
-    width: 320,
-    backgroundColor: Colors.background.secondary,
-    borderLeftWidth: 1, borderLeftColor: Colors.border.light,
+  headerTitle:  { fontSize: FontSize.md, fontWeight: '800', color: Colors.text.primary },
+  headerRoute:  { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
+
+  draftBanner: {
+    backgroundColor: 'rgba(39,110,241,0.08)',
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.base,
+    borderWidth: 1, borderColor: 'rgba(39,110,241,0.2)',
+    marginBottom: Spacing.sm,
   },
+  draftText:        { fontSize: FontSize.sm, color: Colors.text.primary, fontWeight: '600', marginBottom: Spacing.sm },
+  draftBtns:        { flexDirection: 'row', gap: Spacing.sm },
+  draftBtnPrimary:  { flex: 1, backgroundColor: Colors.primary, borderRadius: BorderRadius.lg, paddingVertical: Spacing.sm, alignItems: 'center' },
+  draftBtnPrimaryText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
+  draftBtnGhost:    { flex: 1, borderWidth: 1, borderColor: Colors.border.medium, borderRadius: BorderRadius.lg, paddingVertical: Spacing.sm, alignItems: 'center' },
+  draftBtnGhostText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
+
+  wideBody:    { flex: 1, flexDirection: 'row' },
+  formArea:    { flex: 1 },
+  summaryArea: { width: 320, backgroundColor: Colors.background.secondary, borderLeftWidth: 1, borderLeftColor: Colors.border.light },
 });
 
 const f = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingHorizontal: Spacing.base, paddingVertical: Spacing.base, gap: Spacing.sm },
+  hint: { fontSize: FontSize.sm, color: Colors.text.tertiary, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.md },
 });
 
 const sc = StyleSheet.create({
@@ -479,22 +627,21 @@ const sc = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  cardLocked: { opacity: 0.6 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  cardLocked:   { opacity: 0.6 },
+  header:       { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   badge: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: Colors.background.secondary,
     alignItems: 'center', justifyContent: 'center',
   },
-  badgeDone: { backgroundColor: Colors.success },
-  badgeActive: { backgroundColor: Colors.primary },
-  badgeNum: { fontSize: 12, fontWeight: '700', color: Colors.text.secondary },
-  badgeNumActive: { color: Colors.white },
-  title: { flex: 1, fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
-  titleLocked: { color: Colors.text.tertiary },
-  editBtn: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
-  editText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
-  summary: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs, marginLeft: 32 },
-  body: { marginTop: Spacing.base },
+  badgeDone:       { backgroundColor: Colors.success },
+  badgeActive:     { backgroundColor: Colors.primary },
+  badgeNum:        { fontSize: 12, fontWeight: '700', color: Colors.text.secondary },
+  badgeNumActive:  { color: Colors.white },
+  title:           { flex: 1, fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
+  titleLocked:     { color: Colors.text.tertiary },
+  editBtn:         { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs },
+  editText:        { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  summary:         { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.xs, marginLeft: 32 },
+  body:            { marginTop: Spacing.base },
 });
-

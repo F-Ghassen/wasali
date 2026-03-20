@@ -164,6 +164,7 @@ export default function TabsLayout() {
       {/* Hidden screens — part of tabs layout for nav bar, not shown as tab items */}
       <Tabs.Screen name="routes/results"        options={{ href: null }} />
       <Tabs.Screen name="booking/index"         options={{ href: null }} />
+      <Tabs.Screen name="booking/confirmation"  options={{ href: null }} />
       <Tabs.Screen name="tracking/[bookingId]"  options={{ href: null }} />
       <Tabs.Screen name="p2p/send"              options={{ href: null }} />
       <Tabs.Screen name="p2p/carry"             options={{ href: null }} />

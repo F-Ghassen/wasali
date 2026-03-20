@@ -1,6 +1,6 @@
 # Wasali — User Flows
 
-_Last updated: 2026-03-18_
+_Last updated: 2026-03-20_
 
 ---
 
@@ -116,48 +116,74 @@ updateUser()  →  /(tabs)/index ✓
 /(tabs)/booking/index  [Book Shipment — 5-step accordion]
 ```
 
-**Booking wizard steps:**
+**Booking wizard steps (6-step accordion):**
 
 ```
-Step 1 — Sender Details
-  "My details" (pre-fill from profile)  OR  "On behalf of someone"
-  name, phone, collection address
-  toggle: update my profile  /  save to recipients
+Step 0 — Itinerary
+  Select collection stop (city + date)
+  Select drop-off stop (city + date)
+  Auto-selects when only one stop available
+  ► Changing collection stop resets logistics selection
 
-Step 2 — Logistics
-  Collection method:
-    ├── Drop-off at point (free)
-    └── Driver home pickup (+€8 surcharge)
+Step 1 — Logistics
+  Collection method (driver-configured per route):
+    ├── Drop-off at meeting point  (sender_dropoff)
+    └── Driver home pickup         (driver_pickup)
   Delivery method:
-    ├── Recipient collects (free)
-    └── Driver home delivery (+€10 surcharge)
-  Collection city + date
-  Drop-off city + date
+    ├── Recipient self-collects    (recipient_collects)
+    ├── Door delivery              (driver_delivery)
+    └── Local post                 (local_post)
+  Each option shows location name + "View on map" link if driver set a meeting point URL
+  ► Completed step summary shows human-friendly labels (not raw service_type)
 
-Step 3 — Package
-  Weight (kg, 0.1–200)
+Step 2 — Your Details (sender)
+  "My details" (pre-fill from profile)  OR  "On behalf of someone"
+  Name, phone (+WhatsApp toggle)
+  Collection address: street + postal code; city auto-filled from collection stop (read-only)
+  Address only shown when collection method = driver_pickup
+
+Step 3 — Recipient
+  Name, phone (+WhatsApp toggle)
+  Save to recipients toggle (saved_recipients table)
+  Drop-off city: read-only, auto-filled from selected drop-off stop
+  Delivery address: shown for all methods; required (street + city) only for driver_delivery
+
+Step 4 — Package
+  Weight (kg)
   Category (Electronics / Clothing / Food / Cosmetics / Documents / Household / Medical / Other)
-  Photos (up to 5, stored in Supabase Storage → package-photos/)
-
-Step 4 — Recipient
-  Name, phone, +WhatsApp toggle
-  Save to recipients toggle
-  Drop-off city shown read-only (from step 2)
+  Photos (up to 5, Supabase Storage → package-photos/)
 
 Step 5 — Payment
-  Cash to driver at collection
-  Cash to driver on delivery
-  Bank transfer
-  Online card payment (Stripe)
+  Cash on collection  ← enabled by driver + platform
+  Cash on delivery    ← enabled by driver + platform
+  Credit/debit card   ← visible, disabled ("Coming soon")
+  PayPal              ← visible, disabled ("Coming soon")
   ── Live OrderSummary sidebar (wide) / bottom sheet (mobile) ──
-  base price = weight × driver's price/kg
-  + logistics surcharges
+  base price = weight × route.price_per_kg_eur (with promo if active)
+  + collection service price
+  + delivery service price
   = total
     ▼
 [Confirm & Pay]
-  ├── Cash/bank  →  booking created  →  status: pending
-  └── Stripe     →  create-payment-intent  →  confirmPayment
-                 →  booking status: confirmed, payment_status: paid
+  booking insert → bookingStore.lastBooking set → navigate to /booking/confirmation
+```
+
+**Booking confirmation screen:**
+
+```
+/(tabs)/booking/confirmation
+  ├── Animated check icon (spring)
+  ├── Booking reference: WSL-XXXXXX
+  ├── Summary card (route, dates, weight, recipient, payment, total, driver)
+  ├── "What happens next" timeline
+  │     Confirmed → In transit → Delivered → Rate & complete  (all pending)
+  ├── [Message driver on WhatsApp]
+  │     Pre-fills message: full booking summary + deep link
+  │     wasali://driver/bookings/{id}  →  driver app booking detail
+  ├── [Print shipping label]
+  │     Opens ShipmentLabelModal (same as tracking page)
+  │     Shows label preview with QR code; Print / Save PDF action
+  └── [View my bookings]  /  [← Back to search]
 ```
 
 ---
@@ -555,3 +581,84 @@ The `.maestro/` directory contains automated E2E flows that mirror the user jour
 | `06_driver_mark_full.yaml` | Driver: Mark full → route hidden in sender search |
 
 See `tests/README.md` for setup and run instructions.
+
+---
+
+## 6. Sender — Booking Wizard (6-step)
+
+_Updated: 2026-03-19 — covers the new 6-step wizard (migration 018)._
+
+### Entry point
+
+Sender taps **"Book slot →"** on a `RouteCard`. The app navigates to `/(tabs)/booking` with the route in `bookingStore.selectedRoute`.
+
+### Step 0 — Itinerary
+
+- Two sections: **Collection stop** + **Drop-off stop**
+- Each stop shown as a radio card: city, date, `location_name`, `location_address`
+- If only one stop available: auto-selected, shown as read-only
+- **Valid when:** `collectionStopId` and `dropoffStopId` are both set
+- Changing stop → dispatches `RESET_LOGISTICS` (clears Step 1 selections)
+
+### Step 1 — Logistics
+
+- **Collection method:** radio cards filtered to services linked to the chosen collection stop (`route_stop_id = collectionStop.id`)
+- **Delivery method:** radio cards for country-wide delivery services (`route_stop_id IS NULL`)
+- **Estimated collection date:** date picker, capped at `collectionStop.stop_date`
+- **Valid when:** both service IDs selected + collection date set
+
+### Step 2 — Sender Details
+
+- Toggle: "This is for me" / "On behalf of someone"
+- **Own mode:** pre-fills `profile.full_name` + `profile.phone`
+- **Address fields:** only shown when collection method = `driver_pickup`; when `sender_dropoff`, shows read-only "Drop off at: [collection stop location_name]"
+- **Valid when (own):** name + phone filled; if `driver_pickup`, also address street + city + postal code required
+- **Valid when (behalf):** behalf name + phone filled; same address requirement
+- Optionally saves back to profile (`updateMyProfile`)
+
+### Step 3 — Recipient
+
+- Saved recipients shown as chips — tapping one auto-fills all fields
+- Address fields always shown; label adapts: "Delivery address" vs "Recipient's collection address"
+- When delivery method = `recipient_collects`: shows read-only drop-off stop location above address
+- **Valid when:** recipient name + phone + full address (street + city + postal code)
+- Optionally saves to `recipients` table (`saveRecipient`)
+- Driver notes free-text field
+
+### Step 4 — Package
+
+_Unchanged — see `components/booking/PackageStep.tsx`._
+
+- Weight (kg), package types (multi-select), optional photo upload
+- **Valid when:** weight > 0, at least one package type selected
+
+### Step 5 — Payment
+
+- Radio cards for payment methods; only methods with `enabled = true` in `route_payment_methods` are active; others shown greyed with "Coming soon" badge
+- Launch default: cash on collection only
+- **Confirm button:** active when all steps 0–4 are valid
+
+### Submission
+
+1. Validate all steps → highlight first invalid step
+2. `INSERT bookings` (all new columns including stop IDs, sender fields, total_price)
+3. If `saveRecipient` → `UPSERT recipients`
+4. If `updateMyProfile` → `UPDATE profiles`
+5. `decrement_route_capacity(routeId, weightKg)` RPC
+6. Clear AsyncStorage draft key `booking_draft_{routeId}`
+7. Navigate to `/(tabs)/booking/confirmation?bookingId={id}`
+
+### Draft persistence
+
+- `useBookingForm` persists form state to AsyncStorage key `booking_draft_{routeId}` on every change (debounced 500ms)
+- On next open, if draft exists: prompt "Continue where you left off?" or "Start fresh"
+- Draft discarded silently if `routeId` doesn't match
+
+### Confirmation screen
+
+- Animated check mark + `#BOOK-{id}` reference
+- Summary card: stops, dates, package, services, recipient, payment method, driver name
+- **"Contact Driver on WhatsApp"** deep link using `driver.phone`
+- **"View My Bookings"** → bookings list; **"Back to Search"** → home
+- Data sourced from `bookingStore.lastBooking` (set at submit) — no re-fetch
+

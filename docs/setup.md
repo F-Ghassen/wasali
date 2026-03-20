@@ -96,3 +96,83 @@ Then verify:
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Project Settings → API |
 | `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe Dashboard → Developers → API keys |
 | `RESEND_API_KEY` | [resend.com](https://resend.com) → API Keys (Edge Function secret only — not in `.env.local`) |
+
+---
+
+## Migration 018 — Booking Wizard Schema
+
+_Added: 2026-03-19_
+
+### What it does
+
+`supabase/migrations/018_booking_wizard.sql` adds:
+
+1. **`route_stops`** — new columns: `location_name`, `location_address`, `stop_date` (generated from `arrival_date`), `city_id` (FK to `cities`)
+2. **`route_services`** — new column: `route_stop_id` (FK to `route_stops`, nullable; null = country-wide delivery service)
+3. **`bookings`** — new columns: `collection_stop_id`, `dropoff_stop_id`, `sender_name`, `sender_phone`, `sender_whatsapp`, `recipient_whatsapp`, `total_price`; updated status/payment_status constraints
+4. **`recipients`** — ensures table + RLS exist (idempotent `CREATE TABLE IF NOT EXISTS`)
+5. Indexes on `route_services(route_stop_id)`, `bookings(collection_stop_id)`, `bookings(dropoff_stop_id)`
+
+### Apply
+
+```bash
+supabase db push
+```
+
+Or paste `supabase/migrations/018_booking_wizard.sql` into the Supabase SQL editor.
+
+### Verify
+
+```sql
+-- New columns on route_stops
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'route_stops'
+  AND column_name IN ('location_name','location_address','stop_date','city_id');
+-- expect 4 rows
+
+-- New columns on route_services
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'route_services' AND column_name = 'route_stop_id';
+-- expect 1 row
+
+-- New columns on bookings
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'bookings'
+  AND column_name IN ('collection_stop_id','dropoff_stop_id','sender_name','total_price');
+-- expect 4 rows
+```
+
+### Rollback
+
+```sql
+-- route_stops
+ALTER TABLE route_stops
+  DROP COLUMN IF EXISTS location_name,
+  DROP COLUMN IF EXISTS location_address,
+  DROP COLUMN IF EXISTS stop_date,
+  DROP COLUMN IF EXISTS city_id;
+
+-- route_services
+DROP INDEX IF EXISTS route_services_stop_idx;
+DROP INDEX IF EXISTS route_services_route_null_stop_idx;
+ALTER TABLE route_services DROP COLUMN IF EXISTS route_stop_id;
+
+-- bookings
+DROP INDEX IF EXISTS bookings_collection_stop_idx;
+DROP INDEX IF EXISTS bookings_dropoff_stop_idx;
+ALTER TABLE bookings
+  DROP COLUMN IF EXISTS collection_stop_id,
+  DROP COLUMN IF EXISTS dropoff_stop_id,
+  DROP COLUMN IF EXISTS sender_name,
+  DROP COLUMN IF EXISTS sender_phone,
+  DROP COLUMN IF EXISTS sender_whatsapp,
+  DROP COLUMN IF EXISTS recipient_whatsapp,
+  DROP COLUMN IF EXISTS total_price;
+```
+
+### No data migration required
+
+- All new nullable columns default to `null` or `false` on existing rows
+- `stop_date` is a generated column — backfills automatically from existing `arrival_date` values
+- Existing bookings without stop IDs continue to work (app code guards with `?? null`)
+

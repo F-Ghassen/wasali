@@ -376,3 +376,81 @@ STRIPE_WEBHOOK_SECRET=whsec_...
        supabase functions deploy accept-offer
 □ 11. npx expo start
 ```
+
+---
+
+## Booking Wizard — Supabase Queries (Migration 018)
+
+_Added: 2026-03-19_
+
+### Tables touched
+
+| Table | Operation | Notes |
+|-------|-----------|-------|
+| `routes` | SELECT | Fetch route with all joins on wizard mount |
+| `route_stops` | SELECT (via routes join) | New columns: `location_name`, `location_address`, `stop_date`, `city_id` |
+| `route_services` | SELECT (via routes join) | New column: `route_stop_id` (null = delivery, set = collection) |
+| `route_payment_methods` | SELECT (via routes join) | — |
+| `profiles` | SELECT (sender pre-fill), UPDATE (optional) | — |
+| `recipients` | SELECT (saved list), UPSERT (optional save) | `user_id,phone` unique conflict key |
+| `bookings` | INSERT | New columns: `collection_stop_id`, `dropoff_stop_id`, `sender_name`, `sender_phone`, `sender_whatsapp`, `recipient_whatsapp`, `total_price` |
+
+### Wizard mount — parallel fetches
+
+```typescript
+// Route + stops + services + payment methods
+supabase.from('routes').select(`
+  id, origin_city, origin_country, destination_city, destination_country,
+  departure_date, estimated_arrival_date, available_weight_kg, price_per_kg_eur,
+  promotion_percentage, promotion_active,
+  driver:profiles!driver_id(id, full_name, phone, phone_verified, rating, completed_trips),
+  route_stops(id, city, country, arrival_date, stop_date, stop_type, stop_order,
+    location_name, location_address, is_pickup_available, is_dropoff_available),
+  route_services(id, route_stop_id, service_type, price_eur,
+    location_name, location_address, instructions),
+  route_payment_methods(id, payment_type, enabled)
+`).eq('id', routeId).single()
+
+// Saved recipients
+supabase.from('recipients')
+  .select('id, name, phone, whatsapp_enabled, address_street, address_city, address_postal_code')
+  .eq('user_id', userId).order('created_at', { ascending: false }).limit(20)
+```
+
+### Client-side service filtering
+
+```typescript
+// Collection services for a specific stop
+const collectionServices = route.route_services.filter(
+  s => s.route_stop_id === selectedCollectionStopId
+);
+
+// Country-wide delivery services
+const deliveryServices = route.route_services.filter(
+  s => s.route_stop_id === null && ['recipient_collects','driver_delivery','local_post'].includes(s.service_type)
+);
+```
+
+### Booking insert
+
+All fields listed in `BOOKING_WIZARD_PLAN.md §c`. Key new fields:
+
+```typescript
+{
+  collection_stop_id:  form.collectionStopId,
+  dropoff_stop_id:     form.dropoffStopId,
+  sender_name:         form.senderName,
+  sender_phone:        form.senderFullPhone,
+  sender_whatsapp:     form.senderWhatsapp,
+  recipient_whatsapp:  form.recipientWhatsapp,
+  total_price:         totalPrice,
+  price_eur:           totalPrice,   // backwards compat
+}
+```
+
+### RLS notes
+
+- `bookings` RLS: `sender_id = auth.uid()` — new columns covered automatically (row-level not column-level)
+- `recipients` RLS: `user_id = auth.uid()` FOR ALL
+- `route_stops` / `route_services`: public read (no auth required for service discovery)
+

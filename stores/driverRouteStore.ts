@@ -12,9 +12,23 @@ interface StopInput {
   stop_order: number;
   stop_type: 'collection' | 'dropoff';
   arrival_date?: string | null;
+  location_name?: string | null;
   meeting_point_url?: string | null;
   is_pickup_available: boolean;
   is_dropoff_available: boolean;
+}
+
+interface ServiceInput {
+  service_type: 'sender_dropoff' | 'driver_pickup' | 'recipient_collects' | 'driver_delivery' | 'local_post';
+  price_eur: number;
+  location_name?: string;
+  location_address?: string;
+  instructions?: string;
+}
+
+interface PaymentTypeInput {
+  payment_type: 'cash_on_collection' | 'cash_on_delivery' | 'credit_debit_card' | 'paypal';
+  enabled: boolean;
 }
 
 interface CreateRouteInput {
@@ -37,6 +51,11 @@ interface CreateRouteInput {
   prohibited_items?: string[];
   save_as_template?: boolean;
   template_name?: string;
+  // New structured fields
+  vehicle_type?: string | null;
+  max_single_package_kg?: number | null;
+  services?: ServiceInput[];
+  payment_types?: PaymentTypeInput[];
 }
 
 interface DriverRouteState {
@@ -73,7 +92,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
     try {
       let query = supabase
         .from('routes')
-        .select('*, route_stops(*)')
+        .select('*, route_stops(*), route_services(*), route_payment_methods(*)')
         .eq('driver_id', driverId)
         .order('departure_date', { ascending: true });
 
@@ -113,7 +132,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         promo_label: data.promo_label ?? null,
         logistics_options: data.logistics_options ?? [],
         prohibited_items: data.prohibited_items ?? [],
-      };
+      } as any;
 
       const { data: route, error: routeError } = await supabase
         .from('routes')
@@ -131,12 +150,47 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           stop_order: stop.stop_order,
           stop_type: stop.stop_type,
           arrival_date: stop.arrival_date ?? null,
+          location_name: stop.location_name ?? null,
           meeting_point_url: stop.meeting_point_url ?? null,
           is_pickup_available: stop.stop_type === 'collection',
           is_dropoff_available: stop.stop_type === 'dropoff',
         }));
         const { error: stopsError } = await supabase.from('route_stops').insert(stopsInsert);
         if (stopsError) throw stopsError;
+      }
+
+      // Insert route_services (new normalised table — skip if migration not yet applied)
+      if (data.services && data.services.length > 0) {
+        const servicesInsert = data.services.map((s) => ({
+          route_id: routeId,
+          service_type: s.service_type,
+          price_eur: s.price_eur,
+          location_name: s.location_name ?? null,
+          location_address: s.location_address ?? null,
+          instructions: s.instructions ?? null,
+        }));
+        const { error: servicesError } = await (supabase as any)
+          .from('route_services')
+          .insert(servicesInsert);
+        if (servicesError) {
+          await supabase.from('routes').delete().eq('id', routeId);
+          throw servicesError;
+        }
+      }
+
+      // Insert route_payment_methods (new normalised table — skip if migration not yet applied)
+      if (data.payment_types && data.payment_types.length > 0) {
+        const pmInsert = data.payment_types.map((p) => ({
+          route_id: routeId,
+          payment_type: p.payment_type,
+          enabled: p.enabled,
+        }));
+        const { error: pmError } = await (supabase as any)
+          .from('route_payment_methods')
+          .insert(pmInsert);
+        if (pmError) {
+          console.warn('route_payment_methods insert skipped:', pmError.message);
+        }
       }
 
       if (data.save_as_template && data.template_name) {

@@ -1,237 +1,117 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
+import { ServiceOption } from '@/components/ui/ServiceOption';
+import type { FetchedStop, FetchedService } from '@/hooks/useRouteData';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types (re-exported for callers that import from here) ───────────────────
 
-export interface RouteService {
-  id: string;
-  service_type: string;
-  price_eur: number;
-  location_name: string | null;
-  location_address: string | null;
-  instructions: string | null;
-}
+export type { FetchedService as RouteService };
 
-interface CityOption {
-  city: string;
-  country: string;
-  date: string;
-}
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface LogisticsStepProps {
-  collectionServices: RouteService[];
-  deliveryServices: RouteService[];
-  selectedCollectionId: string | null;
-  selectedDeliveryId: string | null;
-  collectionCity: string;
-  collectionCityDate: string;
-  dropoffCity: string;
-  dropoffCityDate: string;
-  pickupOptions: CityOption[];
-  dropoffOptions: CityOption[];
+  collectionStop: FetchedStop;
+  dropoffStop: FetchedStop;
+  collectionServices: FetchedService[];
+  deliveryServices: FetchedService[];
+  selectedCollectionServiceId: string | null;
+  selectedDeliveryServiceId: string | null;
   isValid: boolean;
-  onSelectCollection: (id: string | null) => void;
-  onSelectDelivery: (id: string | null) => void;
-  onSelectCollectionCity: (city: string, date: string) => void;
-  onSelectDropoffCity: (city: string, date: string) => void;
+  onSelectCollection: (id: string) => void;
+  onSelectDelivery: (id: string) => void;
   onContinue: () => void;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── StopContext ─────────────────────────────────────────────────────────────
 
-function serviceLabel(type: string): string {
-  const map: Record<string, string> = {
-    sender_dropoff:     'Drop-off at meeting point',
-    driver_pickup:      'Driver picks up from you',
-    recipient_collects: 'Recipient self-collects',
-    driver_delivery:    'Driver delivers to door',
-    local_post:         'Local post / courier',
-  };
-  return map[type] ?? type;
-}
-
-function serviceDesc(type: string): string {
-  const map: Record<string, string> = {
-    sender_dropoff:     "You bring the package to the driver's agreed location.",
-    driver_pickup:      'The driver comes to your address to pick up.',
-    recipient_collects: "Recipient comes to the driver's location to collect.",
-    driver_delivery:    "Driver delivers directly to the recipient's door.",
-    local_post:         'Driver hands over to local post or courier.',
-  };
-  return map[type] ?? '';
-}
-
-// ─── RadioCard ────────────────────────────────────────────────────────────────
-
-function RadioCard({
-  label, desc, price, selected, onPress,
-}: {
-  label: string; desc: string; price: string; selected: boolean; onPress: () => void;
-}) {
+function StopContext({ label, stop }: { label: string; stop: FetchedStop }) {
   return (
-    <TouchableOpacity
-      style={[s.radioCard, selected && s.radioCardActive]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <View style={s.radioRow}>
-        <View style={[s.radio, selected && s.radioActive]}>
-          {selected && <View style={s.radioInner} />}
-        </View>
-        <View style={{ flex: 1 }}>
-          <View style={s.radioTopRow}>
-            <Text style={s.radioLabel}>{label}</Text>
-            <Text style={[s.radioPrice, selected && s.radioPriceActive]}>{price}</Text>
-          </View>
-          <Text style={s.radioDesc}>{desc}</Text>
-        </View>
+    <View style={s.stopCtx}>
+      <View style={s.stopCtxHeader}>
+        <MapPin size={12} color={Colors.text.secondary} strokeWidth={2.5} />
+        <Text style={s.stopCtxLabel}>{label}</Text>
       </View>
-    </TouchableOpacity>
-  );
-}
-
-// ─── CityChips ────────────────────────────────────────────────────────────────
-
-function CityChips({
-  options,
-  selectedCity,
-  onSelect,
-}: {
-  options: CityOption[];
-  selectedCity: string;
-  onSelect: (city: string, date: string) => void;
-}) {
-  if (options.length === 0) {
-    return <Text style={s.emptyNote}>No cities configured by driver.</Text>;
-  }
-
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={s.chipsRow}
-    >
-      {options.map((opt, i) => {
-        const isSelected = opt.city === selectedCity;
-        return (
-          <TouchableOpacity
-            key={i}
-            style={[s.chip, isSelected && s.chipActive]}
-            onPress={() => onSelect(opt.city, opt.date)}
-            activeOpacity={0.75}
-          >
-            <MapPin
-              size={11}
-              color={isSelected ? Colors.white : Colors.text.tertiary}
-              strokeWidth={2.5}
-            />
-            <View>
-              <Text style={[s.chipCity, isSelected && s.chipCityActive]}>
-                {opt.city}
-              </Text>
-              {opt.date ? (
-                <Text style={[s.chipDate, isSelected && s.chipDateActive]}>
-                  {formatDateShort(opt.date)}
-                </Text>
-              ) : null}
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+      <Text style={s.stopCtxCity}>{stop.city}</Text>
+      {stop.arrival_date ? (
+        <Text style={s.stopCtxDate}>{formatDateShort(stop.arrival_date)}</Text>
+      ) : null}
+      {stop.location_name ? (
+        <Text style={s.stopCtxLocation}>{stop.location_name}</Text>
+      ) : null}
+    </View>
   );
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LogisticsStep({
+  collectionStop, dropoffStop,
   collectionServices, deliveryServices,
-  selectedCollectionId, selectedDeliveryId,
-  collectionCity, dropoffCity,
-  pickupOptions, dropoffOptions,
-  isValid,
-  onSelectCollection, onSelectDelivery,
-  onSelectCollectionCity, onSelectDropoffCity,
-  onContinue,
+  selectedCollectionServiceId, selectedDeliveryServiceId,
+  isValid, onSelectCollection, onSelectDelivery, onContinue,
 }: LogisticsStepProps) {
 
-  // Auto-select when only one option available
-  useEffect(() => {
-    if (pickupOptions.length === 1 && !collectionCity) {
-      onSelectCollectionCity(pickupOptions[0].city, pickupOptions[0].date);
-    }
-  }, [pickupOptions.length]);
-
-  useEffect(() => {
-    if (dropoffOptions.length === 1 && !dropoffCity) {
-      onSelectDropoffCity(dropoffOptions[0].city, dropoffOptions[0].date);
-    }
-  }, [dropoffOptions.length]);
+  const singleCollection = collectionServices.length === 1;
+  const singleDelivery   = deliveryServices.length === 1;
 
   return (
     <View>
-      {/* ── Collection city ─────────────────────────────────────── */}
-      <Text style={s.sectionTitle}>Collection city</Text>
-      <CityChips
-        options={pickupOptions}
-        selectedCity={collectionCity}
-        onSelect={onSelectCollectionCity}
-      />
+      {/* ── Context: selected stops ────────────────────────────────── */}
+      <View style={s.stopsRow}>
+        <StopContext label="Collection" stop={collectionStop} />
+        <Text style={s.arrow}>→</Text>
+        <StopContext label="Drop-off" stop={dropoffStop} />
+      </View>
 
-      {/* ── Drop-off city ────────────────────────────────────────── */}
-      <Text style={[s.sectionTitle, { marginTop: Spacing.base }]}>Drop-off city</Text>
-      <CityChips
-        options={dropoffOptions}
-        selectedCity={dropoffCity}
-        onSelect={onSelectDropoffCity}
-      />
-
-      {/* ── Collection services ─────────────────────────────────── */}
-      <Text style={[s.sectionTitle, { marginTop: Spacing.base }]}>Collection method</Text>
+      {/* ── Collection method ─────────────────────────────────────── */}
+      <Text style={s.sectionTitle}>Collection method</Text>
       {collectionServices.length === 0 ? (
-        <Text style={s.emptyNote}>No options configured by driver.</Text>
+        <Text style={s.empty}>No collection options for this stop.</Text>
       ) : (
         collectionServices.map((svc) => (
-          <RadioCard
+          <ServiceOption
             key={svc.id}
-            label={serviceLabel(svc.service_type)}
-            desc={[serviceDesc(svc.service_type), svc.instructions].filter(Boolean).join(' — ')}
-            price={svc.price_eur === 0 ? 'Free' : `+€${svc.price_eur}`}
-            selected={selectedCollectionId === svc.id}
-            onPress={() => onSelectCollection(selectedCollectionId === svc.id ? null : svc.id)}
+            serviceType={svc.service_type}
+            price={svc.price_eur}
+            locationName={svc.service_type === 'sender_dropoff' ? collectionStop.location_name : svc.location_name}
+            locationAddress={svc.service_type === 'sender_dropoff' ? collectionStop.meeting_point_url : svc.location_address}
+            instructions={svc.instructions}
+            selected={selectedCollectionServiceId === svc.id}
+            readOnly={singleCollection}
+            onPress={() => onSelectCollection(svc.id)}
           />
         ))
       )}
 
-      {/* ── Delivery services ───────────────────────────────────── */}
+      {/* ── Delivery method ───────────────────────────────────────── */}
       <Text style={[s.sectionTitle, { marginTop: Spacing.base }]}>Delivery method</Text>
       {deliveryServices.length === 0 ? (
-        <Text style={s.emptyNote}>No options configured by driver.</Text>
+        <Text style={s.empty}>No delivery options available.</Text>
       ) : (
         deliveryServices.map((svc) => (
-          <RadioCard
+          <ServiceOption
             key={svc.id}
-            label={serviceLabel(svc.service_type)}
-            desc={[serviceDesc(svc.service_type), svc.instructions].filter(Boolean).join(' — ')}
-            price={svc.price_eur === 0 ? 'Free' : `+€${svc.price_eur}`}
-            selected={selectedDeliveryId === svc.id}
-            onPress={() => onSelectDelivery(selectedDeliveryId === svc.id ? null : svc.id)}
+            serviceType={svc.service_type}
+            price={svc.price_eur}
+            locationName={svc.service_type === 'recipient_collects' ? dropoffStop.location_name : svc.location_name}
+            locationAddress={svc.service_type === 'recipient_collects' ? dropoffStop.meeting_point_url : svc.location_address}
+            instructions={svc.instructions}
+            selected={selectedDeliveryServiceId === svc.id}
+            readOnly={singleDelivery}
+            onPress={() => onSelectDelivery(svc.id)}
           />
         ))
       )}
 
-      {/* ── Continue ─────────────────────────────────────────────── */}
+
+      {/* ── Continue ──────────────────────────────────────────────── */}
       <TouchableOpacity
         style={[s.continueBtn, !isValid && s.continueBtnDisabled]}
         onPress={() => isValid && onContinue()}
@@ -247,6 +127,29 @@ export function LogisticsStep({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
+  stopsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.base,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.md,
+  },
+  arrow: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  stopCtx: { flex: 1 },
+  stopCtxHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  stopCtxLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stopCtxCity:     { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary, marginTop: 2 },
+  stopCtxDate:     { fontSize: 10, color: Colors.text.secondary },
+  stopCtxLocation: { fontSize: 10, color: Colors.text.tertiary, marginTop: 1 },
+
   sectionTitle: {
     fontSize: FontSize.sm,
     fontWeight: '800',
@@ -255,75 +158,12 @@ const s = StyleSheet.create({
     letterSpacing: 0.6,
     marginBottom: Spacing.sm,
   },
-  emptyNote: {
+  empty: {
     fontSize: FontSize.sm,
     color: Colors.text.tertiary,
     fontStyle: 'italic',
     marginBottom: Spacing.sm,
   },
-
-  // City chips
-  chipsRow: { flexDirection: 'row', gap: Spacing.sm, paddingBottom: Spacing.xs },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderWidth: 1.5,
-    borderColor: Colors.border.light,
-    borderRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.white,
-  },
-  chipActive: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.primary,
-  },
-  chipCity: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text.primary,
-  },
-  chipCityActive: { color: Colors.white },
-  chipDate: {
-    fontSize: 10,
-    color: Colors.text.tertiary,
-    marginTop: 1,
-  },
-  chipDateActive: { color: 'rgba(255,255,255,0.75)' },
-
-  // RadioCard
-  radioCard: {
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
-    marginBottom: Spacing.sm,
-    backgroundColor: Colors.white,
-  },
-  radioCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
-  radioRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md },
-  radio: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: Colors.border.medium,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: 2,
-  },
-  radioActive: { borderColor: Colors.primary },
-  radioInner: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.primary,
-  },
-  radioTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
-  radioLabel: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary, flex: 1 },
-  radioPrice: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.secondary },
-  radioPriceActive: { color: Colors.primary },
-  radioDesc: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 4, lineHeight: 18 },
 
   continueBtn: {
     marginTop: Spacing.xl,

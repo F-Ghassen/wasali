@@ -40,6 +40,7 @@ interface CollectionStop {
   city: string;
   country: string;
   collection_date: string;
+  location_name: string;
   meeting_point_url: string;
 }
 
@@ -47,6 +48,7 @@ interface DropoffStop {
   city: string;
   country: string;
   estimated_arrival_date: string;
+  location_name: string;
   meeting_point_url: string;
 }
 
@@ -66,6 +68,18 @@ const PAYMENT_LABELS: Record<string, string> = {
   cash_recipient: 'Cash (recipient pays on delivery)',
   paypal:         'PayPal',
   bank_transfer:  'Bank transfer',
+};
+
+const VEHICLE_TYPES = ['Car', 'Van', 'Truck', 'Motorbike'] as const;
+
+// Maps old logistics_options keys → route_services service_type
+const COLL_KEY_TO_SERVICE_TYPE: Record<string, 'sender_dropoff' | 'driver_pickup'> = {
+  drop_off:    'sender_dropoff',
+  home_pickup: 'driver_pickup',
+};
+const DELV_KEY_TO_SERVICE_TYPE: Record<string, 'recipient_collects' | 'driver_delivery' | 'local_post'> = {
+  recipient_collect: 'recipient_collects',
+  home_delivery:     'driver_delivery',
 };
 
 const DRAFT_KEY_PREFIX = 'wasali:route:wizard:draft:';
@@ -237,15 +251,19 @@ export default function NewRouteScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { profile } = useAuthStore();
-  const { createRoute, publishRoute, isLoading, routes } = useDriverRouteStore();
+  const { createRoute, publishRoute, fetchRoutes, routes } = useDriverRouteStore();
   const { showToast } = useUIStore();
+
+  // Local submit state — decoupled from store's shared isLoading so that
+  // background fetchRoutes calls don't disable the submit button.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(1);
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', collection_date: '', meeting_point_url: '' });
-  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', estimated_arrival_date: '', meeting_point_url: '' });
+  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', collection_date: '', location_name: '', meeting_point_url: '' });
+  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
 
   // ── Step 1: Collection stops ───────────────────────────────────────────────
   const [collectionStops, setCollectionStops] = useState<CollectionStop[]>([emptyCollStop(), emptyCollStop()]);
@@ -275,6 +293,10 @@ export default function NewRouteScreen() {
   // ── Step 4: Logistics services ─────────────────────────────────────────────
   const [collectionOptions, setCollectionOptions] = useState<LogisticsOpt[]>(COLLECTION_DEFAULTS);
   const [deliveryOptions,   setDeliveryOptions]   = useState<LogisticsOpt[]>(DELIVERY_DEFAULTS);
+
+  // ── Step 5: Vehicle & package limits ───────────────────────────────────────
+  const [vehicleType,          setVehicleType]          = useState<string>('');
+  const [maxSinglePackageKg,   setMaxSinglePackageKg]   = useState('');
 
   // ── Draft recovery ─────────────────────────────────────────────────────────
   const [showDraftBanner, setShowDraftBanner] = useState(false);
@@ -307,6 +329,7 @@ export default function NewRouteScreen() {
         promoEnabled, promoDiscountPct, promoExpiresAt, promoLabel,
         paymentMethods, saveAsTemplate, templateName,
         collectionOptions, deliveryOptions,
+        vehicleType, maxSinglePackageKg,
         currentStep, savedAt: Date.now(),
       }));
     }, 500);
@@ -314,7 +337,7 @@ export default function NewRouteScreen() {
     draftKey, collectionStops, dropoffStops,
     notes, prohibitedItems, weightKg, minWeightKg, pricePerKg, promoEnabled, promoDiscountPct,
     promoExpiresAt, promoLabel, paymentMethods, saveAsTemplate, templateName,
-    collectionOptions, deliveryOptions, currentStep,
+    collectionOptions, deliveryOptions, vehicleType, maxSinglePackageKg, currentStep,
   ]);
 
   useEffect(() => { saveDraft(); }, [saveDraft]);
@@ -338,6 +361,8 @@ export default function NewRouteScreen() {
     if (d.templateName)        setTemplateName(d.templateName);
     if (d.collectionOptions)   setCollectionOptions(d.collectionOptions);
     if (d.deliveryOptions)     setDeliveryOptions(d.deliveryOptions);
+    if (d.vehicleType)         setVehicleType(d.vehicleType);
+    if (d.maxSinglePackageKg)  setMaxSinglePackageKg(d.maxSinglePackageKg);
     if (d.currentStep)         setCurrentStep(d.currentStep);
     setShowDraftBanner(false);
   };
@@ -345,6 +370,94 @@ export default function NewRouteScreen() {
   const discardDraft = () => {
     if (draftKey) AsyncStorage.removeItem(draftKey);
     setShowDraftBanner(false);
+  };
+
+  // ── Load previous routes on mount (if not already in store) ────────────────
+  useEffect(() => {
+    if (profile && routes.length === 0) {
+      fetchRoutes(profile.id);
+    }
+  }, [profile?.id]);
+
+  // ── Prefill from a previous route ──────────────────────────────────────────
+  const applyPreviousRoute = (route: (typeof routes)[number]) => {
+    const stops = route.route_stops ?? [];
+    const collStops = stops
+      .filter((s) => s.stop_type === 'collection')
+      .sort((a, b) => a.stop_order - b.stop_order);
+    const dropStops = stops
+      .filter((s) => s.stop_type === 'dropoff')
+      .sort((a, b) => a.stop_order - b.stop_order);
+
+    setCollectionStops(
+      collStops.length > 0
+        ? collStops.map((s) => ({
+            city: s.city,
+            country: s.country,
+            collection_date: '',        // don't copy past dates
+            location_name: (s as any).location_name ?? '',
+            meeting_point_url: s.meeting_point_url ?? '',
+          }))
+        : [emptyCollStop()]
+    );
+
+    setDropoffStops(
+      dropStops.length > 0
+        ? dropStops.map((s) => ({
+            city: s.city,
+            country: s.country,
+            estimated_arrival_date: '', // don't copy past dates
+            location_name: (s as any).location_name ?? '',
+            meeting_point_url: s.meeting_point_url ?? '',
+          }))
+        : [emptyDropStop()]
+    );
+
+    setWeightKg(String(route.available_weight_kg ?? 20));
+    setPricePerKg(String(route.price_per_kg_eur ?? 5));
+    if (route.min_weight_kg) setMinWeightKg(String(route.min_weight_kg));
+    if (route.notes) setNotes(route.notes);
+    if ((route as any).prohibited_items?.length)
+      setProhibitedItems((route as any).prohibited_items);
+    if (route.vehicle_type) setVehicleType(route.vehicle_type);
+
+    // Restore logistics options from route_services if available
+    const services: { service_type: string; price_eur: number }[] =
+      (route as any).route_services ?? [];
+    if (services.length > 0) {
+      setCollectionOptions((prev) =>
+        prev.map((opt) => {
+          const svcType = COLL_KEY_TO_SERVICE_TYPE[opt.key];
+          const match = services.find((s) => s.service_type === svcType);
+          return match ? { ...opt, enabled: true, price: String(match.price_eur) } : opt;
+        })
+      );
+      setDeliveryOptions((prev) =>
+        prev.map((opt) => {
+          const svcType = DELV_KEY_TO_SERVICE_TYPE[opt.key];
+          const match = services.find((s) => s.service_type === svcType);
+          return match ? { ...opt, enabled: true, price: String(match.price_eur) } : opt;
+        })
+      );
+    }
+
+    // Restore payment methods from route_payment_methods if available
+    const pmRows: { payment_type: string; enabled: boolean }[] =
+      (route as any).route_payment_methods ?? [];
+    if (pmRows.length > 0) {
+      const legacyMap: Record<string, string> = {
+        cash_on_collection: 'cash_sender',
+        cash_on_delivery: 'cash_recipient',
+        paypal: 'paypal',
+      };
+      const enabled = pmRows.filter((p) => p.enabled).map((p) => legacyMap[p.payment_type] ?? p.payment_type);
+      if (enabled.length > 0) setPaymentMethods(enabled);
+    } else if (route.payment_methods?.length) {
+      setPaymentMethods(route.payment_methods);
+    }
+
+    setCurrentStep(1);
+    showToast('Route prefilled — update dates and submit', 'success');
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -491,6 +604,7 @@ export default function NewRouteScreen() {
 
   const doCreate = async () => {
     if (!profile) return;
+    setIsSubmitting(true);
     try {
       const collStops = collectionStops
         .filter((s) => s.city && s.country)
@@ -500,6 +614,7 @@ export default function NewRouteScreen() {
           stop_order: i + 1,
           stop_type: 'collection' as const,
           arrival_date: s.collection_date || null,
+          location_name: s.location_name || null,
           meeting_point_url: s.meeting_point_url || null,
           is_pickup_available: true,
           is_dropoff_available: false,
@@ -513,6 +628,7 @@ export default function NewRouteScreen() {
           stop_order: collStops.length + i + 1,
           stop_type: 'dropoff' as const,
           arrival_date: s.estimated_arrival_date || null,
+          location_name: s.location_name || null,
           meeting_point_url: s.meeting_point_url || null,
           is_pickup_available: false,
           is_dropoff_available: true,
@@ -548,6 +664,29 @@ export default function NewRouteScreen() {
           ...deliveryOptions.filter((o) => o.enabled).map((o) => ({ type: 'delivery' as const, key: o.key, price_eur: parseFloat(o.price) || 0 })),
         ],
         prohibited_items: prohibitedItems,
+        // New normalised service rows
+        vehicle_type: vehicleType || null,
+        max_single_package_kg: maxSinglePackageKg ? parseFloat(maxSinglePackageKg) : null,
+        services: [
+          ...collectionOptions
+            .filter((o) => o.enabled && COLL_KEY_TO_SERVICE_TYPE[o.key])
+            .map((o) => ({
+              service_type: COLL_KEY_TO_SERVICE_TYPE[o.key],
+              price_eur: parseFloat(o.price) || 0,
+            })),
+          ...deliveryOptions
+            .filter((o) => o.enabled && DELV_KEY_TO_SERVICE_TYPE[o.key])
+            .map((o) => ({
+              service_type: DELV_KEY_TO_SERVICE_TYPE[o.key],
+              price_eur: parseFloat(o.price) || 0,
+            })),
+        ],
+        payment_types: [
+          { payment_type: 'cash_on_collection' as const, enabled: paymentMethods.includes('cash_sender') },
+          { payment_type: 'cash_on_delivery'   as const, enabled: paymentMethods.includes('cash_recipient') },
+          { payment_type: 'credit_debit_card'  as const, enabled: false },
+          { payment_type: 'paypal'             as const, enabled: paymentMethods.includes('paypal') },
+        ],
         save_as_template: saveAsTemplate,
         template_name: saveAsTemplate ? (templateName || [
           collStops.map(s => s.city).join(', '),
@@ -578,6 +717,8 @@ export default function NewRouteScreen() {
       } else {
         showToast(message || t('routeWizard.pricing.toast.failed'), 'error');
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -629,6 +770,39 @@ export default function NewRouteScreen() {
             </View>
           )}
 
+          {/* ── Copy from previous route ─────────────────── */}
+          {routes.length > 0 && (
+            <View style={f.prevRoutesSection}>
+              <Text style={f.prevRoutesTitle}>Copy from a previous route</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={f.prevRoutesRow}
+                keyboardShouldPersistTaps="handled"
+              >
+                {routes.slice(0, 6).map((route) => {
+                  const collCity = route.route_stops?.find((s) => s.stop_type === 'collection')?.city;
+                  const dropCity = route.route_stops?.find((s) => s.stop_type === 'dropoff')?.city;
+                  const label = collCity && dropCity ? `${collCity} → ${dropCity}` : route.origin_city + ' → ' + route.destination_city;
+                  return (
+                    <TouchableOpacity
+                      key={route.id}
+                      style={f.prevRouteChip}
+                      onPress={() => applyPreviousRoute(route)}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={f.prevRouteChipLabel} numberOfLines={1}>{label}</Text>
+                      <Text style={f.prevRouteChipSub}>
+                        {route.price_per_kg_eur ? `€${route.price_per_kg_eur}/kg` : ''}
+                        {route.available_weight_kg ? `  ·  ${route.available_weight_kg} kg` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           {/* ════════════════════════════════════════════════
               Step 1 — Collection Stops
           ════════════════════════════════════════════════ */}
@@ -670,6 +844,14 @@ export default function NewRouteScreen() {
                   cities={EU_ORIGIN_CITIES}
                   placeholder={t('routeWizard.collection.cityPlaceholder')}
                   onChange={(city, country) => updateCollectionStop(idx, { city, country })}
+                />
+                <Text style={f.fieldLabel}>Location name</Text>
+                <TextInput
+                  style={f.input}
+                  value={stop.location_name}
+                  onChangeText={(v) => updateCollectionStop(idx, { location_name: v })}
+                  placeholder="e.g. BP Station, Gate 3, Parking level B"
+                  placeholderTextColor={Colors.text.tertiary}
                 />
                 <Text style={f.fieldLabel}>{idx === 0 ? t('routeWizard.collection.departureDateLabel') : t('routeWizard.collection.collectionDateLabel')}</Text>
                 <DateInput
@@ -749,6 +931,14 @@ export default function NewRouteScreen() {
                   cities={TN_DESTINATION_CITIES}
                   placeholder={t('routeWizard.dropoff.cityPlaceholder')}
                   onChange={(city, country) => updateDropoffStop(idx, { city, country })}
+                />
+                <Text style={f.fieldLabel}>Location name</Text>
+                <TextInput
+                  style={f.input}
+                  value={stop.location_name}
+                  onChangeText={(v) => updateDropoffStop(idx, { location_name: v })}
+                  placeholder="e.g. Family home, Sfax warehouse, Shop name"
+                  placeholderTextColor={Colors.text.tertiary}
                 />
                 <Text style={f.fieldLabel}>{t('routeWizard.dropoff.arrivalLabel')}</Text>
                 <DateInput
@@ -1125,9 +1315,9 @@ export default function NewRouteScreen() {
             )}
 
             <Button
-              label={isLoading ? t('routeWizard.pricing.submitting') : t('routeWizard.pricing.submit')}
+              label={isSubmitting ? t('routeWizard.pricing.submitting') : t('routeWizard.pricing.submit')}
               onPress={handleSubmit}
-              isLoading={isLoading}
+              isLoading={isSubmitting}
               size="lg"
               style={f.continueBtn}
             />
@@ -1520,6 +1710,42 @@ const f = StyleSheet.create({
     gap: Spacing.sm,
   },
   templateHint: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: -Spacing.xs },
+
+  // Previous routes
+  prevRoutesSection: {
+    marginHorizontal: Spacing.base,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
+  prevRoutesTitle: {
+    fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.tertiary,
+    textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: Spacing.sm,
+  },
+  prevRoutesRow: { gap: Spacing.sm, paddingBottom: Spacing.xs },
+  prevRouteChip: {
+    backgroundColor: Colors.white,
+    borderWidth: 1, borderColor: Colors.border.light,
+    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    minWidth: 140, maxWidth: 200,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
+  },
+  prevRouteChipLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  prevRouteChipSub: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: 2 },
+
+  vehiclePickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs },
+  vehicleChip: {
+    borderWidth: 1,
+    borderColor: Colors.border.medium,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+    backgroundColor: Colors.white,
+  },
+  vehicleChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  vehicleChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary },
+  vehicleChipTextActive: { color: Colors.primary },
 
   // Prohibited items
   chipsGrid: {

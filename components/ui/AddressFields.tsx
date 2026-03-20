@@ -18,16 +18,17 @@ interface AddressFieldsProps {
   street: string;
   postalCode: string;
   city: string;
-  cityOptions: City[];
+  cityOptions?: City[];
   onChange: (field: 'street' | 'postalCode' | 'city', value: string) => void;
   onCityPickerOpen?: () => void;
+  readOnlyCity?: boolean;
   label?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AddressFields({
-  street, postalCode, city, cityOptions, onChange, onCityPickerOpen, label,
+  street, postalCode, city, cityOptions, onChange, onCityPickerOpen, readOnlyCity, label,
 }: AddressFieldsProps) {
   return (
     <View style={s.root}>
@@ -56,16 +57,24 @@ export function AddressFields({
         </View>
         <View style={s.twoColRight}>
           <Text style={s.fieldLabel}>City</Text>
-          <TouchableOpacity
-            style={[s.input, s.cityPickerBtn]}
-            onPress={onCityPickerOpen}
-            activeOpacity={0.75}
-          >
-            <Text style={city ? s.cityValue : s.cityPlaceholder} numberOfLines={1}>
-              {city || 'Select city'}
-            </Text>
-            <ChevronDown size={16} color={Colors.text.tertiary} />
-          </TouchableOpacity>
+          {readOnlyCity ? (
+            <View style={[s.input, s.cityReadOnly]}>
+              <Text style={city ? s.cityValue : s.cityPlaceholder} numberOfLines={1}>
+                {city || 'From itinerary'}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[s.input, s.cityPickerBtn]}
+              onPress={onCityPickerOpen}
+              activeOpacity={0.75}
+            >
+              <Text style={city ? s.cityValue : s.cityPlaceholder} numberOfLines={1}>
+                {city || 'Select city'}
+              </Text>
+              <ChevronDown size={16} color={Colors.text.tertiary} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>
@@ -107,6 +116,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  cityReadOnly: {
+    backgroundColor: Colors.background.secondary,
+    borderColor: Colors.border.light,
   },
   cityValue: { fontSize: FontSize.base, color: Colors.text.primary, flex: 1 },
   cityPlaceholder: { fontSize: FontSize.base, color: Colors.text.tertiary, flex: 1 },

@@ -52,11 +52,13 @@ export type Database = {
           cancelled_at: string | null
           cancellation_reason: string | null
           collection_service_id: string | null
+          collection_stop_id: string | null
           created_at: string
           declared_value_eur: number | null
           delivery_service_id: string | null
           driver_notes: string | null
           dropoff_address: string | null
+          dropoff_stop_id: string | null
           dropoff_type: string
           estimated_collection_date: string | null
           id: string
@@ -73,24 +75,31 @@ export type Database = {
           recipient_address_street: string | null
           recipient_name: string | null
           recipient_phone: string | null
+          recipient_whatsapp: boolean
           route_id: string
           sender_address_city: string | null
           sender_address_postal_code: string | null
           sender_address_street: string | null
           sender_id: string
+          sender_name: string | null
+          sender_phone: string | null
+          sender_whatsapp: boolean
           status: string
           stripe_payment_intent_id: string | null
+          total_price: number | null
           updated_at: string
         }
         Insert: {
           cancelled_at?: string | null
           cancellation_reason?: string | null
           collection_service_id?: string | null
+          collection_stop_id?: string | null
           created_at?: string
           declared_value_eur?: number | null
           delivery_service_id?: string | null
           driver_notes?: string | null
           dropoff_address?: string | null
+          dropoff_stop_id?: string | null
           dropoff_type: string
           estimated_collection_date?: string | null
           id?: string
@@ -107,24 +116,31 @@ export type Database = {
           recipient_address_street?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          recipient_whatsapp?: boolean
           route_id: string
           sender_address_city?: string | null
           sender_address_postal_code?: string | null
           sender_address_street?: string | null
           sender_id: string
+          sender_name?: string | null
+          sender_phone?: string | null
+          sender_whatsapp?: boolean
           status?: string
           stripe_payment_intent_id?: string | null
+          total_price?: number | null
           updated_at?: string
         }
         Update: {
           cancelled_at?: string | null
           cancellation_reason?: string | null
           collection_service_id?: string | null
+          collection_stop_id?: string | null
           created_at?: string
           declared_value_eur?: number | null
           delivery_service_id?: string | null
           driver_notes?: string | null
           dropoff_address?: string | null
+          dropoff_stop_id?: string | null
           dropoff_type?: string
           estimated_collection_date?: string | null
           id?: string
@@ -141,13 +157,18 @@ export type Database = {
           recipient_address_street?: string | null
           recipient_name?: string | null
           recipient_phone?: string | null
+          recipient_whatsapp?: boolean
           route_id?: string
           sender_address_city?: string | null
           sender_address_postal_code?: string | null
           sender_address_street?: string | null
           sender_id?: string
+          sender_name?: string | null
+          sender_phone?: string | null
+          sender_whatsapp?: boolean
           status?: string
           stripe_payment_intent_id?: string | null
+          total_price?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -163,6 +184,20 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_collection_stop_id_fkey"
+            columns: ["collection_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_dropoff_stop_id_fkey"
+            columns: ["dropoff_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
             referencedColumns: ["id"]
           },
         ]
@@ -370,10 +405,13 @@ export type Database = {
         Row: {
           arrival_date: string | null
           city: string
+          city_id: string | null
           country: string
           id: string
           is_dropoff_available: boolean
           is_pickup_available: boolean
+          location_address: string | null
+          location_name: string | null
           meeting_point_url: string | null
           route_id: string
           stop_order: number
@@ -382,10 +420,13 @@ export type Database = {
         Insert: {
           arrival_date?: string | null
           city: string
+          city_id?: string | null
           country: string
           id?: string
           is_dropoff_available?: boolean
           is_pickup_available?: boolean
+          location_address?: string | null
+          location_name?: string | null
           meeting_point_url?: string | null
           route_id: string
           stop_order: number
@@ -394,10 +435,13 @@ export type Database = {
         Update: {
           arrival_date?: string | null
           city?: string
+          city_id?: string | null
           country?: string
           id?: string
           is_dropoff_available?: boolean
           is_pickup_available?: boolean
+          location_address?: string | null
+          location_name?: string | null
           meeting_point_url?: string | null
           route_id?: string
           stop_order?: number
@@ -409,6 +453,13 @@ export type Database = {
             columns: ["route_id"]
             isOneToOne: false
             referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_stops_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]
@@ -587,6 +638,7 @@ export type Database = {
         Row: {
           id: string
           route_id: string
+          route_stop_id: string | null
           service_type: string
           price_eur: number
           location_name: string | null
@@ -597,6 +649,7 @@ export type Database = {
         Insert: {
           id?: string
           route_id: string
+          route_stop_id?: string | null
           service_type: string
           price_eur?: number
           location_name?: string | null
@@ -607,6 +660,7 @@ export type Database = {
         Update: {
           id?: string
           route_id?: string
+          route_stop_id?: string | null
           service_type?: string
           price_eur?: number
           location_name?: string | null
@@ -620,6 +674,13 @@ export type Database = {
             columns: ["route_id"]
             isOneToOne: false
             referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_services_route_stop_id_fkey"
+            columns: ["route_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
             referencedColumns: ["id"]
           },
         ]

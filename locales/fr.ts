@@ -289,6 +289,12 @@ export default {
   // ── Sender home ──────────────────────────────────────────────────────────────
   home: {
     heroTitle: 'Expédiez. Faites confiance. C\'est fait.',
+    hero: {
+      headline: 'Envoyez des colis en Tunisie depuis l\'Europe.\nOu recevez de la famille à l\'étranger.',
+      subheadline: 'Moins cher que les courriers.\nPlus rapide que la poste.\nConducteurs de confiance.',
+      driverCTA: 'Êtes-vous conducteur ? Gagnez de l\'argent',
+      findRoutes: 'Trouver des trajets disponibles',
+    },
     searchFrom: 'De (ville)',
     searchTo: 'Vers (ville)',
     searchBtn: 'Rechercher des trajets',

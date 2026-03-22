@@ -35,10 +35,10 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
       <View style={styles.desktopContainer}>
         <View style={styles.desktopLeft}>
           <Text style={styles.headline}>
-            {t('hero.headline') || 'Send packages to Tunisia from Europe. Or receive from family abroad.'}
+            {t('home.hero.headline')}
           </Text>
           <Text style={styles.subheadline}>
-            {t('hero.subheadline') || 'Cheaper than couriers. Faster than mail. Trustworthy drivers.'}
+            {t('home.hero.subheadline')}
           </Text>
           <TouchableOpacity
             style={styles.driverCTA}
@@ -46,7 +46,7 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
             activeOpacity={0.7}
           >
             <Text style={styles.driverCTAText}>
-              {t('hero.driverCTA') || 'Are you a driver? Earn money'}
+              {t('home.hero.driverCTA')}
             </Text>
             <ArrowRight size={16} color={Colors.primary} strokeWidth={2} />
           </TouchableOpacity>
@@ -54,7 +54,7 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
 
         <View style={styles.desktopRight}>
           <Text style={styles.formTitle}>
-            {t('hero.findRoutes') || 'Find available routes'}
+            {t('home.hero.findRoutes')}
           </Text>
           <SearchForm />
         </View>
@@ -67,16 +67,16 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
     <View style={styles.mobileContainer}>
       <View style={styles.mobileCopy}>
         <Text style={styles.headline}>
-          {t('hero.headline') || 'Send packages to Tunisia from Europe. Or receive from family abroad.'}
+          {t('home.hero.headline')}
         </Text>
         <Text style={styles.subheadline}>
-          {t('hero.subheadline') || 'Cheaper than couriers. Faster than mail. Trustworthy drivers.'}
+          {t('home.hero.subheadline')}
         </Text>
       </View>
 
       <View style={styles.mobileSearch}>
         <Text style={styles.formTitle}>
-          {t('hero.findRoutes') || 'Find available routes'}
+          {t('home.hero.findRoutes')}
         </Text>
         <SearchForm />
       </View>
@@ -87,7 +87,7 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
         activeOpacity={0.7}
       >
         <Text style={styles.driverCTATextMobile}>
-          {t('hero.driverCTA') || 'Are you a driver? Earn money'}
+          {t('home.hero.driverCTA')}
         </Text>
         <ArrowRight size={16} color={Colors.primary} strokeWidth={2} />
       </TouchableOpacity>

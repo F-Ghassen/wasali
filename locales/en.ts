@@ -289,6 +289,12 @@ export default {
   // ── Sender home ──────────────────────────────────────────────────────────────
   home: {
     heroTitle: 'Ship it. Trust it. Done.',
+    hero: {
+      headline: 'Send packages to Tunisia from Europe.\nOr receive from family abroad.',
+      subheadline: 'Cheaper than couriers.\nFaster than mail.\nTrustworthy drivers.',
+      driverCTA: 'Are you a driver? Earn money',
+      findRoutes: 'Find available routes',
+    },
     searchFrom: 'From (city)',
     searchTo: 'To (city)',
     searchBtn: 'Search routes',

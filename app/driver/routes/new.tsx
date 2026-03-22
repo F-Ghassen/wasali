@@ -39,6 +39,7 @@ import { RouteSummaryCard } from '@/components/driver/RouteSummaryCard';
 interface CollectionStop {
   city: string;
   country: string;
+  city_id?: string;
   collection_date: string;
   location_name: string;
   meeting_point_url: string;
@@ -47,6 +48,7 @@ interface CollectionStop {
 interface DropoffStop {
   city: string;
   country: string;
+  city_id?: string;
   estimated_arrival_date: string;
   location_name: string;
   meeting_point_url: string;
@@ -253,7 +255,10 @@ export default function NewRouteScreen() {
   const { profile } = useAuthStore();
   const { createRoute, publishRoute, fetchRoutes, routes } = useDriverRouteStore();
   const { showToast } = useUIStore();
-  const { cities } = useCitiesStore();
+  const { cities, isLoading: citiesLoading, fetchCities } = useCitiesStore();
+
+  // Ensure cities are loaded — safety net if layout effect hasn't fired yet
+  useEffect(() => { fetchCities(); }, []);
 
   // Local submit state — decoupled from store's shared isLoading so that
   // background fetchRoutes calls don't disable the submit button.
@@ -263,18 +268,14 @@ export default function NewRouteScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  // Convert store cities to old format for CityPickerInput compatibility
+  // Filter cities by region
   const euCities = useMemo(
-    () => cities
-      .filter(c => !['Tunisia'].includes(c.country))
-      .map(c => ({ id: c.id, name: c.name, country: c.country, countryCode: c.country_code, flag: c.flag_emoji })),
+    () => cities.filter(c => c.country !== 'Tunisia'),
     [cities]
   );
 
   const tnCities = useMemo(
-    () => cities
-      .filter(c => c.country === 'Tunisia')
-      .map(c => ({ id: c.id, name: c.name, country: c.country, countryCode: c.country_code, flag: c.flag_emoji })),
+    () => cities.filter(c => c.country === 'Tunisia'),
     [cities]
   );
 
@@ -627,6 +628,7 @@ export default function NewRouteScreen() {
         .map((s, i) => ({
           city: s.city,
           country: s.country,
+          city_id: s.city_id || null,
           stop_order: i + 1,
           stop_type: 'collection' as const,
           arrival_date: s.collection_date || null,
@@ -641,6 +643,7 @@ export default function NewRouteScreen() {
         .map((s, i) => ({
           city: s.city,
           country: s.country,
+          city_id: s.city_id || null,
           stop_order: collStops.length + i + 1,
           stop_type: 'dropoff' as const,
           arrival_date: s.estimated_arrival_date || null,
@@ -653,16 +656,20 @@ export default function NewRouteScreen() {
       const pct = promoEnabled && promoDiscountPct ? parseInt(promoDiscountPct) : null;
 
       const origin_city    = collStops[0]?.city    ?? '';
+      const origin_city_id = collStops[0]?.city_id ?? undefined;
       const origin_country = collStops[0]?.country ?? '';
       const dest_city      = dropStops[0]?.city    ?? '';
+      const dest_city_id   = dropStops[0]?.city_id ?? undefined;
       const dest_country   = dropStops[0]?.country ?? '';
 
       const departure_date = collStops[0]?.arrival_date || new Date().toISOString().split('T')[0];
 
       const routeId = await createRoute(profile.id, {
         origin_city,
+        origin_city_id,
         origin_country,
         destination_city: dest_city,
+        destination_city_id: dest_city_id,
         destination_country: dest_country,
         departure_date,
         estimated_arrival_date: dropStops[0]?.arrival_date ?? null,
@@ -858,8 +865,8 @@ export default function NewRouteScreen() {
                   value={stop.city}
                   country={stop.country}
                   cities={euCities}
-                  placeholder={t('routeWizard.collection.cityPlaceholder')}
-                  onChange={(city, country) => updateCollectionStop(idx, { city, country })}
+                  placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.collection.cityPlaceholder')}
+                  onChange={(city) => updateCollectionStop(idx, { city: city.name, country: city.country, city_id: city.id })}
                 />
                 <Text style={f.fieldLabel}>Location name</Text>
                 <TextInput
@@ -945,8 +952,8 @@ export default function NewRouteScreen() {
                   value={stop.city}
                   country={stop.country}
                   cities={tnCities}
-                  placeholder={t('routeWizard.dropoff.cityPlaceholder')}
-                  onChange={(city, country) => updateDropoffStop(idx, { city, country })}
+                  placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.dropoff.cityPlaceholder')}
+                  onChange={(city) => updateDropoffStop(idx, { city: city.name, country: city.country, city_id: city.id })}
                 />
                 <Text style={f.fieldLabel}>Location name</Text>
                 <TextInput

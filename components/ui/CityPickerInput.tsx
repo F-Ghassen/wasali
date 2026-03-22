@@ -12,13 +12,13 @@ import { ChevronDown, Search, X } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import type { City } from '@/constants/cities';
+import type { City } from '@/stores/citiesStore';
 
 interface CityPickerInputProps {
   label?: string;
   value?: string;       // city name
   country?: string;     // country name (displayed in trigger when set)
-  onChange: (city: string, country: string) => void;
+  onChange: (city: City) => void;
   cities: City[];
   placeholder?: string;
   error?: string;
@@ -60,7 +60,7 @@ export function CityPickerInput({
   const selectedCity = value ? cities.find((c) => c.name === value) : null;
 
   const handleSelect = (city: City) => {
-    onChange(city.name, city.country);
+    onChange(city);
     setOpen(false);
     setQuery('');
   };
@@ -76,7 +76,7 @@ export function CityPickerInput({
         >
           <Text style={[styles.triggerText, !value && styles.placeholder]}>
             {selectedCity
-              ? `${selectedCity.flag}  ${selectedCity.name}`
+              ? `${selectedCity.flag_emoji}  ${selectedCity.name}`
               : placeholder}
           </Text>
           {country && value ? (
@@ -141,7 +141,7 @@ export function CityPickerInput({
                 <View key={countryName}>
                   <View style={styles.groupHeader}>
                     <Text style={styles.groupHeaderText}>
-                      {citiesInCountry[0].flag}  {countryName}
+                      {citiesInCountry[0].flag_emoji}  {countryName}
                     </Text>
                   </View>
                   {citiesInCountry.map((city) => {

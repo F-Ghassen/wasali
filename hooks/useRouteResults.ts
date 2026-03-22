@@ -105,13 +105,15 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
 interface UseRouteResultsParams {
   originCityName: string;
   originCountry: string;
+  originCityId?: string;
   destCityName: string;
   destCountry: string;
+  destCityId?: string;
   departFromDate: string;
 }
 
 export function useRouteResults(params: UseRouteResultsParams) {
-  const { originCityName, originCountry, destCityName, destCountry, departFromDate } = params;
+  const { originCityName, originCountry, originCityId, destCityName, destCountry, destCityId, departFromDate } = params;
 
   const [allRoutes, setAllRoutes] = useState<RouteResult[]>([]);
   const [isFetching, setIsFetching] = useState(false);
@@ -130,9 +132,12 @@ export function useRouteResults(params: UseRouteResultsParams) {
       else setIsFetchingMore(true);
 
       try {
-        const orFilter =
-          `and(origin_city.eq.${originCityName},destination_city.eq.${destCityName}),` +
-          `and(origin_country.eq.${originCountry},destination_country.eq.${destCountry})`;
+        // Prefer city_id matching when both IDs are available; fall back to text match
+        const orFilter = originCityId && destCityId
+          ? `and(origin_city_id.eq.${originCityId},destination_city_id.eq.${destCityId}),` +
+            `and(origin_country.eq.${originCountry},destination_country.eq.${destCountry})`
+          : `and(origin_city.eq.${originCityName},destination_city.eq.${destCityName}),` +
+            `and(origin_country.eq.${originCountry},destination_country.eq.${destCountry})`;
 
         const { data, error } = await supabase
           .from('routes')
@@ -163,7 +168,7 @@ export function useRouteResults(params: UseRouteResultsParams) {
         else setIsFetchingMore(false);
       }
     },
-    [originCityName, originCountry, destCityName, destCountry, departFromDate],
+    [originCityName, originCountry, originCityId, destCityName, destCountry, destCityId, departFromDate],
   );
 
   const refresh = useCallback(() => fetchPage(0, true), [fetchPage]);

@@ -10,7 +10,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import type { City } from '@/constants/cities';
+import type { City } from '@/stores/citiesStore';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

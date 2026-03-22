@@ -3,8 +3,10 @@ import { supabase } from '@/lib/supabase';
 import type { ShippingRequestWithOffers } from '@/types/models';
 
 interface RequestDraft {
+  originCityId: string;
   originCity: string;
   originCountry: string;
+  destinationCityId: string;
   destinationCity: string;
   destinationCountry: string;
   packageWeightKg: number;
@@ -51,8 +53,10 @@ export const useRequestStore = create<RequestState & RequestActions>((set, get) 
         .from('shipping_requests')
         .insert({
           sender_id: senderId,
+          origin_city_id: draft.originCityId ?? null,
           origin_city: draft.originCity!,
           origin_country: draft.originCountry!,
+          destination_city_id: draft.destinationCityId ?? null,
           destination_city: draft.destinationCity!,
           destination_country: draft.destinationCountry!,
           package_weight_kg: draft.packageWeightKg!,

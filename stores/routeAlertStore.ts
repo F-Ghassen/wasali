@@ -12,7 +12,7 @@ interface RouteAlertState {
 interface RouteAlertActions {
   fetchAlerts: (userId: string) => Promise<void>;
   deleteAlert: (id: string) => Promise<void>;
-  updateAlert: (id: string, patch: Partial<Pick<RouteAlert, 'origin_city' | 'destination_city' | 'date_from'>>) => Promise<void>;
+  updateAlert: (id: string, patch: Partial<Pick<RouteAlert, 'origin_city' | 'origin_city_id' | 'destination_city' | 'destination_city_id' | 'date_from'>>) => Promise<void>;
 }
 
 export const useRouteAlertStore = create<RouteAlertState & RouteAlertActions>((set) => ({

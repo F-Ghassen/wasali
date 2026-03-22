@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { CityPickerInput } from '@/components/ui/CityPickerInput';
 import { PACKAGE_CATEGORIES } from '@/constants/packageCategories';
 import { useRequestStore } from '@/stores/requestStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -27,10 +28,8 @@ export default function NewRequestScreen() {
   const { draft, setDraftField, submitRequest, isLoading } = useRequestStore();
   const { cities } = useCitiesStore();
 
-  const getCityCountry = useCallback((cityName: string) => {
-    const city = cities.find(c => c.name.toLowerCase() === cityName.toLowerCase());
-    return city?.country;
-  }, [cities]);
+  const euCities = useMemo(() => cities.filter(c => c.country !== 'Tunisia'), [cities]);
+  const tnCities = useMemo(() => cities.filter(c => c.country === 'Tunisia'), [cities]);
 
   const handleSubmit = async () => {
     if (!session) return;
@@ -61,25 +60,29 @@ export default function NewRequestScreen() {
             Post your shipping needs and let drivers offer you their best prices.
           </Text>
 
-          <Input
+          <CityPickerInput
             label="From City *"
-            placeholder="e.g. Paris"
             value={draft.originCity ?? ''}
-            onChangeText={(v) => {
-              setDraftField('originCity', v);
-              const country = getCityCountry(v);
-              if (country) setDraftField('originCountry', country);
+            country={draft.originCountry}
+            cities={euCities}
+            placeholder="e.g. Paris"
+            onChange={(city) => {
+              setDraftField('originCityId', city.id);
+              setDraftField('originCity', city.name);
+              setDraftField('originCountry', city.country);
             }}
           />
 
-          <Input
+          <CityPickerInput
             label="To City *"
-            placeholder="e.g. Tunis"
             value={draft.destinationCity ?? ''}
-            onChangeText={(v) => {
-              setDraftField('destinationCity', v);
-              const country = getCityCountry(v);
-              if (country) setDraftField('destinationCountry', country);
+            country={draft.destinationCountry}
+            cities={tnCities}
+            placeholder="e.g. Tunis"
+            onChange={(city) => {
+              setDraftField('destinationCityId', city.id);
+              setDraftField('destinationCity', city.name);
+              setDraftField('destinationCountry', city.country);
             }}
           />
 

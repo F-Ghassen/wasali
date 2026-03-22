@@ -469,12 +469,14 @@ export type Database = {
           available_weight_kg: number
           created_at: string | null
           destination_city: string
+          destination_city_id: string | null
           destination_country: string
           driver_id: string
           id: string
           name: string
           notes: string | null
           origin_city: string
+          origin_city_id: string | null
           origin_country: string
           payment_methods: string[]
           price_per_kg_eur: number
@@ -483,12 +485,14 @@ export type Database = {
           available_weight_kg: number
           created_at?: string | null
           destination_city: string
+          destination_city_id?: string | null
           destination_country: string
           driver_id: string
           id?: string
           name: string
           notes?: string | null
           origin_city: string
+          origin_city_id?: string | null
           origin_country: string
           payment_methods?: string[]
           price_per_kg_eur: number
@@ -497,12 +501,14 @@ export type Database = {
           available_weight_kg?: number
           created_at?: string | null
           destination_city?: string
+          destination_city_id?: string | null
           destination_country?: string
           driver_id?: string
           id?: string
           name?: string
           notes?: string | null
           origin_city?: string
+          origin_city_id?: string | null
           origin_country?: string
           payment_methods?: string[]
           price_per_kg_eur?: number
@@ -513,6 +519,20 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_templates_origin_city_id_fkey"
+            columns: ["origin_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_templates_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]
@@ -566,7 +586,9 @@ export type Database = {
           id: string
           user_id: string
           origin_city: string
+          origin_city_id: string | null
           destination_city: string
+          destination_city_id: string | null
           date_from: string | null
           date_to: string | null
           min_weight_kg: number | null
@@ -576,7 +598,9 @@ export type Database = {
           id?: string
           user_id: string
           origin_city: string
+          origin_city_id?: string | null
           destination_city: string
+          destination_city_id?: string | null
           date_from?: string | null
           date_to?: string | null
           min_weight_kg?: number | null
@@ -586,7 +610,9 @@ export type Database = {
           id?: string
           user_id?: string
           origin_city?: string
+          origin_city_id?: string | null
           destination_city?: string
+          destination_city_id?: string | null
           date_from?: string | null
           date_to?: string | null
           min_weight_kg?: number | null
@@ -598,6 +624,20 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_alerts_origin_city_id_fkey"
+            columns: ["origin_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_alerts_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]
@@ -691,6 +731,7 @@ export type Database = {
           created_at: string
           departure_date: string
           destination_city: string
+          destination_city_id: string | null
           destination_country: string
           driver_id: string
           estimated_arrival_date: string | null
@@ -700,6 +741,7 @@ export type Database = {
           min_weight_kg: number | null
           notes: string | null
           origin_city: string
+          origin_city_id: string | null
           origin_country: string
           payment_methods: string[]
           price_per_kg_eur: number
@@ -718,6 +760,7 @@ export type Database = {
           created_at?: string
           departure_date: string
           destination_city: string
+          destination_city_id?: string | null
           destination_country: string
           driver_id: string
           estimated_arrival_date?: string | null
@@ -727,6 +770,7 @@ export type Database = {
           min_weight_kg?: number | null
           notes?: string | null
           origin_city: string
+          origin_city_id?: string | null
           origin_country: string
           payment_methods?: string[]
           price_per_kg_eur: number
@@ -745,6 +789,7 @@ export type Database = {
           created_at?: string
           departure_date?: string
           destination_city?: string
+          destination_city_id?: string | null
           destination_country?: string
           driver_id?: string
           estimated_arrival_date?: string | null
@@ -754,6 +799,7 @@ export type Database = {
           min_weight_kg?: number | null
           notes?: string | null
           origin_city?: string
+          origin_city_id?: string | null
           origin_country?: string
           payment_methods?: string[]
           price_per_kg_eur?: number
@@ -773,6 +819,20 @@ export type Database = {
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_origin_city_id_fkey"
+            columns: ["origin_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routes_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]
@@ -914,11 +974,13 @@ export type Database = {
           desired_date_from: string | null
           desired_date_to: string | null
           destination_city: string
+          destination_city_id: string | null
           destination_country: string
           expires_at: string
           id: string
           max_budget_eur: number | null
           origin_city: string
+          origin_city_id: string | null
           origin_country: string
           package_category: string
           package_weight_kg: number
@@ -931,11 +993,13 @@ export type Database = {
           desired_date_from?: string | null
           desired_date_to?: string | null
           destination_city: string
+          destination_city_id?: string | null
           destination_country: string
           expires_at?: string
           id?: string
           max_budget_eur?: number | null
           origin_city: string
+          origin_city_id?: string | null
           origin_country: string
           package_category: string
           package_weight_kg: number
@@ -948,11 +1012,13 @@ export type Database = {
           desired_date_from?: string | null
           desired_date_to?: string | null
           destination_city?: string
+          destination_city_id?: string | null
           destination_country?: string
           expires_at?: string
           id?: string
           max_budget_eur?: number | null
           origin_city?: string
+          origin_city_id?: string | null
           origin_country?: string
           package_category?: string
           package_weight_kg?: number
@@ -966,6 +1032,20 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_requests_origin_city_id_fkey"
+            columns: ["origin_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipping_requests_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]

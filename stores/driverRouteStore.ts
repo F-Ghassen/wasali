@@ -9,6 +9,7 @@ type RouteFilter = 'active' | 'completed' | 'cancelled' | 'all';
 interface StopInput {
   city: string;
   country: string;
+  city_id?: string | null;
   stop_order: number;
   stop_type: 'collection' | 'dropoff';
   arrival_date?: string | null;
@@ -34,8 +35,10 @@ interface PaymentTypeInput {
 interface CreateRouteInput {
   origin_city: string;
   origin_country: string;
+  origin_city_id?: string | null;
   destination_city: string;
   destination_country: string;
+  destination_city_id?: string | null;
   departure_date: string;
   estimated_arrival_date?: string | null;
   available_weight_kg: number;
@@ -116,8 +119,10 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
       const routeInsert = {
         driver_id: driverId,
         origin_city: data.origin_city,
+        origin_city_id: data.origin_city_id ?? null,
         origin_country: data.origin_country,
         destination_city: data.destination_city,
+        destination_city_id: data.destination_city_id ?? null,
         destination_country: data.destination_country,
         departure_date: data.departure_date,
         estimated_arrival_date: data.estimated_arrival_date ?? null,
@@ -146,6 +151,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         const stopsInsert = data.stops.map((stop) => ({
           route_id: routeId,
           city: stop.city,
+          city_id: stop.city_id ?? null,
           country: stop.country,
           stop_order: stop.stop_order,
           stop_type: stop.stop_type,
@@ -198,8 +204,10 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           driver_id: driverId,
           name: data.template_name,
           origin_city: data.origin_city,
+          origin_city_id: data.origin_city_id ?? null,
           origin_country: data.origin_country,
           destination_city: data.destination_city,
+          destination_city_id: data.destination_city_id ?? null,
           destination_country: data.destination_country,
           available_weight_kg: data.available_weight_kg,
           price_per_kg_eur: data.price_per_kg_eur,
@@ -349,8 +357,10 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
     if (!template) return null;
     return {
       origin_city: template.origin_city,
+      origin_city_id: template.origin_city_id ?? undefined,
       origin_country: template.origin_country,
       destination_city: template.destination_city,
+      destination_city_id: template.destination_city_id ?? undefined,
       destination_country: template.destination_country,
       available_weight_kg: template.available_weight_kg,
       price_per_kg_eur: template.price_per_kg_eur,

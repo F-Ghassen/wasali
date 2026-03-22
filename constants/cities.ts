@@ -1,6 +1,11 @@
 /**
- * @deprecated Use `useCities()` hook instead (fetches from the `cities` DB table).
- * This file is kept as an offline fallback only.
+ * @deprecated DEAD CODE — all city data comes from citiesStore (Supabase `cities` table via useCities() hook).
+ *
+ * This file should NOT be imported anywhere in the application.
+ * All components now import City type from @/stores/citiesStore.
+ *
+ * Last updated: Cities now fetched dynamically from DB in app/_layout.tsx.
+ * File will be deleted in a future cleanup PR once removal is confirmed.
  */
 export interface City {
   id: string;

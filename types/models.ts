@@ -37,8 +37,10 @@ export type RouteTemplate = {
   driver_id: string;
   name: string;
   origin_city: string;
+  origin_city_id?: string | null;
   origin_country: string;
   destination_city: string;
+  destination_city_id?: string | null;
   destination_country: string;
   available_weight_kg: number;
   price_per_kg_eur: number;

@@ -235,7 +235,9 @@ function RouteAlertSheet({
 }) {
   const { citiesByCountry } = useCities();
   const [fromCity, setFromCity] = useState(initialFrom);
+  const [fromCityId, setFromCityId] = useState('');
   const [toCity, setToCity]     = useState(initialTo);
+  const [toCityId, setToCityId] = useState('');
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker]     = useState(false);
@@ -266,7 +268,9 @@ function RouteAlertSheet({
         .insert({
           user_id: profile!.id,
           origin_city: fromCity,
+          origin_city_id: fromCityId || null,
           destination_city: toCity,
+          destination_city_id: toCityId || null,
           date_from: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
         });
       if (dbError) throw dbError;
@@ -395,14 +399,14 @@ function RouteAlertSheet({
         visible={showFromPicker}
         title="Select origin city"
         citiesByCountry={citiesByCountry}
-        onSelect={(c) => setFromCity(c.name)}
+        onSelect={(c) => { setFromCity(c.name); setFromCityId(c.id); }}
         onClose={() => setShowFromPicker(false)}
       />
       <CityPickerModal
         visible={showToPicker}
         title="Select destination city"
         citiesByCountry={citiesByCountry}
-        onSelect={(c) => setToCity(c.name)}
+        onSelect={(c) => { setToCity(c.name); setToCityId(c.id); }}
         onClose={() => setShowToPicker(false)}
       />
     </>
@@ -478,8 +482,10 @@ export default function ResultsScreen() {
 
   const originCityName = store.fromCityName;
   const originCountry  = store.fromCountry;
+  const originCityId   = store.fromCityId;
   const destCityName   = store.toCityName;
   const destCountry    = store.toCountry;
+  const destCityId     = store.toCityId;
   const departFromDate = params.depart_from_date ?? store.departFromDate;
 
   const {
@@ -495,7 +501,7 @@ export default function ResultsScreen() {
     hasMore,
     loadMore,
     refresh,
-  } = useRouteResults({ originCityName, originCountry, destCityName, destCountry, departFromDate });
+  } = useRouteResults({ originCityName, originCountry, originCityId, destCityName, destCountry, destCityId, departFromDate });
 
   const [showFilter, setShowFilter]   = useState(false);
   const [showAlert, setShowAlert]     = useState(false);

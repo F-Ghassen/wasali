@@ -18,6 +18,7 @@ import { ChevronDown, MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
+import { CityPickerInput } from '@/components/ui/CityPickerInput';
 import { useCitiesStore } from '@/stores/citiesStore';
 
 type DocType = 'passport_id' | 'letter' | 'contract' | 'medical' | 'other';
@@ -36,64 +37,16 @@ const URGENCY_OPTIONS: { key: Urgency; label: string; pts: number; desc: string 
   { key: 'urgent',  label: 'Urgent',  pts: 50, desc: '1–2 days'  },
 ];
 
-// ─── CityPicker ───────────────────────────────────────────────────────────────
-
-function CityPicker({
-  label, value, cities, onChange,
-}: {
-  label: string;
-  value: string;
-  cities: string[];
-  onChange: (city: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <>
-      <TouchableOpacity style={cp.btn} onPress={() => setOpen(true)} activeOpacity={0.75}>
-        <MapPin size={14} color={value ? Colors.text.secondary : Colors.text.tertiary} strokeWidth={2} />
-        <Text style={[cp.btnText, !value && cp.placeholder]}>
-          {value || label}
-        </Text>
-        <ChevronDown size={14} color={Colors.text.tertiary} strokeWidth={2} />
-      </TouchableOpacity>
-
-      <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setOpen(false)}>
-        <SafeAreaView style={cp.modal}>
-          <View style={cp.modalHeader}>
-            <Text style={cp.modalTitle}>{label}</Text>
-            <TouchableOpacity onPress={() => setOpen(false)} style={cp.modalClose}>
-              <Text style={cp.modalCloseText}>Done</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={cities}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[cp.cityRow, item === value && cp.cityRowSelected]}
-                onPress={() => { onChange(item); setOpen(false); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[cp.cityText, item === value && cp.cityTextSelected]}>{item}</Text>
-              </TouchableOpacity>
-            )}
-            ItemSeparatorComponent={() => <View style={cp.sep} />}
-          />
-        </SafeAreaView>
-      </Modal>
-    </>
-  );
-}
-
 // ─── SendScreen ───────────────────────────────────────────────────────────────
 
 export default function SendScreen() {
   const router = useRouter();
-  const { citiesByCountry } = useCitiesStore();
+  const { cities } = useCitiesStore();
 
   const [fromCity,    setFromCity]    = useState('');
+  const [fromCityId,  setFromCityId]  = useState('');
   const [toCity,      setToCity]      = useState('');
+  const [toCityId,    setToCityId]    = useState('');
   const [earliestDate, setEarliest]   = useState('');
   const [latestDate,  setLatest]      = useState('');
   const [docType,     setDocType]     = useState<DocType | null>(null);
@@ -104,19 +57,13 @@ export default function SendScreen() {
 
   // Build dynamic city lists from store
   const euCities = useMemo(
-    () => Object.values(citiesByCountry)
-      .flat()
-      .filter(c => !['Tunisia'].includes(c.country))
-      .map(c => c.name)
-      .sort(),
-    [citiesByCountry]
+    () => cities.filter(c => c.country !== 'Tunisia'),
+    [cities]
   );
 
   const tnCities = useMemo(
-    () => (citiesByCountry['Tunisia'] || [])
-      .map(c => c.name)
-      .sort(),
-    [citiesByCountry]
+    () => cities.filter(c => c.country === 'Tunisia'),
+    [cities]
   );
 
   const canSubmit = fromCity && toCity && docType;
@@ -152,12 +99,22 @@ export default function SendScreen() {
             <View style={s.routeRow}>
               <View style={s.cityCol}>
                 <Text style={s.fieldLabel}>From (EU)</Text>
-                <CityPicker label="Select city" value={fromCity} cities={euCities} onChange={setFromCity} />
+                <CityPickerInput
+                  value={fromCity}
+                  cities={euCities}
+                  placeholder="Select city"
+                  onChange={(city) => { setFromCity(city.name); setFromCityId(city.id); }}
+                />
               </View>
               <Text style={s.arrow}>→</Text>
               <View style={s.cityCol}>
                 <Text style={s.fieldLabel}>To (TN)</Text>
-                <CityPicker label="Select city" value={toCity} cities={tnCities} onChange={setToCity} />
+                <CityPickerInput
+                  value={toCity}
+                  cities={tnCities}
+                  placeholder="Select city"
+                  onChange={(city) => { setToCity(city.name); setToCityId(city.id); }}
+                />
               </View>
             </View>
           </View>

@@ -295,6 +295,29 @@ export default {
       driverCTA: 'Are you a driver? Earn money',
       findRoutes: 'Find available routes',
     },
+    howItWorks: {
+      title: 'How it works',
+      subtitle: 'Three simple steps to ship packages safely across Europe and Tunisia',
+      steps: [
+        {
+          title: 'Search available routes',
+          description: 'Find drivers heading your way. Filter by city, date, and price.',
+        },
+        {
+          title: 'Book your package',
+          description: 'Choose pickup & delivery options. Add your package details and pay securely.',
+        },
+        {
+          title: 'Track & receive',
+          description: 'Get real-time updates. Your package arrives safely with trusted drivers.',
+        },
+      ],
+    },
+    whereFrom: {
+      title: 'Where are you flying from?',
+      subtitle: 'Select your departure country to find drivers',
+      seeAll: 'See all published routes →',
+    },
     searchFrom: 'From (city)',
     searchTo: 'To (city)',
     searchBtn: 'Search routes',

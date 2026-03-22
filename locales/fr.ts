@@ -295,6 +295,29 @@ export default {
       driverCTA: 'Êtes-vous conducteur ? Gagnez de l\'argent',
       findRoutes: 'Trouver des trajets disponibles',
     },
+    howItWorks: {
+      title: 'Comment ça marche',
+      subtitle: 'Trois étapes simples pour expédier des colis en toute sécurité entre l\'Europe et la Tunisie',
+      steps: [
+        {
+          title: 'Rechercher des trajets disponibles',
+          description: 'Trouvez des conducteurs qui vont dans votre direction. Filtrez par ville, date et prix.',
+        },
+        {
+          title: 'Réservez votre colis',
+          description: 'Choisissez les options de collecte et livraison. Ajoutez les détails de votre colis et payez en sécurité.',
+        },
+        {
+          title: 'Suivre et recevoir',
+          description: 'Obtenez des mises à jour en temps réel. Votre colis arrive en toute sécurité avec nos conducteurs de confiance.',
+        },
+      ],
+    },
+    whereFrom: {
+      title: 'D\'où allez-vous partir ?',
+      subtitle: 'Sélectionnez votre pays de départ pour trouver des conducteurs',
+      seeAll: 'Voir tous les trajets publiés →',
+    },
     searchFrom: 'De (ville)',
     searchTo: 'Vers (ville)',
     searchBtn: 'Rechercher des trajets',

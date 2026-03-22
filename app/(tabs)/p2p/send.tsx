@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,20 +18,7 @@ import { ChevronDown, MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const EU_CITIES = [
-  'Berlin', 'Hamburg', 'Munich', 'Frankfurt',
-  'Paris', 'Lyon', 'Marseille', 'Nice',
-  'Milan', 'Rome', 'Brussels', 'Amsterdam',
-  'Madrid', 'Barcelona', 'London',
-];
-
-const TN_CITIES = [
-  'Tunis', 'Sfax', 'Sousse', 'Bizerte',
-  'Nabeul', 'Monastir', 'Hammamet', 'Gabès',
-];
+import { useCitiesStore } from '@/stores/citiesStore';
 
 type DocType = 'passport_id' | 'letter' | 'contract' | 'medical' | 'other';
 const DOC_TYPES: { key: DocType; label: string }[] = [
@@ -103,6 +90,7 @@ function CityPicker({
 
 export default function SendScreen() {
   const router = useRouter();
+  const { citiesByCountry } = useCitiesStore();
 
   const [fromCity,    setFromCity]    = useState('');
   const [toCity,      setToCity]      = useState('');
@@ -113,6 +101,23 @@ export default function SendScreen() {
   const [urgency,     setUrgency]     = useState<Urgency>('normal');
   const [offerMoney,  setOfferMoney]  = useState(false);
   const [offerAmount, setOfferAmount] = useState('');
+
+  // Build dynamic city lists from store
+  const euCities = useMemo(
+    () => Object.values(citiesByCountry)
+      .flat()
+      .filter(c => !['Tunisia'].includes(c.country))
+      .map(c => c.name)
+      .sort(),
+    [citiesByCountry]
+  );
+
+  const tnCities = useMemo(
+    () => (citiesByCountry['Tunisia'] || [])
+      .map(c => c.name)
+      .sort(),
+    [citiesByCountry]
+  );
 
   const canSubmit = fromCity && toCity && docType;
 
@@ -147,12 +152,12 @@ export default function SendScreen() {
             <View style={s.routeRow}>
               <View style={s.cityCol}>
                 <Text style={s.fieldLabel}>From (EU)</Text>
-                <CityPicker label="Select city" value={fromCity} cities={EU_CITIES} onChange={setFromCity} />
+                <CityPicker label="Select city" value={fromCity} cities={euCities} onChange={setFromCity} />
               </View>
               <Text style={s.arrow}>→</Text>
               <View style={s.cityCol}>
                 <Text style={s.fieldLabel}>To (TN)</Text>
-                <CityPicker label="Select city" value={toCity} cities={TN_CITIES} onChange={setToCity} />
+                <CityPicker label="Select city" value={toCity} cities={tnCities} onChange={setToCity} />
               </View>
             </View>
           </View>

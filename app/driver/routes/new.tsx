@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -30,8 +30,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useCitiesStore } from '@/stores/citiesStore';
 import { supabase } from '@/lib/supabase';
-import { EU_ORIGIN_CITIES, TN_DESTINATION_CITIES } from '@/constants/cities';
 import { RouteSummaryCard } from '@/components/driver/RouteSummaryCard';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -253,6 +253,7 @@ export default function NewRouteScreen() {
   const { profile } = useAuthStore();
   const { createRoute, publishRoute, fetchRoutes, routes } = useDriverRouteStore();
   const { showToast } = useUIStore();
+  const { cities } = useCitiesStore();
 
   // Local submit state — decoupled from store's shared isLoading so that
   // background fetchRoutes calls don't disable the submit button.
@@ -261,6 +262,21 @@ export default function NewRouteScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
+
+  // Convert store cities to old format for CityPickerInput compatibility
+  const euCities = useMemo(
+    () => cities
+      .filter(c => !['Tunisia'].includes(c.country))
+      .map(c => ({ id: c.id, name: c.name, country: c.country, countryCode: c.country_code, flag: c.flag_emoji })),
+    [cities]
+  );
+
+  const tnCities = useMemo(
+    () => cities
+      .filter(c => c.country === 'Tunisia')
+      .map(c => ({ id: c.id, name: c.name, country: c.country, countryCode: c.country_code, flag: c.flag_emoji })),
+    [cities]
+  );
 
   const emptyCollStop = (): CollectionStop => ({ city: '', country: '', collection_date: '', location_name: '', meeting_point_url: '' });
   const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
@@ -841,7 +857,7 @@ export default function NewRouteScreen() {
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
-                  cities={EU_ORIGIN_CITIES}
+                  cities={euCities}
                   placeholder={t('routeWizard.collection.cityPlaceholder')}
                   onChange={(city, country) => updateCollectionStop(idx, { city, country })}
                 />
@@ -928,7 +944,7 @@ export default function NewRouteScreen() {
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
-                  cities={TN_DESTINATION_CITIES}
+                  cities={tnCities}
                   placeholder={t('routeWizard.dropoff.cityPlaceholder')}
                   onChange={(city, country) => updateDropoffStop(idx, { city, country })}
                 />

@@ -21,6 +21,8 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { supabase } from '@/lib/supabase';
 import Hero from '@/components/Hero';
+import HowItWorks from '@/components/HowItWorks';
+import WhereAreYouFrom from '@/components/WhereAreYouFrom';
 
 // ─── Featured Routes ──────────────────────────────────────────────────────────
 
@@ -207,6 +209,12 @@ export default function HomeScreen() {
         <SafeAreaView style={s.heroSafe}>
           <Hero />
         </SafeAreaView>
+
+        {/* ── How It Works ────────────────────────────────────── */}
+        <HowItWorks />
+
+        {/* ── Where are you flying from ──────────────────────── */}
+        <WhereAreYouFrom />
 
         {/* ── Ship Docs Fast promo ────────────────────────────── */}
         <View style={s.section}>

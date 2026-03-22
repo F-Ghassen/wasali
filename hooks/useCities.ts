@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { EU_ORIGIN_CITIES, TN_DESTINATION_CITIES } from '@/constants/cities';
+import { useCallback, useMemo } from 'react';
+import { useCitiesStore } from '@/stores/citiesStore';
 
 export type CityRow = {
   id: string;
@@ -8,69 +7,71 @@ export type CityRow = {
   country: string;
   country_code: string;
   flag_emoji: string;
-  coming_soon: boolean;
+  coming_soon?: boolean;
 };
 
-function fallbackCities(): CityRow[] {
-  return [...EU_ORIGIN_CITIES, ...TN_DESTINATION_CITIES].map((c) => ({
-    id: c.id,
-    name: c.name,
-    country: c.country,
-    country_code: c.countryCode,
-    flag_emoji: c.flag,
-    coming_soon: false,
-  }));
-}
-
 export function useCities() {
-  const [cities, setCities] = useState<CityRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { cities, isLoading, citiesByCountry } = useCitiesStore();
 
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('cities')
-      .select('id, name, country, country_code, flag_emoji, coming_soon')
-      .eq('is_active', true)
-      .order('country')
-      .order('name')
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error || !data || data.length === 0) {
-          setCities(fallbackCities());
-        } else {
-          setCities(data as CityRow[]);
-        }
-        setIsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  // Map store format to hook format
+  const mappedCities: CityRow[] = useMemo(
+    () =>
+      cities.map((c) => ({
+        id: c.id,
+        name: c.name,
+        country: c.country,
+        country_code: c.country_code,
+        flag_emoji: c.flag_emoji,
+        coming_soon: c.coming_soon || false,
+      })),
+    [cities],
+  );
 
-  const citiesByCountry: Record<string, CityRow[]> = {};
-  for (const city of cities) {
-    if (!citiesByCountry[city.country]) citiesByCountry[city.country] = [];
-    citiesByCountry[city.country].push(city);
-  }
+  const mappedCitiesByCountry: Record<string, CityRow[]> = useMemo(
+    () =>
+      Object.entries(citiesByCountry).reduce(
+        (acc, [country, storeCities]) => {
+          acc[country] = storeCities.map((c) => ({
+            id: c.id,
+            name: c.name,
+            country: c.country,
+            country_code: c.country_code,
+            flag_emoji: c.flag_emoji,
+            coming_soon: c.coming_soon || false,
+          }));
+          return acc;
+        },
+        {} as Record<string, CityRow[]>,
+      ),
+    [citiesByCountry],
+  );
 
-  const selectableCities = cities.filter((c) => !c.coming_soon);
-  const comingSoonCities = cities.filter((c) => c.coming_soon);
+  const selectableCities = useMemo(
+    () => mappedCities.filter((c) => !c.coming_soon),
+    [mappedCities],
+  );
+
+  const comingSoonCities = useMemo(
+    () => mappedCities.filter((c) => c.coming_soon),
+    [mappedCities],
+  );
 
   const getCityById = useCallback(
-    (id: string) => cities.find((c) => c.id === id),
-    [cities],
+    (id: string) => mappedCities.find((c) => c.id === id),
+    [mappedCities],
   );
 
   const getCityByName = useCallback(
     (name: string, country?: string) =>
-      cities.find((c) =>
-        c.name === name && (country == null || c.country === country),
+      mappedCities.find(
+        (c) => c.name === name && (country == null || c.country === country),
       ),
-    [cities],
+    [mappedCities],
   );
 
   return {
-    cities,
-    citiesByCountry,
+    cities: mappedCities,
+    citiesByCountry: mappedCitiesByCountry,
     selectableCities,
     comingSoonCities,
     isLoading,

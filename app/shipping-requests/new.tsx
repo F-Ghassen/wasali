@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,15 +16,21 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { EU_ORIGIN_CITIES, TN_DESTINATION_CITIES } from '@/constants/cities';
 import { PACKAGE_CATEGORIES } from '@/constants/packageCategories';
 import { useRequestStore } from '@/stores/requestStore';
 import { useAuthStore } from '@/stores/authStore';
+import { useCitiesStore } from '@/stores/citiesStore';
 
 export default function NewRequestScreen() {
   const router = useRouter();
   const { session } = useAuthStore();
   const { draft, setDraftField, submitRequest, isLoading } = useRequestStore();
+  const { cities } = useCitiesStore();
+
+  const getCityCountry = useCallback((cityName: string) => {
+    const city = cities.find(c => c.name.toLowerCase() === cityName.toLowerCase());
+    return city?.country;
+  }, [cities]);
 
   const handleSubmit = async () => {
     if (!session) return;
@@ -61,8 +67,8 @@ export default function NewRequestScreen() {
             value={draft.originCity ?? ''}
             onChangeText={(v) => {
               setDraftField('originCity', v);
-              const city = EU_ORIGIN_CITIES.find(c => c.name.toLowerCase() === v.toLowerCase());
-              if (city) setDraftField('originCountry', city.country);
+              const country = getCityCountry(v);
+              if (country) setDraftField('originCountry', country);
             }}
           />
 
@@ -72,8 +78,8 @@ export default function NewRequestScreen() {
             value={draft.destinationCity ?? ''}
             onChangeText={(v) => {
               setDraftField('destinationCity', v);
-              const city = TN_DESTINATION_CITIES.find(c => c.name.toLowerCase() === v.toLowerCase());
-              if (city) setDraftField('destinationCountry', city.country);
+              const country = getCityCountry(v);
+              if (country) setDraftField('destinationCountry', country);
             }}
           />
 

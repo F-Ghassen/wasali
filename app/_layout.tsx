@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
+import { useCitiesStore } from '@/stores/citiesStore';
 import { supabase } from '@/lib/supabase';
 import { ToastContainer } from '@/components/ui/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
@@ -28,6 +29,7 @@ function roleRoute(role?: string) {
 
 export default function RootLayout() {
   const { setSession, loadProfile, setInitialized, isInitialized, profile, session } = useAuthStore();
+  const { fetchCities } = useCitiesStore();
   const router = useRouter();
   const [i18nReady, setI18nReady] = useState(false);
   const hasRedirected = useRef(false);
@@ -36,6 +38,13 @@ export default function RootLayout() {
   useEffect(() => {
     initI18n().finally(() => setI18nReady(true));
   }, []);
+
+  // Cities store bootstrap — fetch cities once on app init
+  useEffect(() => {
+    if (i18nReady) {
+      fetchCities();
+    }
+  }, [i18nReady]);
 
   // Session bootstrap — always call setInitialized so the spinner never hangs
   useEffect(() => {

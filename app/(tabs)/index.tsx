@@ -41,6 +41,9 @@ function FeaturedRouteCard({ route: r, onBook }: { route: FeaturedRoute; onBook:
   const { t } = useTranslation();
   return (
     <View style={bannerS.card}>
+      <View style={bannerS.featuredBadge}>
+        <Text style={bannerS.featuredBadgeText}>Featured</Text>
+      </View>
       <View style={bannerS.topRow}>
         <View style={{ flex: 1 }}>
           <Text style={bannerS.route}>{r.from} → {r.to}</Text>
@@ -94,19 +97,28 @@ function FeaturedRoutesSection({ routes, onBook, onSeeAll }: {
 
   const cols = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
   const GAP = Spacing.md;
-  const cardWidth = (width - Spacing.base * 2 - GAP * (cols - 1)) / cols;
   const visible = routes.slice(0, cols * 2);
 
   if (routes.length === 0) return null;
+
+  // Group visible routes into rows based on column count
+  const rows: FeaturedRoute[][] = [];
+  for (let i = 0; i < visible.length; i += cols) {
+    rows.push(visible.slice(i, i + cols));
+  }
 
   return (
     <Animated.View style={[bannerS.section, { transform: [{ translateY: slideY }], opacity }]}>
       <Text style={s.sectionLabel}>{t('home.featuredRoutes')}</Text>
 
-      <View style={[bannerS.grid, { gap: GAP }]}>
-        {visible.map((route) => (
-          <View key={route.id} style={{ width: cardWidth }}>
-            <FeaturedRouteCard route={route} onBook={onBook} />
+      <View style={{ gap: GAP }}>
+        {rows.map((row, rowIdx) => (
+          <View key={rowIdx} style={[bannerS.row, { gap: GAP }]}>
+            {row.map((route) => (
+              <View key={route.id} style={{ flex: 1 }}>
+                <FeaturedRouteCard route={route} onBook={onBook} />
+              </View>
+            ))}
           </View>
         ))}
       </View>
@@ -180,7 +192,8 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchFeaturedRoutes = async () => {
       try {
-        const { data, error } = await supabase
+        // Try to fetch explicitly featured routes first
+        const { data: featuredData, error: featuredError } = await supabase
           .from('routes')
           .select(`
             id,
@@ -193,32 +206,78 @@ export default function HomeScreen() {
             status,
             promotion_active,
             promotion_percentage,
+            is_featured,
             driver:profiles!driver_id(id, full_name, rating, avatar_url)
           `)
           .eq('status', 'active')
+          .eq('is_featured', true)
           .gte('available_weight_kg', 1)
           .order('departure_date', { ascending: true })
           .limit(6);
 
-        if (error) {
-          console.error('Error fetching featured routes:', error);
+        if (featuredError) {
+          console.error('Error fetching featured routes:', featuredError);
           return;
         }
 
-        if (!data) return;
+        // If we have featured routes, use them
+        if (featuredData && featuredData.length > 0) {
+          setFeaturedRoutes(
+            featuredData.map((r: any) => ({
+              id: r.id,
+              driverName: r.driver?.full_name ?? 'Driver',
+              from: r.origin_city,
+              to: r.destination_city,
+              departureDate: new Date(r.departure_date),
+              capacityLeft: r.available_weight_kg,
+              pricePerKg: r.price_per_kg_eur,
+              isFull: r.available_weight_kg <= 0,
+            })),
+          );
+          return;
+        }
 
-        setFeaturedRoutes(
-          data.map((r: any) => ({
-            id: r.id,
-            driverName: r.driver?.full_name ?? 'Driver',
-            from: r.origin_city,
-            to: r.destination_city,
-            departureDate: new Date(r.departure_date),
-            capacityLeft: r.available_weight_kg,
-            pricePerKg: r.price_per_kg_eur,
-            isFull: r.available_weight_kg <= 0,
-          })),
-        );
+        // Fallback: fetch general routes (cheapest/best value) if no featured routes exist
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('routes')
+          .select(`
+            id,
+            origin_city,
+            destination_city,
+            departure_date,
+            available_weight_kg,
+            min_weight_kg,
+            price_per_kg_eur,
+            status,
+            promotion_active,
+            promotion_percentage,
+            is_featured,
+            driver:profiles!driver_id(id, full_name, rating, avatar_url)
+          `)
+          .eq('status', 'active')
+          .gte('available_weight_kg', 1)
+          .order('price_per_kg_eur', { ascending: true })
+          .limit(6);
+
+        if (fallbackError) {
+          console.error('Error fetching fallback routes:', fallbackError);
+          return;
+        }
+
+        if (fallbackData) {
+          setFeaturedRoutes(
+            fallbackData.map((r: any) => ({
+              id: r.id,
+              driverName: r.driver?.full_name ?? 'Driver',
+              from: r.origin_city,
+              to: r.destination_city,
+              departureDate: new Date(r.departure_date),
+              capacityLeft: r.available_weight_kg,
+              pricePerKg: r.price_per_kg_eur,
+              isFull: r.available_weight_kg <= 0,
+            })),
+          );
+        }
       } catch (err) {
         console.error('Failed to fetch featured routes:', err);
       }
@@ -314,16 +373,36 @@ const s = StyleSheet.create({
 
 const bannerS = StyleSheet.create({
   section: { gap: Spacing.md },
+  row: { flexDirection: 'row' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
   card: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
     padding: Spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    elevation: 3,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    overflow: 'hidden',
+  },
+  featuredBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(201, 162, 39, 0.1)',
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 3,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.gold,
+  },
+  featuredBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.gold,
+    letterSpacing: 0.3,
   },
   topRow: {
     flexDirection: 'row',
@@ -336,13 +415,13 @@ const bannerS = StyleSheet.create({
   pricePill: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
   },
-  price: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary },
-  perKg: { fontSize: FontSize.xs, color: Colors.text.secondary, marginLeft: 2 },
+  price: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white },
+  perKg: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.8)', marginLeft: 2 },
   driverRow: {
     flexDirection: 'row',
     alignItems: 'center',

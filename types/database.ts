@@ -739,6 +739,7 @@ export type Database = {
           driver_id: string
           estimated_arrival_date: string | null
           id: string
+          is_featured: boolean
           logistics_options: Json
           max_single_package_kg: number | null
           min_weight_kg: number | null
@@ -768,6 +769,7 @@ export type Database = {
           driver_id: string
           estimated_arrival_date?: string | null
           id?: string
+          is_featured?: boolean
           logistics_options?: Json
           max_single_package_kg?: number | null
           min_weight_kg?: number | null
@@ -797,6 +799,7 @@ export type Database = {
           driver_id?: string
           estimated_arrival_date?: string | null
           id?: string
+          is_featured?: boolean
           logistics_options?: Json
           max_single_package_kg?: number | null
           min_weight_kg?: number | null

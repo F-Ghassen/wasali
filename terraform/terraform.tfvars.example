@@ -27,6 +27,7 @@ stripe_webhook_secret = "whsec_xxxxxxxxxxxxxxxxxxxx"
 vercel_api_token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 vercel_team_id   = "team_lw3SwDpATEL5wEVaDfF3wvcS"
 
-# ─── Optional ─────────────────────────────────────────────────────────────────
+# ─── Resend ───────────────────────────────────────────────────────────────────
 # Get from: https://resend.com/api-keys
+# Required — used for Supabase auth SMTP (OTP emails, password reset, etc.)
 resend_api_key = "re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

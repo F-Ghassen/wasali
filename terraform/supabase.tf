@@ -35,6 +35,14 @@ resource "supabase_settings" "auth" {
 
     # Password requirements
     password_min_length         = 8
+
+    # Resend SMTP relay
+    smtp_admin_email  = "noreply@wasali.app"
+    smtp_host         = "smtp.resend.com"
+    smtp_port         = 465
+    smtp_user         = "resend"
+    smtp_pass         = var.resend_api_key
+    smtp_sender_name  = "Wasali"
   })
 }
 

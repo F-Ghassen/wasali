@@ -60,10 +60,9 @@ variable "vercel_team_id" {
 # ─── Optional: Resend ─────────────────────────────────────────────────────────
 
 variable "resend_api_key" {
-  description = "Resend API key for transactional emails (optional)"
+  description = "Resend API key — used for Supabase auth SMTP (OTP, password reset)"
   type        = string
   sensitive   = true
-  default     = ""
 }
 
 # ─── Optional: Expo / EAS ────────────────────────────────────────────────────

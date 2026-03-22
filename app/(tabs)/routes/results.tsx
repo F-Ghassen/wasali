@@ -30,6 +30,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useRouteResults, type RouteResult, type SortKey, type FilterState } from '@/hooks/useRouteResults';
 import { useCities, type CityRow } from '@/hooks/useCities';
 import { supabase } from '@/lib/supabase';
+import { parseISO } from 'date-fns';
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
 
@@ -468,8 +469,10 @@ export default function ResultsScreen() {
   }>();
 
   const store = useSearchStore();
+  const { setFromCity, setToCity, setDepartFromDate } = store;
   const { setRoute } = useBookingStore();
   const { profile } = useAuthStore();
+  const { citiesByCountry } = useCities();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -499,9 +502,16 @@ export default function ResultsScreen() {
   const [minCapInput, setMinCapInput] = useState('');
   const [maxPriceInput, setMaxPriceInput] = useState('');
 
+  // Search param filters
+  const [showFromFilter, setShowFromFilter] = useState(false);
+  const [showToFilter, setShowToFilter]     = useState(false);
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const filterDate = departFromDate ? (() => { try { return parseISO(departFromDate); } catch { return null; } })() : null;
+
+  // Re-fetch whenever search params change
   useEffect(() => {
     if (originCityName && destCityName) refresh();
-  }, []);
+  }, [originCityName, destCityName, departFromDate]);
 
   const handleApplyFilters = () => {
     const minCap   = parseFloat(minCapInput)   || undefined;
@@ -647,9 +657,6 @@ export default function ResultsScreen() {
           <Text style={s.backText}>‹</Text>
         </TouchableOpacity>
         <View style={s.headerCenter}>
-          <Text style={s.headerRoute}>
-            {originCityName || 'Origin'} → {destCityName || 'Destination'}
-          </Text>
           {!isFetching && (
             <Text style={s.headerCount}>
               {totalCount} route{totalCount !== 1 ? 's' : ''}
@@ -671,6 +678,25 @@ export default function ResultsScreen() {
             )}
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* ── Search Params Bar ─────────────────────────────── */}
+      <View style={s.searchBar}>
+        <TouchableOpacity style={s.searchChip} onPress={() => setShowFromFilter(true)} activeOpacity={0.75}>
+          <Text style={s.searchChipLabel}>FROM</Text>
+          <Text style={s.searchChipValue} numberOfLines={1}>{originCityName || 'Any'}</Text>
+        </TouchableOpacity>
+        <Text style={s.searchChipArrow}>→</Text>
+        <TouchableOpacity style={s.searchChip} onPress={() => setShowToFilter(true)} activeOpacity={0.75}>
+          <Text style={s.searchChipLabel}>TO</Text>
+          <Text style={s.searchChipValue} numberOfLines={1}>{destCityName || 'Any'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[s.searchChip, s.searchChipDate]} onPress={() => setShowDateFilter(true)} activeOpacity={0.75}>
+          <Text style={s.searchChipLabel}>DATE</Text>
+          <Text style={s.searchChipValue} numberOfLines={1}>
+            {filterDate ? format(filterDate, 'MMM d') : 'Any'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {isWide ? (
@@ -760,6 +786,43 @@ export default function ResultsScreen() {
         profile={profile}
         onClose={() => setShowAlert(false)}
       />
+
+      {/* ── Search param city pickers ─────────────────────── */}
+      <CityPickerModal
+        visible={showFromFilter}
+        title="Select origin city"
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => { setFromCity(c.id, c.name, c.country); }}
+        onClose={() => setShowFromFilter(false)}
+      />
+      <CityPickerModal
+        visible={showToFilter}
+        title="Select destination city"
+        citiesByCountry={citiesByCountry}
+        onSelect={(c) => { setToCity(c.id, c.name, c.country); }}
+        onClose={() => setShowToFilter(false)}
+      />
+
+      {/* ── Search param date picker ──────────────────────── */}
+      <Modal visible={showDateFilter} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDateFilter(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background.primary }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.base, paddingVertical: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.border.light }}>
+            <Text style={{ fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary }}>Departure date</Text>
+            <TouchableOpacity onPress={() => setShowDateFilter(false)} style={{ padding: Spacing.sm }}>
+              <X size={20} color={Colors.text.secondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: Spacing.base }}>
+            <InlineDatePicker
+              selected={filterDate}
+              onSelect={(d) => {
+                setDepartFromDate(d ? format(d, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+                setShowDateFilter(false);
+              }}
+            />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -879,6 +942,44 @@ const s = StyleSheet.create({
     letterSpacing: 1.2,
     color: Colors.text.tertiary,
     textTransform: 'uppercase',
+  },
+
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+    gap: Spacing.xs,
+  },
+  searchChip: {
+    flex: 1,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  searchChipDate: { flex: 0.7 },
+  searchChipLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    color: Colors.text.tertiary,
+    marginBottom: 1,
+  },
+  searchChipValue: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  searchChipArrow: {
+    fontSize: FontSize.sm,
+    color: Colors.text.tertiary,
+    fontWeight: '600',
   },
 });
 

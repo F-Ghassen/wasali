@@ -290,8 +290,8 @@ export default {
   home: {
     heroTitle: 'Ship it. Trust it. Done.',
     hero: {
-      headline: 'Send packages to Tunisia from Europe.\nOr receive from family abroad.',
-      subheadline: 'Cheaper than couriers.\nFaster than mail.\nTrustworthy drivers.',
+      headline: '📦 Send packages to Tunisia from Europe.\n📮 Or receive from family abroad.',
+      subheadline: '💰 Cheaper than couriers  •  ⚡ Faster than mail  •  ⭐ Trustworthy drivers',
       driverCTA: 'Are you a driver? Earn money',
       findRoutes: 'Find available routes',
     },

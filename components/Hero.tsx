@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Search } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -40,22 +40,26 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
           <Text style={styles.subheadline}>
             {t('home.hero.subheadline')}
           </Text>
+          <View style={styles.spacer} />
           <TouchableOpacity
             style={styles.driverCTA}
             onPress={handleDriverCTA}
-            activeOpacity={0.7}
+            activeOpacity={0.65}
           >
             <Text style={styles.driverCTAText}>
               {t('home.hero.driverCTA')}
             </Text>
-            <ArrowRight size={16} color={Colors.primary} strokeWidth={2} />
+            <ArrowRight size={16} color={Colors.primary} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.desktopRight}>
-          <Text style={styles.formTitle}>
-            {t('home.hero.findRoutes')}
-          </Text>
+          <View style={styles.formTitleRow}>
+            <Search size={18} color={Colors.primary} strokeWidth={2} />
+            <Text style={styles.formTitle}>
+              {t('home.hero.findRoutes')}
+            </Text>
+          </View>
           <SearchForm />
         </View>
       </View>
@@ -74,22 +78,27 @@ export default function Hero({ onDriverCTAPress }: HeroProps) {
         </Text>
       </View>
 
+      <View style={styles.divider} />
+
       <View style={styles.mobileSearch}>
-        <Text style={styles.formTitle}>
-          {t('home.hero.findRoutes')}
-        </Text>
+        <View style={styles.formTitleRow}>
+          <Search size={16} color={Colors.primary} strokeWidth={2} />
+          <Text style={styles.formTitleMobile}>
+            {t('home.hero.findRoutes')}
+          </Text>
+        </View>
         <SearchForm />
       </View>
 
       <TouchableOpacity
         style={styles.driverCTAMobile}
         onPress={handleDriverCTA}
-        activeOpacity={0.7}
+        activeOpacity={0.65}
       >
         <Text style={styles.driverCTATextMobile}>
           {t('home.hero.driverCTA')}
         </Text>
-        <ArrowRight size={16} color={Colors.primary} strokeWidth={2} />
+        <ArrowRight size={14} color={Colors.primary} strokeWidth={2.5} />
       </TouchableOpacity>
     </View>
   );
@@ -103,14 +112,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing['2xl'],
     paddingVertical: Spacing['3xl'],
     gap: Spacing['3xl'],
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
   desktopLeft: {
     flex: 1,
     justifyContent: 'center',
+    gap: Spacing.md,
   },
   desktopRight: {
     flex: 1,
+    justifyContent: 'flex-start',
   },
 
   // ── Mobile Layout ───────────────────────────────────────────────────────
@@ -121,10 +132,22 @@ const styles = StyleSheet.create({
     gap: Spacing['2xl'],
   },
   mobileCopy: {
-    gap: Spacing.md,
+    gap: Spacing.base,
   },
   mobileSearch: {
     gap: Spacing.md,
+  },
+
+  // ── Visual Divider ─────────────────────────────────────────────────────
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border.light,
+    marginVertical: Spacing.sm,
+  },
+
+  // ── Spacer ────────────────────────────────────────────────────────────
+  spacer: {
+    height: Spacing.md,
   },
 
   // ── Headlines & Copy ───────────────────────────────────────────────────
@@ -133,21 +156,33 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.text.primary,
     lineHeight: 36,
-    marginBottom: Spacing.md,
   },
   subheadline: {
-    fontSize: FontSize.lg,
-    fontWeight: '500',
+    fontSize: FontSize.base,
+    fontWeight: '600',
     color: Colors.text.secondary,
-    lineHeight: 28,
-    marginBottom: Spacing['2xl'],
+    lineHeight: 24,
+    letterSpacing: 0.2,
   },
 
-  // ── Form Title ───────────────────────────────────────────────────────────
+  // ── Form Title ─────────────────────────────────────────────────────────
+  formTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   formTitle: {
     fontSize: FontSize.lg,
     fontWeight: '700',
     color: Colors.text.primary,
+    letterSpacing: 0.3,
+  },
+  formTitleMobile: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+    letterSpacing: 0.3,
   },
 
   // ── Driver CTA (Desktop) ──────────────────────────────────────────────────
@@ -156,6 +191,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
     alignSelf: 'flex-start',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: 0,
   },
   driverCTAText: {
     fontSize: FontSize.base,
@@ -170,9 +207,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Spacing.sm,
     paddingVertical: Spacing.base,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: 'rgba(59, 130, 246, 0.06)',
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.12)',
+    marginTop: Spacing.sm,
   },
   driverCTATextMobile: {
-    fontSize: FontSize.base,
+    fontSize: FontSize.sm,
     fontWeight: '600',
     color: Colors.primary,
   },

@@ -290,8 +290,8 @@ export default {
   home: {
     heroTitle: 'Expédiez. Faites confiance. C\'est fait.',
     hero: {
-      headline: 'Envoyez des colis en Tunisie depuis l\'Europe.\nOu recevez de la famille à l\'étranger.',
-      subheadline: 'Moins cher que les courriers.\nPlus rapide que la poste.\nConducteurs de confiance.',
+      headline: '📦 Envoyez des colis en Tunisie depuis l\'Europe.\n📮 Ou recevez de la famille à l\'étranger.',
+      subheadline: '💰 Moins cher que les courriers  •  ⚡ Plus rapide que la poste  •  ⭐ Conducteurs de confiance',
       driverCTA: 'Êtes-vous conducteur ? Gagnez de l\'argent',
       findRoutes: 'Trouver des trajets disponibles',
     },

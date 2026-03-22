@@ -1,6 +1,12 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-20_
+_Last updated: 2026-03-22_
+
+## Infrastructure
+
+Cloud resources are managed as code in [`terraform/`](../terraform/). See [`docs/infrastructure.md`](./infrastructure.md) for the full infrastructure diagram, service details, and runbook.
+
+**Stack:** Supabase (DB + Auth + Edge Functions) · Vercel (web SPA) · Stripe (escrow payments + Connect) · Resend (email)
 
 ## Test Architecture
 

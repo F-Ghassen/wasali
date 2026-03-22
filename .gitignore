@@ -43,3 +43,17 @@ yarn-error.*
 # credentials — never commit
 secrets.md
 .vercel
+
+# Terraform — sensitive state and variable files
+terraform/terraform.tfvars
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/crash.log
+
+# local reports (may contain sensitive findings)
+docs/reports/
+
+# Claude Code local settings (may contain credentials)
+.claude/

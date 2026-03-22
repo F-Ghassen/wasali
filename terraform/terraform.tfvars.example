@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars — it is git-ignored.
+
+# ─── Supabase ─────────────────────────────────────────────────────────────────
+# Get from: https://app.supabase.com/account/tokens
+supabase_access_token = "sbp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Get from: https://app.supabase.com/org/settings (URL slug)
+supabase_organization_id = "your-org-id"
+
+# Strong password for Postgres (min 16 chars recommended)
+supabase_db_password = "change-me-strong-password"
+
+# Closest region to your users (Morocco/Tunisia → eu-central-1 Frankfurt)
+supabase_project_region = "eu-central-1"
+
+# ─── Stripe ───────────────────────────────────────────────────────────────────
+# Get from: https://dashboard.stripe.com/apikeys
+stripe_secret_key      = "sk_live_xxxxxxxxxxxxxxxxxxxx"
+stripe_publishable_key = "pk_live_xxxxxxxxxxxxxxxxxxxx"
+
+# Get after creating webhook endpoint in Stripe Dashboard
+stripe_webhook_secret = "whsec_xxxxxxxxxxxxxxxxxxxx"
+
+# ─── Vercel ───────────────────────────────────────────────────────────────────
+# Get from: https://vercel.com/account/tokens
+vercel_api_token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+vercel_team_id   = "team_lw3SwDpATEL5wEVaDfF3wvcS"
+
+# ─── Optional ─────────────────────────────────────────────────────────────────
+# Get from: https://resend.com/api-keys
+resend_api_key = "re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"

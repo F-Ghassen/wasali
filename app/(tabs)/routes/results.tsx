@@ -468,6 +468,8 @@ export default function ResultsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     origin_city_id?: string;
+    origin_city_name?: string;
+    origin_country?: string;
     destination_city_id?: string;
     depart_from_date?: string;
   }>();
@@ -480,13 +482,17 @@ export default function ResultsScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const originCityName = store.fromCityName;
-  const originCountry  = store.fromCountry;
-  const originCityId   = store.fromCityId;
+  // Use params if provided (from WhereAreYouFrom card), otherwise use store
+  const originCityName = params.origin_city_name ?? store.fromCityName;
+  const originCountry  = params.origin_country ?? store.fromCountry;
+  const originCityId   = params.origin_city_id ?? store.fromCityId;
   const destCityName   = store.toCityName;
   const destCountry    = store.toCountry;
-  const destCityId     = store.toCityId;
+  const destCityId     = params.destination_city_id ?? store.toCityId;
   const departFromDate = params.depart_from_date ?? store.departFromDate;
+
+  // Track if searching by country only (from card click - no specific city)
+  const isCountrySearch = originCountry && !originCityName;
 
   const {
     tier1,
@@ -516,8 +522,9 @@ export default function ResultsScreen() {
 
   // Re-fetch whenever search params change
   useEffect(() => {
-    if (originCityName && destCityName) refresh();
-  }, [originCityName, destCityName, departFromDate]);
+    // Refresh if origin city is set OR if country is set (country search shows all cities in that country)
+    if (originCityName || originCountry) refresh();
+  }, [originCityName, originCountry, destCityName, departFromDate, refresh]);
 
   const handleApplyFilters = () => {
     const minCap   = parseFloat(minCapInput)   || undefined;
@@ -629,7 +636,6 @@ export default function ResultsScreen() {
             </View>
           );
         }
-        if (!item.route.driver) return null;
         return (
           <RouteCard
             route={item.route}

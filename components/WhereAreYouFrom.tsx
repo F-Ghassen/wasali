@@ -2,21 +2,24 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
-  ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Lock, Package } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { supabase } from '@/lib/supabase';
 import { useSearchStore } from '@/stores/searchStore';
 import { useCitiesStore } from '@/stores/citiesStore';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { getFlagImageUrl } from '@/lib/flagImages';
 
 type CountryData = {
   country: string;
@@ -28,6 +31,11 @@ type CountryData = {
 export default function WhereAreYouFrom() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
+
+  // Add side padding on large screens to center cards
+  const containerStyle = isWide && width > 1200
+    ? { ...styles.container, paddingHorizontal: (width - 1200) / 2 }
+    : styles.container;
   const router = useRouter();
   const { t } = useTranslation();
   const { setFromCity, setToCity, setDepartFromDate } = useSearchStore();
@@ -35,7 +43,6 @@ export default function WhereAreYouFrom() {
 
   const [countries, setCountries] = useState<CountryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [tunisiaDestinationId, setTunisiaDestinationId] = useState<string>('');
 
   useEffect(() => {
     if (!citiesLoading && cities.length > 0) {
@@ -45,11 +52,6 @@ export default function WhereAreYouFrom() {
 
   const fetchCountries = async () => {
     try {
-      // Find Tunisia destination city (Tunis) from store
-      const tunisCity = cities.find((c) => c.country === 'Tunisia' && c.name === 'Tunis');
-      if (tunisCity?.id) {
-        setTunisiaDestinationId(tunisCity.id);
-      }
 
       // Build city ID map from store for quick lookup
       const cityIdMap: Record<string, string> = {};
@@ -57,11 +59,15 @@ export default function WhereAreYouFrom() {
         cityIdMap[`${city.name}-${city.country}`] = city.id;
       });
 
-      // Fetch routes with origin country
+      // Fetch routes with origin country - only routes still available for collection
+      // with future departure dates (matching search results filter)
+      const today = format(new Date(), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('routes')
         .select('origin_city, origin_country')
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .gt('available_weight_kg', 0)
+        .gte('departure_date', today);
 
       if (error) throw error;
 
@@ -119,58 +125,76 @@ export default function WhereAreYouFrom() {
   };
 
   const handleCardPress = (country: CountryData) => {
-    if (!country.cityId || !tunisiaDestinationId) return;
+    // Set from country (departure) - any city from this country
+    // Leave city name/id empty to show routes from ANY city in the country
+    setFromCity('', '', country.country);
 
-    // Set from city (departure)
-    setFromCity(country.cityId, country.country, country.country);
-
-    // Set to city (Tunisia - Tunis)
-    setToCity(tunisiaDestinationId, 'Tunis', 'Tunisia');
+    // Set to city - empty to show all destinations
+    setToCity('', '', '');
 
     // Set departure date to today
     const today = format(new Date(), 'yyyy-MM-dd');
     setDepartFromDate(today);
 
-    // Navigate to results
+    // Navigate to results - show all destinations from any city in this country
     router.push({
       pathname: '/(tabs)/routes/results',
       params: {
-        origin_city_id: country.cityId,
-        destination_city_id: tunisiaDestinationId,
+        origin_country: country.country,
         depart_from_date: today,
+        // Note: no city or destination params, so it shows routes from any city in the country to any destination
       },
     } as any);
   };
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={containerStyle}>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>{t('home.whereFrom.title')}</Text>
           <Text style={styles.subtitle}>{t('home.whereFrom.subtitle')}</Text>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
+
+        {/* Skeleton Loading */}
+        {isWide ? (
+          <View style={styles.cardsRowDesktop}>
+            <Skeleton style={styles.skeletonCard} />
+            <Skeleton style={styles.skeletonCard} />
+            <Skeleton style={styles.skeletonCard} />
+          </View>
+        ) : (
+          <View style={styles.cardsGridMobile}>
+            <Skeleton style={styles.skeletonCardMobile} />
+            <Skeleton style={styles.skeletonCardMobile} />
+            <Skeleton style={styles.skeletonCardMobile} />
+            <Skeleton style={styles.skeletonCardMobile} />
+          </View>
+        )}
       </View>
     );
   }
 
   if (countries.length === 0) {
-    // Render header even if no data
     return (
-      <View style={styles.container}>
+      <View style={containerStyle}>
         <View style={styles.header}>
           <Text style={styles.title}>{t('home.whereFrom.title')}</Text>
           <Text style={styles.subtitle}>{t('home.whereFrom.subtitle')}</Text>
         </View>
-        <Text style={styles.emptyText}>No routes available yet</Text>
+        <View style={styles.emptyStateContainer}>
+          <View style={styles.emptyStateIcon}>
+            <Lock size={48} color={Colors.text.secondary} />
+          </View>
+          <Text style={styles.emptyStateText}>No routes available yet</Text>
+          <Text style={styles.emptyText}>Check back soon for new destinations</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={containerStyle}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>{t('home.whereFrom.title')}</Text>
@@ -186,14 +210,28 @@ export default function WhereAreYouFrom() {
               key={country.country}
               style={styles.countryCard}
               onPress={() => handleCardPress(country)}
-              activeOpacity={0.8}
+              activeOpacity={0.9}
             >
-              <Text style={styles.flagEmoji}>{country.flag}</Text>
+              <Image
+                source={{ uri: getFlagImageUrl(country.country) }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.75)']}
+                style={styles.cardGradient}
+              />
               <View style={styles.cardContent}>
                 <Text style={styles.countryName}>{country.country}</Text>
-                <Text style={styles.routeCount}>
-                  {country.routeCount} {country.routeCount === 1 ? 'route' : 'routes'}
-                </Text>
+                <View style={styles.routeMeta}>
+                  <Package size={11} color="rgba(255,255,255,0.7)" strokeWidth={2} />
+                  <Text style={styles.routeCount}>
+                    {country.routeCount} {country.routeCount === 1 ? 'route' : 'routes'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.arrowChip}>
+                <ArrowRight size={12} color={Colors.white} strokeWidth={2.5} />
               </View>
             </TouchableOpacity>
           ))}
@@ -206,14 +244,23 @@ export default function WhereAreYouFrom() {
               key={country.country}
               style={styles.countryCardMobile}
               onPress={() => handleCardPress(country)}
-              activeOpacity={0.8}
+              activeOpacity={0.9}
             >
-              <Text style={styles.flagEmojiMobile}>{country.flag}</Text>
-              <View style={styles.cardContentMobile}>
-                <Text style={styles.countryNameMobile}>{country.country}</Text>
-                <Text style={styles.routeCountMobile}>
-                  {country.routeCount}
-                </Text>
+              <Image
+                source={{ uri: getFlagImageUrl(country.country) }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.8)']}
+                style={styles.cardGradient}
+              />
+              <View style={styles.cardContent}>
+                <Text style={styles.countryName}>{country.country}</Text>
+                <View style={styles.routeMeta}>
+                  <Package size={10} color="rgba(255,255,255,0.7)" strokeWidth={2} />
+                  <Text style={styles.routeCount}>{country.routeCount} routes</Text>
+                </View>
               </View>
             </TouchableOpacity>
           ))}
@@ -224,10 +271,9 @@ export default function WhereAreYouFrom() {
       <TouchableOpacity
         style={styles.seeAllCTA}
         onPress={() => router.push('/(tabs)/routes/results' as any)}
-        activeOpacity={0.7}
+        activeOpacity={0.85}
       >
         <Text style={styles.seeAllText}>{t('home.whereFrom.seeAll')}</Text>
-        <ArrowRight size={14} color={Colors.primary} strokeWidth={2.5} />
       </TouchableOpacity>
     </View>
   );
@@ -242,52 +288,41 @@ const styles = StyleSheet.create({
   // ── Header ──────────────────────────────────────────────────────────────
   header: {
     marginBottom: Spacing.xl,
+    alignItems: 'center',
   },
   title: {
-    fontSize: FontSize.lg,
-    fontWeight: '700',
+    fontSize: FontSize['2xl'],
+    fontWeight: '800',
     color: Colors.text.primary,
     marginBottom: Spacing.xs,
+    lineHeight: 32,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: FontSize.sm,
     color: Colors.text.secondary,
     lineHeight: 20,
+    textAlign: 'center',
   },
 
   // ── Desktop Row Layout ───────────────────────────────────────────────────
   cardsRowDesktop: {
     flexDirection: 'row',
-    gap: Spacing.lg,
+    gap: Spacing.md,
     marginBottom: Spacing.xl,
   },
   countryCard: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  flagEmoji: {
-    fontSize: 40,
-  },
-  cardContent: {
-    flex: 1,
-    gap: Spacing.xs,
-  },
-  countryName: {
-    fontSize: FontSize.sm,
-    fontWeight: '700',
-    color: Colors.text.primary,
-  },
-  routeCount: {
-    fontSize: FontSize.xs,
-    color: Colors.text.secondary,
-    fontWeight: '500',
+    height: 160,
+    borderRadius: BorderRadius['2xl'],
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: Colors.background.secondary,
+    shadowColor: Colors.black,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
 
   // ── Mobile 2x2 Grid ────────────────────────────────────────────────────
@@ -296,36 +331,74 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.md,
     marginBottom: Spacing.xl,
+    justifyContent: 'space-between',
   },
   countryCardMobile: {
     width: '48%',
-    aspectRatio: 1,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg,
+    height: 150,
+    borderRadius: BorderRadius['2xl'],
+    overflow: 'hidden',
+    position: 'relative',
+    backgroundColor: Colors.background.secondary,
+    shadowColor: Colors.black,
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+
+  // ── Shared card internals ───────────────────────────────────────────────
+  cardImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  cardGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '70%',
+  },
+  cardContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
+    gap: 4,
+  },
+  countryName: {
+    fontSize: FontSize.base,
+    fontWeight: '800',
+    color: Colors.white,
+    letterSpacing: -0.2,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  routeMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  routeCount: {
+    fontSize: FontSize.sm,
+    color: 'rgba(255,255,255,0.95)',
+    fontWeight: '700',
+  },
+  arrowChip: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 26,
+    height: 26,
+    borderRadius: BorderRadius.full,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  flagEmojiMobile: {
-    fontSize: 32,
-  },
-  cardContentMobile: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  countryNameMobile: {
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    textAlign: 'center',
-  },
-  routeCountMobile: {
-    fontSize: FontSize.xs,
-    color: Colors.text.secondary,
-    fontWeight: '500',
   },
 
   // ── See All CTA ────────────────────────────────────────────────────────
@@ -333,23 +406,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
+  seeAllLeft: {},
   seeAllText: {
     fontSize: FontSize.sm,
     fontWeight: '600',
-    color: Colors.primary,
+    color: Colors.text.secondary,
   },
-
-  // ── Loading ────────────────────────────────────────────────────────────
-  loadingContainer: {
-    height: 200,
+  seeAllSub: {},
+  seeAllArrow: {
     justifyContent: 'center',
     alignItems: 'center',
   },
 
+  // ── Skeleton Loading ────────────────────────────────────────────────────
+  skeletonCard: {
+    flex: 1,
+    height: 80,
+    borderRadius: BorderRadius['2xl'],
+    marginBottom: Spacing.lg,
+  },
+  skeletonCardMobile: {
+    width: '48%',
+    height: 120,
+    borderRadius: BorderRadius['2xl'],
+  },
+
   // ── Empty State ────────────────────────────────────────────────────────
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing['3xl'],
+    paddingHorizontal: Spacing.lg,
+  },
+  emptyStateIcon: {
+    marginBottom: Spacing.lg,
+  },
+  emptyStateText: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+    textAlign: 'center',
+  },
   emptyText: {
     fontSize: FontSize.sm,
     color: Colors.text.secondary,

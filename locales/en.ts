@@ -314,9 +314,9 @@ export default {
       ],
     },
     whereFrom: {
-      title: 'Where are you flying from?',
-      subtitle: 'Select your departure country to find drivers',
-      seeAll: 'See all published routes →',
+      title: 'Where are your packages coming from?',
+      subtitle: 'Choose your departure country to find available shipping routes',
+      seeAll: 'See all available routes →',
     },
     searchFrom: 'From (city)',
     searchTo: 'To (city)',

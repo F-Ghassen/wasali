@@ -314,9 +314,9 @@ export default {
       ],
     },
     whereFrom: {
-      title: 'D\'où allez-vous partir ?',
-      subtitle: 'Sélectionnez votre pays de départ pour trouver des conducteurs',
-      seeAll: 'Voir tous les trajets publiés →',
+      title: 'D\'où viennent vos colis ?',
+      subtitle: 'Choisissez votre pays de départ pour trouver des trajets d\'expédition disponibles',
+      seeAll: 'Voir tous les trajets disponibles →',
     },
     searchFrom: 'De (ville)',
     searchTo: 'Vers (ville)',

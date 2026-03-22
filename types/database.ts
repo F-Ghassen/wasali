@@ -23,6 +23,7 @@ export type Database = {
           flag_emoji: string
           is_active: boolean
           coming_soon: boolean
+          is_capital: boolean
           created_at: string
         }
         Insert: {
@@ -33,6 +34,7 @@ export type Database = {
           flag_emoji?: string
           is_active?: boolean
           coming_soon?: boolean
+          is_capital?: boolean
           created_at?: string
         }
         Update: {
@@ -43,6 +45,7 @@ export type Database = {
           flag_emoji?: string
           is_active?: boolean
           coming_soon?: boolean
+          is_capital?: boolean
           created_at?: string
         }
         Relationships: []

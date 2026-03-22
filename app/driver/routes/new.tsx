@@ -279,14 +279,49 @@ export default function NewRouteScreen() {
     [cities]
   );
 
-  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', collection_date: '', location_name: '', meeting_point_url: '' });
-  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
+  // Collection stops: show all cities
+  const collectionCities = useMemo(() => cities, [cities]);
+
+  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', city_id: undefined, collection_date: '', location_name: '', meeting_point_url: '' });
+  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', city_id: undefined, estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
 
   // ── Step 1: Collection stops ───────────────────────────────────────────────
   const [collectionStops, setCollectionStops] = useState<CollectionStop[]>([emptyCollStop(), emptyCollStop()]);
 
   // ── Step 2: Drop-off stops ─────────────────────────────────────────────────
   const [dropoffStops, setDropoffStops] = useState<DropoffStop[]>([emptyDropStop(), emptyDropStop()]);
+
+  // Dropoff stops: dynamic filtering based on collection selection
+  const dropoffCities = useMemo(() => {
+    // Get all countries selected in collection stops
+    const selectedCountries = new Set(
+      collectionStops
+        .filter(s => s.country)
+        .map(s => s.country)
+    );
+
+    if (selectedCountries.size === 0) {
+      // No collection stops selected yet - show all cities
+      return cities;
+    }
+
+    // Check if any selected countries are Tunisia
+    const hasTunisia = selectedCountries.has('Tunisia');
+    const hasEU = Array.from(selectedCountries).some(c => c !== 'Tunisia');
+
+    // If only Tunisia selected in collection → show only EU in dropoff
+    if (hasTunisia && !hasEU) {
+      return euCities;
+    }
+
+    // If only EU selected in collection → show only Tunisia in dropoff
+    if (hasEU && !hasTunisia) {
+      return tnCities;
+    }
+
+    // Mixed selection - show all (shouldn't happen in normal flow)
+    return cities;
+  }, [cities, euCities, tnCities, collectionStops]);
 
   // ── Step 3: Notes & Rules ──────────────────────────────────────────────────
   const [notes,            setNotes]            = useState('');
@@ -556,7 +591,7 @@ export default function NewRouteScreen() {
   // ── Drop-off stops helpers ─────────────────────────────────────────────────
   const addDropoffStop = () => {
     if (dropoffStops.length >= 8) return;
-    setDropoffStops((p) => [...p, { city: '', country: '', estimated_arrival_date: '', meeting_point_url: '' }]);
+    setDropoffStops((p) => [...p, { city: '', country: '', city_id: undefined, estimated_arrival_date: '', location_name: '', meeting_point_url: '' }]);
   };
   const removeDropoffStop = (i: number) =>
     setDropoffStops((p) => p.filter((_, idx) => idx !== i));
@@ -864,7 +899,7 @@ export default function NewRouteScreen() {
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
-                  cities={euCities}
+                  cities={collectionCities}
                   placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.collection.cityPlaceholder')}
                   onChange={(city) => updateCollectionStop(idx, { city: city.name, country: city.country, city_id: city.id })}
                 />
@@ -951,7 +986,7 @@ export default function NewRouteScreen() {
                 <CityPickerInput
                   value={stop.city}
                   country={stop.country}
-                  cities={tnCities}
+                  cities={dropoffCities}
                   placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.dropoff.cityPlaceholder')}
                   onChange={(city) => updateDropoffStop(idx, { city: city.name, country: city.country, city_id: city.id })}
                 />

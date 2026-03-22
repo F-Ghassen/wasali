@@ -178,14 +178,35 @@ export default function HomeScreen() {
   const [featuredRoutes, setFeaturedRoutes] = useState<FeaturedRoute[]>([]);
 
   useEffect(() => {
-    supabase
-      .from('routes')
-      .select('id, origin_city, destination_city, departure_date, available_weight_kg, price_per_kg_eur, status, driver:profiles!driver_id(full_name)')
-      .eq('status', 'active')
-      .order('departure_date', { ascending: true })
-      .limit(6)
-      .then(({ data }) => {
+    const fetchFeaturedRoutes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('routes')
+          .select(`
+            id,
+            origin_city,
+            destination_city,
+            departure_date,
+            available_weight_kg,
+            min_weight_kg,
+            price_per_kg_eur,
+            status,
+            promotion_active,
+            promotion_percentage,
+            driver:profiles!driver_id(id, full_name, rating, avatar_url)
+          `)
+          .eq('status', 'active')
+          .gte('available_weight_kg', 1)
+          .order('departure_date', { ascending: true })
+          .limit(6);
+
+        if (error) {
+          console.error('Error fetching featured routes:', error);
+          return;
+        }
+
         if (!data) return;
+
         setFeaturedRoutes(
           data.map((r: any) => ({
             id: r.id,
@@ -195,10 +216,15 @@ export default function HomeScreen() {
             departureDate: new Date(r.departure_date),
             capacityLeft: r.available_weight_kg,
             pricePerKg: r.price_per_kg_eur,
-            isFull: r.status === 'full',
+            isFull: r.available_weight_kg <= 0,
           })),
         );
-      });
+      } catch (err) {
+        console.error('Failed to fetch featured routes:', err);
+      }
+    };
+
+    fetchFeaturedRoutes();
   }, []);
 
   return (

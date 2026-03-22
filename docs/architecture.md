@@ -2,6 +2,9 @@
 
 _Last updated: 2026-03-22_
 
+**Recent updates:**
+- WhereAreYouFrom component redesigned with modern Uber-inspired styling (2026-03-22)
+
 ## Infrastructure
 
 Cloud resources are managed as code in [`terraform/`](../terraform/). See [`docs/infrastructure.md`](./infrastructure.md) for the full infrastructure diagram, service details, and runbook.
@@ -85,8 +88,8 @@ tests/
           │  │  avatars            │   │  create-payment-intent│    │
           │  │  package-photos     │   │  stripe-webhook       │    │
           │  │  dispute-evidence   │   │  capture-payment      │    │
-          │  └─────────────────────┘   │  accept-offer         │    │
-          │                            │  notify-booking-event │    │
+          │  │  flags              │   │  accept-offer         │    │
+          │  └─────────────────────┘   │  notify-booking-event │    │
           │                            └───────────┬───────────┘    │
           └────────────────────────────────────────┼────────────────┘
                                                    │
@@ -361,6 +364,23 @@ components/
 │   ├── RouteSummaryCard  ← live route summary with earnings estimate
 │   ├── EarningsSummary   ← earnings dashboard widget
 │   └── StatCard          ← KPI card (bookings, routes, earnings)
+│
+├── WhereAreYouFrom   ← Home screen: Top destination countries carousel
+│   - Badge: "DESTINATIONS" pill above title
+│   - Title & subtitle with improved hierarchy (FontSize.2xl, fontWeight: 800)
+│   - **Card Design**: Full background images (country flags) with overlaid text
+│   - **Flag Images**: Sourced from Supabase storage (`/flags` bucket)
+│   - **Image Service**: `lib/flagImages.ts` generates URLs from country names
+│   - **Fallback**: Defaults to flagcdn.com CDN if storage unavailable
+│   - Desktop: 140px height cards, text overlay bottom-right with white text
+│   - Mobile: 140px height 2-column grid, same overlay pattern
+│   - Semi-transparent dark overlay (rgba 0,0,0,0.35-0.4) for text contrast
+│   - Route count badge: white bg with opacity, pill-shaped
+│   - Mobile: ArrowRight hint icon white (bottom-right corner)
+│   - Loading: Skeleton loaders matching 140px card dimensions
+│   - Empty: Lock icon + "No routes yet" message
+│   - "See All" CTA: full-width outline button with border + arrow icon
+│   - **Setup**: See [FLAG_IMAGES_SETUP.md](./FLAG_IMAGES_SETUP.md) for uploading flag images to Supabase
 │
 └── tracking/
     └── ShipmentLabelModal← printable shipping label with QR code

@@ -1,6 +1,9 @@
 # Wasali — User Flows
 
-_Last updated: 2026-03-20_
+_Last updated: 2026-03-22_
+
+**Recent updates:**
+- WhereAreYouFrom component redesigned with modern styling and improved UX (2026-03-22)
 
 ---
 
@@ -96,8 +99,30 @@ updateUser()  →  /(tabs)/index ✓
 
 ### 2.1 Search & Book a Route
 
+**Home screen:**
 ```
 /(tabs)/index  [Search Routes]
+  DESTINATIONS badge + section header (modern typography)
+
+  ▼ WhereAreYouFrom Component ▼
+  Display top destination countries:
+    - Tunisia first (if available)
+    - Top 3 EU countries by route count
+    Desktop: horizontal row of cards with left blue accent border
+    Mobile: 2×2 grid layout
+
+    Each card:
+    - Flag emoji in rounded container (background secondary)
+    - Country name (FontSize.base, fontWeight 700)
+    - Route count badge (small pill with primary light bg)
+    - Tap → navigates to /routes/results with country params
+
+    Loading: skeleton loaders matching card dimensions
+    Empty: lock icon + "No routes yet" message
+
+    "See All" CTA: full-width outline button with arrow
+  ▼ End WhereAreYouFrom ▼
+
   useCities() loads 29 cities from DB (or falls back to constants/cities.ts)
   CityPicker (origin) — grouped by country, coming_soon cities greyed out
   CityPicker (destination) — same
@@ -113,7 +138,7 @@ updateUser()  →  /(tabs)/index ✓
   RouteCard shows: cities, dates, price/kg (strikethrough if promo active), driver rating/trip count
   tap a card
     ▼
-/(tabs)/booking/index  [Book Shipment — 5-step accordion]
+/(tabs)/booking/index  [Book Shipment — 6-step accordion]
 ```
 
 **Booking wizard steps (6-step accordion):**

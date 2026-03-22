@@ -9,6 +9,7 @@ export interface City {
   flag_emoji: string;
   is_active: boolean;
   coming_soon?: boolean;
+  is_capital: boolean;
 }
 
 interface CitiesState {

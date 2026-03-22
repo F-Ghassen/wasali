@@ -67,6 +67,11 @@ function splitTiers(
   originCityName: string,
   destCityName: string,
 ): { tier1: RouteResult[]; tier2: RouteResult[] } {
+  // If no destination specified, show all routes in tier1 (no tier2)
+  if (!destCityName) {
+    return { tier1: routes, tier2: [] };
+  }
+
   const tier1 = routes.filter(
     (r) => r.origin_city === originCityName && r.destination_city === destCityName,
   );
@@ -132,14 +137,8 @@ export function useRouteResults(params: UseRouteResultsParams) {
       else setIsFetchingMore(true);
 
       try {
-        // Prefer city_id matching when both IDs are available; fall back to text match
-        const orFilter = originCityId && destCityId
-          ? `and(origin_city_id.eq.${originCityId},destination_city_id.eq.${destCityId}),` +
-            `and(origin_country.eq.${originCountry},destination_country.eq.${destCountry})`
-          : `and(origin_city.eq.${originCityName},destination_city.eq.${destCityName}),` +
-            `and(origin_country.eq.${originCountry},destination_country.eq.${destCountry})`;
-
-        const { data, error } = await supabase
+        // Build filter based on whether destination is specified
+        let query = supabase
           .from('routes')
           .select(`
             id, origin_city, origin_country, destination_city, destination_country,
@@ -152,8 +151,28 @@ export function useRouteResults(params: UseRouteResultsParams) {
             driver:profiles!driver_id(id, full_name, avatar_url, phone_verified, rating, completed_trips)
           `)
           .eq('status', 'active')
-          .gte('departure_date', departFromDate)
-          .or(orFilter)
+          .gt('available_weight_kg', 0)
+          .gte('departure_date', departFromDate);
+
+        // Apply origin filter
+        if (originCityId) {
+          query = query.eq('origin_city_id', originCityId);
+        } else if (originCityName) {
+          query = query.eq('origin_city', originCityName);
+        } else if (originCountry) {
+          // Country-level search: show routes from any city in this country
+          query = query.eq('origin_country', originCountry);
+        }
+
+        // Apply destination filter only if specified
+        if (destCityId) {
+          query = query.eq('destination_city_id', destCityId);
+        } else if (destCityName) {
+          query = query.eq('destination_city', destCityName);
+        }
+        // If no destination specified, show all destinations
+
+        const { data, error } = await query
           .order('departure_date', { ascending: true })
           .range(start, end);
 

@@ -696,12 +696,30 @@ export default function ResultsScreen() {
       <View style={s.searchBar}>
         <TouchableOpacity style={s.searchChip} onPress={() => setShowFromFilter(true)} activeOpacity={0.75}>
           <Text style={s.searchChipLabel}>FROM</Text>
-          <Text style={s.searchChipValue} numberOfLines={1}>{originCityName || 'Any'}</Text>
+          <View style={s.searchChipValueRow}>
+            {originCountry && (
+              <Text style={s.countryFlag}>
+                {citiesByCountry[originCountry]?.[0]?.flag_emoji || '🌍'}
+              </Text>
+            )}
+            <Text style={s.searchChipValue} numberOfLines={1}>
+              {originCityName || originCountry || 'Any'}
+            </Text>
+          </View>
         </TouchableOpacity>
         <Text style={s.searchChipArrow}>→</Text>
         <TouchableOpacity style={s.searchChip} onPress={() => setShowToFilter(true)} activeOpacity={0.75}>
           <Text style={s.searchChipLabel}>TO</Text>
-          <Text style={s.searchChipValue} numberOfLines={1}>{destCityName || 'Any'}</Text>
+          <View style={s.searchChipValueRow}>
+            {destCountry && (
+              <Text style={s.countryFlag}>
+                {citiesByCountry[destCountry]?.[0]?.flag_emoji || '🌍'}
+              </Text>
+            )}
+            <Text style={s.searchChipValue} numberOfLines={1}>
+              {destCityName || destCountry || 'Any'}
+            </Text>
+          </View>
         </TouchableOpacity>
         <TouchableOpacity style={[s.searchChip, s.searchChipDate]} onPress={() => setShowDateFilter(true)} activeOpacity={0.75}>
           <Text style={s.searchChipLabel}>DATE</Text>
@@ -983,10 +1001,19 @@ const s = StyleSheet.create({
     color: Colors.text.tertiary,
     marginBottom: 1,
   },
+  searchChipValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   searchChipValue: {
     fontSize: FontSize.sm,
     fontWeight: '700',
     color: Colors.text.primary,
+    flex: 1,
+  },
+  countryFlag: {
+    fontSize: 16,
   },
   searchChipArrow: {
     fontSize: FontSize.sm,

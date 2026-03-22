@@ -85,7 +85,6 @@ const SECTIONS: Section[] = [
     routes: [
       { label: 'Booking Detail (Sender)', path: '/bookings/[id]', note: 'replace [id] with UUID' },
       { label: 'Route Results', path: '/(tabs)/routes/results', note: 'needs search params' },
-      { label: 'Tracking', path: '/(tabs)/tracking/[bookingId]', note: 'replace [bookingId] with UUID' },
     ],
   },
   {

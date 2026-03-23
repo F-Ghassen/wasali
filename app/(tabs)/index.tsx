@@ -86,18 +86,26 @@ export default function HomeScreen() {
         {/* ── How It Works ────────────────────────────────────── */}
         <HowItWorks />
 
+        <View style={{ height: Spacing.xl }} />
+
         {/* ── Featured routes by origin country ──────────────── */}
         <OriginCountryPicker />
+
+        <View style={{ height: Spacing.xl }} />
+
+        {/* ── Featured Routes ─────────────────────────────────── */}
+        <View style={s.section}>
+          <FeaturedRoutes />
+        </View>
+
+        <View style={{ height: Spacing.xl }} />
 
         {/* ── Ship Docs Fast promo ────────────────────────────── */}
         <View style={s.section}>
           <ShipDocsBanner onPress={() => router.push('/p2p' as any)} />
         </View>
 
-        {/* ── Featured Routes ─────────────────────────────────── */}
-        <View style={s.section}>
-          <FeaturedRoutes />
-        </View>
+        <View style={{ height: Spacing.xl }} />
 
         {/* ── Trust Band ──────────────────────────────────────── */}
         <ScrollView

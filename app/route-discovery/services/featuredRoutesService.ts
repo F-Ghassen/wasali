@@ -90,7 +90,9 @@ async function mapRoutes(rows: any[]): Promise<FeaturedRoute[]> {
 
 export async function fetchFeaturedRoutes(): Promise<FeaturedRoute[]> {
   const today = new Date().toISOString().slice(0, 10);
+  const MAX_ROUTES = 6;
 
+  // Get featured routes first
   const { data: featured } = await supabase
     .from('routes')
     .select(ROUTE_SELECT)
@@ -99,18 +101,30 @@ export async function fetchFeaturedRoutes(): Promise<FeaturedRoute[]> {
     .gte('available_weight_kg', 1)
     .gte('departure_date', today)
     .order('departure_date', { ascending: true })
-    .limit(6);
+    .limit(MAX_ROUTES);
 
-  if (featured && featured.length > 0) return mapRoutes(featured);
+  const featuredCount = featured?.length ?? 0;
+  const routes = featured ? await mapRoutes(featured) : [];
 
-  const { data: fallback } = await supabase
-    .from('routes')
-    .select(ROUTE_SELECT)
-    .eq('status', 'active')
-    .gte('available_weight_kg', 1)
-    .gte('departure_date', today)
-    .order('price_per_kg_eur', { ascending: true })
-    .limit(6);
+  // If fewer than MAX_ROUTES, fill remaining with non-featured
+  if (featuredCount < MAX_ROUTES) {
+    const remaining = MAX_ROUTES - featuredCount;
 
-  return fallback ? mapRoutes(fallback) : [];
+    const { data: other } = await supabase
+      .from('routes')
+      .select(ROUTE_SELECT)
+      .eq('status', 'active')
+      .neq('is_featured', true)
+      .gte('available_weight_kg', 1)
+      .gte('departure_date', today)
+      .order('departure_date', { ascending: true })
+      .limit(remaining);
+
+    if (other && other.length > 0) {
+      const otherMapped = await mapRoutes(other);
+      routes.push(...otherMapped);
+    }
+  }
+
+  return routes;
 }

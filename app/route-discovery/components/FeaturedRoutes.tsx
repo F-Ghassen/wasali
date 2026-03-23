@@ -20,11 +20,15 @@ export default function FeaturedRoutes() {
 
   if (routes.length === 0) return null;
 
-  const cols    = width >= 1024 ? 3 : width >= 768 ? 2 : 1;
-  const GAP     = Spacing.md;
+  const cols    = width >= 768 ? 2 : 1;
+  const GAP     = Spacing.lg;
   const visible = routes.slice(0, cols * 2);
   const rows: FeaturedRoute[][] = [];
   for (let i = 0; i < visible.length; i += cols) rows.push(visible.slice(i, i + cols));
+
+  // Dynamic padding: 10% off sides on desktop, normal padding on mobile
+  const isMobile = width < 768;
+  const horizontalPadding = isMobile ? Spacing.base : Math.max(Spacing.base, width * 0.1);
 
   const handleOpenModal = (routeId: string) => setSelectedRouteId(routeId);
   const handleCloseModal = () => setSelectedRouteId(null);
@@ -33,7 +37,7 @@ export default function FeaturedRoutes() {
   const handleSeeAll = () => router.push('/(tabs)/routes/results' as any);
 
   return (
-    <Animated.View style={[s.section, { transform: [{ translateY: slideY }], opacity }]}>
+    <Animated.View style={[s.section, { paddingHorizontal: horizontalPadding, transform: [{ translateY: slideY }], opacity }]}>
       <Text style={s.sectionLabel}>{t('home.featuredRoutes')}</Text>
 
       <View style={{ gap: GAP }}>
@@ -68,10 +72,11 @@ const s = StyleSheet.create({
   section: { gap: Spacing.md },
   row: { flexDirection: 'row' },
   sectionLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    color: Colors.text.tertiary,
+    fontSize: FontSize.lg,
+    fontWeight: '900',
+    letterSpacing: 0,
+    color: Colors.text.primary,
+    marginBottom: Spacing.md,
   },
   seeAllBtn: {
     borderRadius: BorderRadius.lg,

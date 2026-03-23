@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,9 +12,12 @@ import { SendHorizonal, Zap, ArrowRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
+import { useAuthStore } from '@/stores/authStore';
 import Hero from '@/components/Hero';
 import HowItWorks from '@/components/HowItWorks';
 import OriginCountryPicker from '@/components/OriginCountryPicker';
+import RouteAlertSubscription from '@/components/RouteAlertSubscription';
+import { RouteAlertModal } from '@/app/route-alert/components/RouteAlertModal';
 import FeaturedRoutes from '@/app/route-discovery/components/FeaturedRoutes';
 
 // ─── Ship Docs Fast promo banner ──────────────────────────────────────────────
@@ -73,6 +76,8 @@ const TRUST = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { profile } = useAuthStore();
+  const [alertModalVisible, setAlertModalVisible] = useState(false);
 
   return (
     <View style={s.root}>
@@ -100,6 +105,13 @@ export default function HomeScreen() {
 
         <View style={{ height: Spacing.xl }} />
 
+        {/* ── Route Alert Subscription ────────────────────────── */}
+        <View style={s.section}>
+          <RouteAlertSubscription onOpenAlertSheet={() => setAlertModalVisible(true)} />
+        </View>
+
+        <View style={{ height: Spacing.xl }} />
+
         {/* ── Ship Docs Fast promo ────────────────────────────── */}
         <View style={s.promoSection}>
           <ShipDocsBanner onPress={() => router.push('/p2p' as any)} />
@@ -123,6 +135,13 @@ export default function HomeScreen() {
 
         <View style={{ height: Spacing['3xl'] }} />
       </ScrollView>
+
+      {/* Route Alert Modal */}
+      <RouteAlertModal
+        visible={alertModalVisible}
+        profile={profile}
+        onClose={() => setAlertModalVisible(false)}
+      />
     </View>
   );
 }

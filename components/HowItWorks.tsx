@@ -6,7 +6,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Search, Package, CheckCircle, ArrowRight } from 'lucide-react-native';
+import { Search, Package, CheckCircle, Star, ArrowRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -24,6 +24,7 @@ function getSteps(t: any): Step[] {
     <Search size={20} color={Colors.primary} strokeWidth={2.5} />,
     <Package size={20} color={Colors.primary} strokeWidth={2.5} />,
     <CheckCircle size={20} color={Colors.primary} strokeWidth={2.5} />,
+    <Star size={20} color={Colors.primary} strokeWidth={2.5} />,
   ];
 
   return stepsData.map((step: any, i: number) => ({
@@ -217,6 +218,7 @@ const styles = StyleSheet.create({
   stepCardRight: {
     flex: 1,
     gap: Spacing.xs,
+    justifyContent: 'center',
   },
 
   // ── Mobile Step Card ────────────────────────────────────────────────────

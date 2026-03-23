@@ -311,22 +311,27 @@ export default {
     howItWorks: {
       title: "Comment ça marche",
       subtitle:
-        "Trois étapes simples pour expédier des colis en toute sécurité entre l'Europe et la Tunisie",
+        "Quatre étapes simples pour expédier des colis en toute sécurité entre l'Europe et la Tunisie",
       steps: [
         {
-          title: "Rechercher des trajets disponibles",
+          title: "Nous recherchons",
           description:
-            "Trouvez des conducteurs qui vont dans votre direction. Filtrez par ville, date et prix.",
+            "Le système fait la sélection des conducteurs et des trajets",
         },
         {
-          title: "Réservez votre colis",
+          title: "Vous choisissez",
           description:
-            "Choisissez les options de collecte et livraison. Ajoutez les détails de votre colis et payez en sécurité.",
+            "Sélectionnez votre conducteur, votre trajet et vos options de livraison",
         },
         {
-          title: "Suivre et recevoir",
+          title: "Nous surveillons",
           description:
-            "Obtenez des mises à jour en temps réel. Votre colis arrive en toute sécurité avec nos conducteurs de confiance.",
+            "Le système suit, notifie et livre",
+        },
+        {
+          title: "Vous aidez",
+          description:
+            "Évaluez les conducteurs et partagez vos commentaires",
         },
       ],
     },
@@ -351,6 +356,38 @@ export default {
     toSelectCity: "Arrivée — Sélectionner une ville",
     departBeforeTitle: "Partir avant",
     anyTime: "N'importe quand",
+    routeAlerts: {
+      title: "Soyez notifié des nouveaux trajets",
+      subtitle: "Abonnez-vous aux alertes de trajet et recevez des notifications lorsque des trajets correspondants deviennent disponibles",
+      cta: "Configurer les alertes",
+    },
+  },
+
+  // ── Route Alert Modal ─────────────────────────────────────────────────────────
+  routeAlertModal: {
+    title: "Alerte de Trajet",
+    description: "Nous vous enverrons un Email et une notification push lorsqu'un conducteur publie un trajet correspondant. Vous pouvez modifier les villes ci-dessous.",
+    fromLabel: "DE",
+    toLabel: "À",
+    fromPlaceholder: "Sélectionner la ville de départ",
+    toPlaceholder: "Sélectionner la ville de destination",
+    emailLabel: "EMAIL",
+    emailPlaceholder: "Entrez votre email",
+    dateLabel: "DATE DE DÉPART",
+    dateHint: "M'alerter pour n'importe quelle date à venir",
+    dateSelected: "M'alerter pour les trajets partant le {{date}}",
+    notifyBtn: "Me notifier",
+    savingBtn: "Enregistrement…",
+    successTitle: "Alerte enregistrée !",
+    successDesc: "Nous vous notifierons dès qu'un conducteur publie un trajet de {{from}} à {{to}}.",
+    successWithDate: "Nous vous notifierons dès qu'un conducteur publie un trajet de {{from}} à {{to}} partant le {{date}}.",
+    doneBtn: "Terminé",
+    errorMsg: "Impossible d'enregistrer l'alerte. Veuillez réessayer.",
+    cityPicker: {
+      originTitle: "Sélectionner la ville de départ",
+      destinationTitle: "Sélectionner la ville de destination",
+      searchPlaceholder: "Rechercher une ville…",
+    },
   },
 
   // ── Sender booking wizard ────────────────────────────────────────────────────

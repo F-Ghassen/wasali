@@ -309,22 +309,27 @@ export default {
     howItWorks: {
       title: "How it works",
       subtitle:
-        "Three simple steps to ship packages safely across Europe and Tunisia",
+        "Four simple steps to ship packages safely across Europe and Tunisia",
       steps: [
         {
-          title: "Search available routes",
+          title: "We search",
           description:
-            "Find drivers heading your way. Filter by city, date, and price.",
+            "System does the curation of drivers and routes",
         },
         {
-          title: "Book your package",
+          title: "You choose",
           description:
-            "Choose pickup & delivery options. Add your package details and pay securely.",
+            "Select your driver, route, and delivery options",
         },
         {
-          title: "Track & receive",
+          title: "We monitor",
           description:
-            "Get real-time updates. Your package arrives safely with trusted drivers.",
+            "System tracks, notifies, and delivers",
+        },
+        {
+          title: "You help",
+          description:
+            "Rate drivers and share your feedback",
         },
       ],
     },
@@ -349,6 +354,38 @@ export default {
     toSelectCity: "To — Select City",
     departBeforeTitle: "Depart before",
     anyTime: "Any time",
+    routeAlerts: {
+      title: "Get notified about new routes",
+      subtitle: "Subscribe to route alerts and receive notifications when matching routes become available",
+      cta: "Set up alerts",
+    },
+  },
+
+  // ── Route Alert Modal ─────────────────────────────────────────────────────────
+  routeAlertModal: {
+    title: "Route Alert",
+    description: "We'll send you an Email and a push notification when a driver publishes a matching route. You can change the cities below.",
+    fromLabel: "FROM",
+    toLabel: "TO",
+    fromPlaceholder: "Select origin city",
+    toPlaceholder: "Select destination city",
+    emailLabel: "EMAIL",
+    emailPlaceholder: "Enter your email",
+    dateLabel: "FROM DATE",
+    dateHint: "Alert me for any upcoming date",
+    dateSelected: "Alert me for routes departing from {{date}}",
+    notifyBtn: "Notify me",
+    savingBtn: "Saving…",
+    successTitle: "Alert saved!",
+    successDesc: "We'll notify you as soon as a driver publishes a route from {{from}} to {{to}}.",
+    successWithDate: "We'll notify you as soon as a driver publishes a route from {{from}} to {{to}} departing from {{date}}.",
+    doneBtn: "Done",
+    errorMsg: "Could not save alert. Please try again.",
+    cityPicker: {
+      originTitle: "Select origin city",
+      destinationTitle: "Select destination city",
+      searchPlaceholder: "Search city…",
+    },
   },
 
   // ── Sender booking wizard ────────────────────────────────────────────────────

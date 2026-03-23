@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { RouteWithStops, RouteStatus, RouteTemplate } from '@/types/models';
+import { notifyRouteAlerts } from '@/app/route-alert/services/routeNotificationService';
 import type { TablesUpdate } from '@/types/database';
 import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
 
@@ -224,6 +225,11 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           r.id === id ? { ...r, status: 'active' } : r
         ),
       }));
+
+      // Notify route alert subscribers asynchronously (don't wait for it)
+      notifyRouteAlerts(id).catch((err) => {
+        console.error('Failed to send route alert notifications:', err);
+      });
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;

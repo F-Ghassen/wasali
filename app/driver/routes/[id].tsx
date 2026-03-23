@@ -21,6 +21,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
+import { useCitiesStore } from '@/stores/citiesStore';
 import { Button } from '@/components/ui/Button';
 import { DriverBookingCard } from '@/components/driver/DriverBookingCard';
 import type { RouteWithStops } from '@/types/models';
@@ -40,6 +41,10 @@ export default function DriverRouteDetailScreen() {
   const { routes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
   const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered, getRouteStats } = useDriverBookingStore();
   const { showToast } = useUIStore();
+  const cities = useCitiesStore((s) => s.cities);
+
+  const getCityName = (cityId: string) => cities.find((c) => c.id === cityId)?.name || '';
+  const getCountry = (cityId: string) => cities.find((c) => c.id === cityId)?.country || '';
 
   const route = routes.find((r) => r.id === id) as RouteWithStops | undefined;
   const routeBookings = bookings.filter((b) => b.route_id === id);
@@ -134,11 +139,11 @@ export default function DriverRouteDetailScreen() {
           <View style={styles.routeHeader}>
             <MapPin size={18} color={Colors.text.secondary} />
             <Text style={styles.routeTitle}>
-              {route.origin_city} → {route.destination_city}
+              Route
             </Text>
           </View>
           <Text style={styles.routeSubtitle}>
-            {route.origin_country} → {route.destination_country}
+            Route
           </Text>
 
           <View style={styles.metaGrid}>
@@ -211,7 +216,7 @@ export default function DriverRouteDetailScreen() {
                 <View key={stop.id ?? idx} style={styles.stopRow}>
                   <MapPin size={14} color={Colors.text.tertiary} />
                   <View style={styles.stopInfo}>
-                    <Text style={styles.stopCity}>{stop.city}, {stop.country}</Text>
+                    <Text style={styles.stopCity}>{getCityName(stop.city_id)}, {getCountry(stop.city_id)}</Text>
                     {(stop as any).arrival_date && (
                       <Text style={styles.stopDate}>
                         {format(new Date((stop as any).arrival_date), 'MMM d, yyyy')}
@@ -242,7 +247,7 @@ export default function DriverRouteDetailScreen() {
                 <View key={stop.id ?? idx} style={styles.stopRow}>
                   <MapPin size={14} color={Colors.text.tertiary} />
                   <View style={styles.stopInfo}>
-                    <Text style={styles.stopCity}>{stop.city}, {stop.country}</Text>
+                    <Text style={styles.stopCity}>{getCityName(stop.city_id)}, {getCountry(stop.city_id)}</Text>
                     {(stop as any).arrival_date && (
                       <Text style={styles.stopDate}>
                         Est. arrival: {format(new Date((stop as any).arrival_date), 'MMM d, yyyy')}

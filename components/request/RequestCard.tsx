@@ -26,7 +26,7 @@ export function RequestCard({ request, onPress }: RequestCardProps) {
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.header}>
         <Text style={styles.route}>
-          {request.origin_city} → {request.destination_city}
+          Destination → Destination
         </Text>
         <View style={[styles.badge, { backgroundColor: statusConfig.bg }]}>
           <Text style={[styles.badgeText, { color: statusConfig.color }]}>{statusConfig.label}</Text>

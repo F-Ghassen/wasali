@@ -482,7 +482,7 @@ export default function ResultsScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  // Use params if provided (from WhereAreYouFrom card), otherwise use store
+  // Use params if provided (from OriginCountryPicker card), otherwise use store
   const originCityName = params.origin_city_name ?? store.fromCityName;
   const originCountry  = params.origin_country ?? store.fromCountry;
   const originCityId   = params.origin_city_id ?? store.fromCityId;
@@ -520,10 +520,9 @@ export default function ResultsScreen() {
   const [showDateFilter, setShowDateFilter] = useState(false);
   const filterDate = departFromDate ? (() => { try { return parseISO(departFromDate); } catch { return null; } })() : null;
 
-  // Re-fetch whenever search params change
+  // Re-fetch whenever search params change (always fetch — no origin = show all routes)
   useEffect(() => {
-    // Refresh if origin city is set OR if country is set (country search shows all cities in that country)
-    if (originCityName || originCountry) refresh();
+    refresh();
   }, [originCityName, originCountry, destCityName, departFromDate, refresh]);
 
   const handleApplyFilters = () => {

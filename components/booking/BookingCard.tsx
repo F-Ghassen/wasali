@@ -21,7 +21,7 @@ export function BookingCard({ booking, onPress }: BookingCardProps) {
       <View style={styles.header}>
         <View>
           <Text style={styles.route}>
-            {route?.origin_city ?? '—'} → {route?.destination_city ?? '—'}
+            {route?.origin_city_id ?? '—'} → {route?.destination_city_id ?? '—'}
           </Text>
           <Text style={styles.date}>
             {route?.departure_date ? formatDate(route.departure_date) : '—'}

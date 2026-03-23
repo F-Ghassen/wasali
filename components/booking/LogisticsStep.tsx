@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
 } from 'react-native';
@@ -8,6 +8,7 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
 import { ServiceOption } from '@/components/ui/ServiceOption';
+import { useCitiesStore } from '@/stores/citiesStore';
 import type { FetchedStop, FetchedService } from '@/hooks/useRouteData';
 
 // ─── Types (re-exported for callers that import from here) ───────────────────
@@ -32,13 +33,18 @@ export interface LogisticsStepProps {
 // ─── StopContext ─────────────────────────────────────────────────────────────
 
 function StopContext({ label, stop }: { label: string; stop: FetchedStop }) {
+  const cities = useCitiesStore((s) => s.cities);
+  const cityName = useMemo(() => {
+    return cities.find((c) => c.id === stop.city_id)?.name || stop.city_id || 'Unknown';
+  }, [stop.city_id, cities]);
+
   return (
     <View style={s.stopCtx}>
       <View style={s.stopCtxHeader}>
         <MapPin size={12} color={Colors.text.secondary} strokeWidth={2.5} />
         <Text style={s.stopCtxLabel}>{label}</Text>
       </View>
-      <Text style={s.stopCtxCity}>{stop.city}</Text>
+      <Text style={s.stopCtxCity}>{cityName}</Text>
       {stop.arrival_date ? (
         <Text style={s.stopCtxDate}>{formatDateShort(stop.arrival_date)}</Text>
       ) : null}

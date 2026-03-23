@@ -37,18 +37,14 @@ import { RouteSummaryCard } from '@/components/driver/RouteSummaryCard';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CollectionStop {
-  city: string;
-  country: string;
-  city_id?: string;
+  city_id: string;
   collection_date: string;
   location_name: string;
   meeting_point_url: string;
 }
 
 interface DropoffStop {
-  city: string;
-  country: string;
-  city_id?: string;
+  city_id: string;
   estimated_arrival_date: string;
   location_name: string;
   meeting_point_url: string;
@@ -282,8 +278,18 @@ export default function NewRouteScreen() {
   // Collection stops: show all cities
   const collectionCities = useMemo(() => cities, [cities]);
 
-  const emptyCollStop = (): CollectionStop => ({ city: '', country: '', city_id: undefined, collection_date: '', location_name: '', meeting_point_url: '' });
-  const emptyDropStop = (): DropoffStop  => ({ city: '', country: '', city_id: undefined, estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
+  // Helper to get city name by ID
+  const getCityName = useCallback((cityId: string) => {
+    return cities.find(c => c.id === cityId)?.name ?? '';
+  }, [cities]);
+
+  // Helper to get country by city ID
+  const getCountry = useCallback((cityId: string) => {
+    return cities.find(c => c.id === cityId)?.country ?? '';
+  }, [cities]);
+
+  const emptyCollStop = (): CollectionStop => ({ city_id: '', collection_date: '', location_name: '', meeting_point_url: '' });
+  const emptyDropStop = (): DropoffStop  => ({ city_id: '', estimated_arrival_date: '', location_name: '', meeting_point_url: '' });
 
   // ── Step 1: Collection stops ───────────────────────────────────────────────
   const [collectionStops, setCollectionStops] = useState<CollectionStop[]>([emptyCollStop(), emptyCollStop()]);
@@ -296,8 +302,12 @@ export default function NewRouteScreen() {
     // Get all countries selected in collection stops
     const selectedCountries = new Set(
       collectionStops
-        .filter(s => s.country)
-        .map(s => s.country)
+        .filter(s => s.city_id)
+        .map(stop => {
+          const city = cities.find(c => c.id === stop.city_id);
+          return city?.country;
+        })
+        .filter(Boolean)
     );
 
     if (selectedCountries.size === 0) {
@@ -444,8 +454,7 @@ export default function NewRouteScreen() {
     setCollectionStops(
       collStops.length > 0
         ? collStops.map((s) => ({
-            city: s.city,
-            country: s.country,
+            city_id: s.city_id,
             collection_date: '',        // don't copy past dates
             location_name: (s as any).location_name ?? '',
             meeting_point_url: s.meeting_point_url ?? '',
@@ -456,8 +465,7 @@ export default function NewRouteScreen() {
     setDropoffStops(
       dropStops.length > 0
         ? dropStops.map((s) => ({
-            city: s.city,
-            country: s.country,
+            city_id: s.city_id,
             estimated_arrival_date: '', // don't copy past dates
             location_name: (s as any).location_name ?? '',
             meeting_point_url: s.meeting_point_url ?? '',
@@ -513,21 +521,21 @@ export default function NewRouteScreen() {
   };
 
   // ── Validation ─────────────────────────────────────────────────────────────
-  const step1Valid = collectionStops.some(s => s.city && s.country);
-  const step2Valid = dropoffStops.some(s => s.city && s.country);
+  const step1Valid = collectionStops.some(s => s.city_id);
+  const step2Valid = dropoffStops.some(s => s.city_id);
   const step4Valid = collectionOptions.some((o) => o.enabled) && deliveryOptions.some((o) => o.enabled);
   const step5Valid = parseFloat(weightKg) > 0 && parseFloat(pricePerKg) > 0 && paymentMethods.length > 0;
 
   // ── Summaries ──────────────────────────────────────────────────────────────
   const derivedDepartureDate = collectionStops.find(s => s.collection_date)?.collection_date ?? '';
-  const step1Summary = collectionStops.filter(s => s.city).length > 0
+  const step1Summary = collectionStops.filter(s => s.city_id).length > 0
     ? [
-        collectionStops.filter(s => s.city).map(s => s.city).join(', '),
+        collectionStops.filter(s => s.city_id).map(s => getCityName(s.city_id)).join(', '),
         derivedDepartureDate ? format(new Date(derivedDepartureDate), 'MMM d, yyyy') : '',
       ].filter(Boolean).join('  ·  ')
     : '';
-  const step2Summary = dropoffStops.filter((s) => s.city).length > 0
-    ? `${dropoffStops.filter((s) => s.city).length} stop(s): ${dropoffStops.filter((s) => s.city).map((s) => s.city).join(', ')}`
+  const step2Summary = dropoffStops.filter((s) => s.city_id).length > 0
+    ? `${dropoffStops.filter((s) => s.city_id).length} stop(s): ${dropoffStops.filter((s) => s.city_id).map((s) => getCityName(s.city_id)).join(', ')}`
     : 'No drop-off stops';
   const step3Summary = (() => {
     const parts: string[] = [];
@@ -563,7 +571,7 @@ export default function NewRouteScreen() {
       return;
     }
     // On step 1: confirm leave if user has entered anything
-    const hasData = collectionStops.some(s => s.city) || dropoffStops.some(s => s.city);
+    const hasData = collectionStops.some(s => s.city_id) || dropoffStops.some(s => s.city_id);
     if (hasData) {
       Alert.alert(
         'Leave?',
@@ -581,7 +589,7 @@ export default function NewRouteScreen() {
   // ── Collection stops helpers ───────────────────────────────────────────────
   const addCollectionStop = () => {
     if (collectionStops.length >= 8) return;
-    setCollectionStops((p) => [...p, { city: '', country: '', collection_date: '', meeting_point_url: '' }]);
+    setCollectionStops((p) => [...p, { city_id: '', collection_date: '', location_name: '', meeting_point_url: '' }]);
   };
   const removeCollectionStop = (i: number) =>
     setCollectionStops((p) => p.filter((_, idx) => idx !== i));
@@ -591,7 +599,7 @@ export default function NewRouteScreen() {
   // ── Drop-off stops helpers ─────────────────────────────────────────────────
   const addDropoffStop = () => {
     if (dropoffStops.length >= 8) return;
-    setDropoffStops((p) => [...p, { city: '', country: '', city_id: undefined, estimated_arrival_date: '', location_name: '', meeting_point_url: '' }]);
+    setDropoffStops((p) => [...p, { city_id: '', estimated_arrival_date: '', location_name: '', meeting_point_url: '' }]);
   };
   const removeDropoffStop = (i: number) =>
     setDropoffStops((p) => p.filter((_, idx) => idx !== i));
@@ -626,16 +634,16 @@ export default function NewRouteScreen() {
     if (!profile) return;
     if (!step5Valid) { showToast(t('routeWizard.pricing.errors.fillPricing'), 'error'); return; }
 
-    const derivedOriginCity = collectionStops.find(s => s.city)?.city ?? '';
-    const derivedDestCity   = dropoffStops.find(s => s.city)?.city ?? '';
+    const derivedOriginCityId = collectionStops.find(s => s.city_id)?.city_id ?? '';
+    const derivedDestCityId   = dropoffStops.find(s => s.city_id)?.city_id ?? '';
     const derivedDeparture  = collectionStops.find(s => s.collection_date)?.collection_date ?? '';
 
     const { data: existing } = await supabase
       .from('routes')
       .select('id')
       .eq('driver_id', profile.id)
-      .eq('origin_city', derivedOriginCity)
-      .eq('destination_city', derivedDestCity)
+      .eq('origin_city_id', derivedOriginCityId)
+      .eq('destination_city_id', derivedDestCityId)
       .eq('departure_date', derivedDeparture)
       .neq('status', 'cancelled')
       .maybeSingle();
@@ -659,11 +667,9 @@ export default function NewRouteScreen() {
     setIsSubmitting(true);
     try {
       const collStops = collectionStops
-        .filter((s) => s.city && s.country)
+        .filter((s) => s.city_id)
         .map((s, i) => ({
-          city: s.city,
-          country: s.country,
-          city_id: s.city_id || null,
+          city_id: s.city_id,
           stop_order: i + 1,
           stop_type: 'collection' as const,
           arrival_date: s.collection_date || null,
@@ -674,11 +680,9 @@ export default function NewRouteScreen() {
         }));
 
       const dropStops = dropoffStops
-        .filter((s) => s.city && s.country)
+        .filter((s) => s.city_id)
         .map((s, i) => ({
-          city: s.city,
-          country: s.country,
-          city_id: s.city_id || null,
+          city_id: s.city_id,
           stop_order: collStops.length + i + 1,
           stop_type: 'dropoff' as const,
           arrival_date: s.estimated_arrival_date || null,
@@ -690,22 +694,14 @@ export default function NewRouteScreen() {
 
       const pct = promoEnabled && promoDiscountPct ? parseInt(promoDiscountPct) : null;
 
-      const origin_city    = collStops[0]?.city    ?? '';
       const origin_city_id = collStops[0]?.city_id ?? undefined;
-      const origin_country = collStops[0]?.country ?? '';
-      const dest_city      = dropStops[0]?.city    ?? '';
       const dest_city_id   = dropStops[0]?.city_id ?? undefined;
-      const dest_country   = dropStops[0]?.country ?? '';
 
       const departure_date = collStops[0]?.arrival_date || new Date().toISOString().split('T')[0];
 
       const routeId = await createRoute(profile.id, {
-        origin_city,
         origin_city_id,
-        origin_country,
-        destination_city: dest_city,
         destination_city_id: dest_city_id,
-        destination_country: dest_country,
         departure_date,
         estimated_arrival_date: dropStops[0]?.arrival_date ?? null,
         available_weight_kg: parseFloat(weightKg),
@@ -747,8 +743,8 @@ export default function NewRouteScreen() {
         ],
         save_as_template: saveAsTemplate,
         template_name: saveAsTemplate ? (templateName || [
-          collStops.map(s => s.city).join(', '),
-          dropStops.map(s => s.city).join(', '),
+          collStops.map(s => getCityName(s.city_id)).join(', '),
+          dropStops.map(s => getCityName(s.city_id)).join(', '),
         ].filter(Boolean).join(' → ')) : undefined,
       });
 
@@ -839,9 +835,11 @@ export default function NewRouteScreen() {
                 keyboardShouldPersistTaps="handled"
               >
                 {routes.slice(0, 6).map((route) => {
-                  const collCity = route.route_stops?.find((s) => s.stop_type === 'collection')?.city;
-                  const dropCity = route.route_stops?.find((s) => s.stop_type === 'dropoff')?.city;
-                  const label = collCity && dropCity ? `${collCity} → ${dropCity}` : route.origin_city + ' → ' + route.destination_city;
+                  const collStop = route.route_stops?.find((s) => s.stop_type === 'collection');
+                  const dropStop = route.route_stops?.find((s) => s.stop_type === 'dropoff');
+                  const collCity = collStop?.city_id ? getCityName(collStop.city_id) : undefined;
+                  const dropCity = dropStop?.city_id ? getCityName(dropStop.city_id) : undefined;
+                  const label = collCity && dropCity ? `${collCity} → ${dropCity}` : `${route.origin_city_id ? getCityName(route.origin_city_id) : 'Unknown'} → ${route.destination_city_id ? getCityName(route.destination_city_id) : 'Unknown'}`;
                   return (
                     <TouchableOpacity
                       key={route.id}
@@ -897,11 +895,11 @@ export default function NewRouteScreen() {
                 </View>
                 <Text style={f.fieldLabel}>{t('routeWizard.collection.cityLabel')}</Text>
                 <CityPickerInput
-                  value={stop.city}
-                  country={stop.country}
+                  value={stop.city_id ? getCityName(stop.city_id) : undefined}
+                  country={stop.city_id ? getCountry(stop.city_id) : undefined}
                   cities={collectionCities}
                   placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.collection.cityPlaceholder')}
-                  onChange={(city) => updateCollectionStop(idx, { city: city.name, country: city.country, city_id: city.id })}
+                  onChange={(city) => updateCollectionStop(idx, { city_id: city.id })}
                 />
                 <Text style={f.fieldLabel}>Location name</Text>
                 <TextInput
@@ -984,11 +982,11 @@ export default function NewRouteScreen() {
                 </View>
                 <Text style={f.fieldLabel}>{t('routeWizard.dropoff.cityLabel')}</Text>
                 <CityPickerInput
-                  value={stop.city}
-                  country={stop.country}
+                  value={stop.city_id ? getCityName(stop.city_id) : undefined}
+                  country={stop.city_id ? getCountry(stop.city_id) : undefined}
                   cities={dropoffCities}
                   placeholder={citiesLoading ? 'Loading cities…' : t('routeWizard.dropoff.cityPlaceholder')}
-                  onChange={(city) => updateDropoffStop(idx, { city: city.name, country: city.country, city_id: city.id })}
+                  onChange={(city) => updateDropoffStop(idx, { city_id: city.id })}
                 />
                 <Text style={f.fieldLabel}>Location name</Text>
                 <TextInput
@@ -1337,8 +1335,8 @@ export default function NewRouteScreen() {
                 <TextInput
                   style={f.input}
                   value={templateName || [
-                    collectionStops.filter(s => s.city).map(s => s.city).join(', '),
-                    dropoffStops.filter(s => s.city).map(s => s.city).join(', '),
+                    collectionStops.filter(s => s.city_id).map(s => getCityName(s.city_id)).join(', '),
+                    dropoffStops.filter(s => s.city_id).map(s => getCityName(s.city_id)).join(', '),
                   ].filter(Boolean).join(' → ')}
                   onChangeText={setTemplateName}
                   placeholder="Template name"
@@ -1354,10 +1352,10 @@ export default function NewRouteScreen() {
             {/* On narrow screens: inline route summary before submit */}
             {!isWide && (
               <RouteSummaryCard
-                originCity={collectionStops.find(s => s.city)?.city ?? ''}
-                originCountry={collectionStops.find(s => s.city)?.country ?? ''}
-                destinationCity={dropoffStops.find(s => s.city)?.city ?? ''}
-                destinationCountry={dropoffStops.find(s => s.city)?.country ?? ''}
+                originCity={collectionStops.find(s => s.city_id) ? getCityName(collectionStops.find(s => s.city_id)!.city_id) : ''}
+                originCountry={collectionStops.find(s => s.city_id) ? getCountry(collectionStops.find(s => s.city_id)!.city_id) : ''}
+                destinationCity={dropoffStops.find(s => s.city_id) ? getCityName(dropoffStops.find(s => s.city_id)!.city_id) : ''}
+                destinationCountry={dropoffStops.find(s => s.city_id) ? getCountry(dropoffStops.find(s => s.city_id)!.city_id) : ''}
                 departureDate={derivedDepartureDate}
                 estimatedArrivalDate={dropoffStops.find(s => s.estimated_arrival_date)?.estimated_arrival_date ?? ''}
                 weightKg={weightKg}
@@ -1366,8 +1364,8 @@ export default function NewRouteScreen() {
                 promoDiscountPct={promoDiscountPct}
                 promoLabel={promoLabel}
                 paymentMethods={paymentMethods}
-                collectionStops={collectionStops.map(s => ({ city: s.city, country: s.country, date: s.collection_date }))}
-                dropoffStops={dropoffStops.map(s => ({ city: s.city, country: s.country, date: s.estimated_arrival_date }))}
+                collectionStops={collectionStops.filter(s => s.city_id).map(s => ({ city: getCityName(s.city_id), country: getCountry(s.city_id), date: s.collection_date }))}
+                dropoffStops={dropoffStops.filter(s => s.city_id).map(s => ({ city: getCityName(s.city_id), country: getCountry(s.city_id), date: s.estimated_arrival_date }))}
                 prohibitedItems={prohibitedItems}
               />
             )}
@@ -1383,11 +1381,11 @@ export default function NewRouteScreen() {
           </ScrollView>
 
           {/* Mobile bottom summary bar — narrow screens only */}
-          {!isWide && collectionStops.some(s => s.city) && currentStep < 5 && (
+          {!isWide && collectionStops.some(s => s.city_id) && currentStep < 5 && (
             <View style={styles.mobileSummaryBar}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.mobileSummaryRoute} numberOfLines={1}>
-                  {collectionStops.find(s => s.city)?.city} → {dropoffStops.find(s => s.city)?.city || '…'}
+                  {collectionStops.find(s => s.city_id) ? getCityName(collectionStops.find(s => s.city_id)!.city_id) : '?'} → {dropoffStops.find(s => s.city_id) ? getCityName(dropoffStops.find(s => s.city_id)!.city_id) : '…'}
                 </Text>
                 <Text style={styles.mobileSummaryMeta}>
                   {derivedDepartureDate ? format(new Date(derivedDepartureDate), 'MMM d, yyyy') : 'No date set'}
@@ -1402,10 +1400,10 @@ export default function NewRouteScreen() {
         {isWide && (
           <ScrollView style={styles.summarySidebar} showsVerticalScrollIndicator={false}>
             <RouteSummaryCard
-              originCity={collectionStops.find(s => s.city)?.city ?? ''}
-              originCountry={collectionStops.find(s => s.city)?.country ?? ''}
-              destinationCity={dropoffStops.find(s => s.city)?.city ?? ''}
-              destinationCountry={dropoffStops.find(s => s.city)?.country ?? ''}
+              originCity={collectionStops.find(s => s.city_id) ? getCityName(collectionStops.find(s => s.city_id)!.city_id) : ''}
+              originCountry={collectionStops.find(s => s.city_id) ? getCountry(collectionStops.find(s => s.city_id)!.city_id) : ''}
+              destinationCity={dropoffStops.find(s => s.city_id) ? getCityName(dropoffStops.find(s => s.city_id)!.city_id) : ''}
+              destinationCountry={dropoffStops.find(s => s.city_id) ? getCountry(dropoffStops.find(s => s.city_id)!.city_id) : ''}
               departureDate={derivedDepartureDate}
               estimatedArrivalDate={dropoffStops.find(s => s.estimated_arrival_date)?.estimated_arrival_date ?? ''}
               weightKg={weightKg}
@@ -1414,8 +1412,8 @@ export default function NewRouteScreen() {
               promoDiscountPct={promoDiscountPct}
               promoLabel={promoLabel}
               paymentMethods={paymentMethods}
-              collectionStops={collectionStops.map(s => ({ city: s.city, country: s.country }))}
-              dropoffStops={dropoffStops.map(s => ({ city: s.city, country: s.country }))}
+              collectionStops={collectionStops.filter(s => s.city_id).map(s => ({ city: getCityName(s.city_id), country: getCountry(s.city_id) }))}
+              dropoffStops={dropoffStops.filter(s => s.city_id).map(s => ({ city: getCityName(s.city_id), country: getCountry(s.city_id) }))}
               prohibitedItems={prohibitedItems}
             />
           </ScrollView>

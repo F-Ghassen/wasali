@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,17 +11,29 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
+import { useCitiesStore } from '@/stores/citiesStore';
 import type { RouteWithStops } from '@/types/models';
 
 // Extended type — real DB fields + optional UI extras
-export type RouteCardRoute = RouteWithStops & {
+// Can accept either RouteWithStops or RouteResult
+export type RouteCardRoute = Omit<Partial<RouteWithStops>, 'driver'> & {
+  id: string;
+  origin_country?: string;
+  destination_country?: string;
+  departure_date: string;
+  available_weight_kg: number;
+  price_per_kg_eur: number;
+  route_stops?: any[];
   total_weight_kg?: number;
   min_booking_kg?: number;
   promotion_percentage?: number | null;
   promotion_active?: boolean;
   driver_verified?: boolean;
   forbidden_items?: string[];
-  // driver joined from Supabase query
+  origin_city_id?: string | null;
+  destination_city_id?: string | null;
+  estimated_arrival_date?: string | null;
+  // driver joined from Supabase query - accepts both RouteResultDriver and Profile shapes
   driver?: {
     id?: string;
     full_name?: string | null;
@@ -61,11 +73,33 @@ function effectivePrice(route: RouteCardRoute): number {
 }
 
 export function RouteCard({ route, onPress, serviceTags }: RouteCardProps) {
-  const pickupStops  = route.route_stops.filter(
-    (s) => s.is_pickup_available && s.city !== route.origin_city,
+  const cities = useCitiesStore((s) => s.cities);
+
+  // Helper to get city name by ID
+  const getCityName = (cityId: string) => {
+    return cities.find((c) => c.id === cityId)?.name || '';
+  };
+
+  // Look up city names from store using city IDs
+  const originCityName = useMemo(() => {
+    if (route.origin_city_id) {
+      return getCityName(route.origin_city_id);
+    }
+    return '';
+  }, [route.origin_city_id, cities]);
+
+  const destinationCityName = useMemo(() => {
+    if (route.destination_city_id) {
+      return getCityName(route.destination_city_id);
+    }
+    return '';
+  }, [route.destination_city_id, cities]);
+
+  const pickupStops  = (route.route_stops ?? []).filter(
+    (s) => s.is_pickup_available && s.city_id !== route.origin_city_id,
   );
-  const dropoffStops = route.route_stops.filter(
-    (s) => s.is_dropoff_available && s.city !== route.destination_city,
+  const dropoffStops = (route.route_stops ?? []).filter(
+    (s) => s.is_dropoff_available && s.city_id !== route.destination_city_id,
   );
 
   // Capacity
@@ -123,12 +157,12 @@ export function RouteCard({ route, onPress, serviceTags }: RouteCardProps) {
       >
         <View style={c.pillGroup}>
           <View style={[c.pill, c.pickupPill]}>
-            <Text style={[c.pillCity, c.pickupText]}>{route.origin_city}</Text>
+            <Text style={[c.pillCity, c.pickupText]}>{originCityName}</Text>
             <Text style={[c.pillDate, c.pickupText]}>{formatDateShort(route.departure_date)}</Text>
           </View>
           {pickupStops.map((s) => (
             <View key={s.id} style={[c.pill, c.pickupPill]}>
-              <Text style={[c.pillCity, c.pickupText]}>{s.city}</Text>
+              <Text style={[c.pillCity, c.pickupText]}>{getCityName(s.city_id)}</Text>
               {s.arrival_date && (
                 <Text style={[c.pillDate, c.pickupText]}>{formatDateShort(s.arrival_date)}</Text>
               )}
@@ -141,14 +175,14 @@ export function RouteCard({ route, onPress, serviceTags }: RouteCardProps) {
         <View style={c.pillGroup}>
           {dropoffStops.map((s) => (
             <View key={s.id} style={[c.pill, c.dropoffPill]}>
-              <Text style={[c.pillCity, c.dropoffText]}>{s.city}</Text>
+              <Text style={[c.pillCity, c.dropoffText]}>{getCityName(s.city_id)}</Text>
               {s.arrival_date && (
                 <Text style={[c.pillDate, c.dropoffText]}>{formatDateShort(s.arrival_date)}</Text>
               )}
             </View>
           ))}
           <View style={[c.pill, c.dropoffPill]}>
-            <Text style={[c.pillCity, c.dropoffText]}>{route.destination_city}</Text>
+            <Text style={[c.pillCity, c.dropoffText]}>{destinationCityName}</Text>
             {route.estimated_arrival_date && (
               <Text style={[c.pillDate, c.dropoffText]}>{formatDateShort(route.estimated_arrival_date)}</Text>
             )}

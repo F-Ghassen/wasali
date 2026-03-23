@@ -152,7 +152,7 @@ export default function DriverDashboardScreen() {
                   <MapPin size={18} color={Colors.text.secondary} />
                   <View style={styles.routeInfo}>
                     <Text style={styles.routeTitle}>
-                      {route.origin_city} → {route.destination_city}
+                      Route Details
                     </Text>
                     <Text style={styles.routeMeta}>
                       {format(new Date(route.departure_date), 'MMM d, yyyy')} · {route.available_weight_kg}kg available

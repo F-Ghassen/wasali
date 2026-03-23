@@ -14,46 +14,10 @@ export type Database = {
   }
   public: {
     Tables: {
-      cities: {
-        Row: {
-          id: string
-          name: string
-          country: string
-          country_code: string
-          flag_emoji: string
-          is_active: boolean
-          coming_soon: boolean
-          is_capital: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          country: string
-          country_code: string
-          flag_emoji?: string
-          is_active?: boolean
-          coming_soon?: boolean
-          is_capital?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          country?: string
-          country_code?: string
-          flag_emoji?: string
-          is_active?: boolean
-          coming_soon?: boolean
-          is_capital?: boolean
-          created_at?: string
-        }
-        Relationships: []
-      }
       bookings: {
         Row: {
-          cancelled_at: string | null
           cancellation_reason: string | null
+          cancelled_at: string | null
           collection_service_id: string | null
           collection_stop_id: string | null
           created_at: string
@@ -93,8 +57,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          cancelled_at?: string | null
           cancellation_reason?: string | null
+          cancelled_at?: string | null
           collection_service_id?: string | null
           collection_stop_id?: string | null
           created_at?: string
@@ -134,8 +98,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          cancelled_at?: string | null
           cancellation_reason?: string | null
+          cancelled_at?: string | null
           collection_service_id?: string | null
           collection_stop_id?: string | null
           created_at?: string
@@ -176,6 +140,34 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "bookings_collection_service_id_fkey"
+            columns: ["collection_service_id"]
+            isOneToOne: false
+            referencedRelation: "route_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_collection_stop_id_fkey"
+            columns: ["collection_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_delivery_service_id_fkey"
+            columns: ["delivery_service_id"]
+            isOneToOne: false
+            referencedRelation: "route_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_dropoff_stop_id_fkey"
+            columns: ["dropoff_stop_id"]
+            isOneToOne: false
+            referencedRelation: "route_stops"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "bookings_route_id_fkey"
             columns: ["route_id"]
             isOneToOne: false
@@ -189,21 +181,43 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "bookings_collection_stop_id_fkey"
-            columns: ["collection_stop_id"]
-            isOneToOne: false
-            referencedRelation: "route_stops"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bookings_dropoff_stop_id_fkey"
-            columns: ["dropoff_stop_id"]
-            isOneToOne: false
-            referencedRelation: "route_stops"
-            referencedColumns: ["id"]
-          },
         ]
+      }
+      cities: {
+        Row: {
+          coming_soon: boolean
+          country: string
+          country_code: string
+          created_at: string
+          flag_emoji: string
+          id: string
+          is_active: boolean
+          is_capital: boolean
+          name: string
+        }
+        Insert: {
+          coming_soon?: boolean
+          country: string
+          country_code: string
+          created_at?: string
+          flag_emoji?: string
+          id?: string
+          is_active?: boolean
+          is_capital?: boolean
+          name: string
+        }
+        Update: {
+          coming_soon?: boolean
+          country?: string
+          country_code?: string
+          created_at?: string
+          flag_emoji?: string
+          id?: string
+          is_active?: boolean
+          is_capital?: boolean
+          name?: string
+        }
+        Relationships: []
       }
       disputes: {
         Row: {
@@ -404,175 +418,39 @@ export type Database = {
           },
         ]
       }
-      route_stops: {
-        Row: {
-          arrival_date: string | null
-          city: string
-          city_id: string | null
-          country: string
-          id: string
-          is_dropoff_available: boolean
-          is_pickup_available: boolean
-          location_address: string | null
-          location_name: string | null
-          meeting_point_url: string | null
-          route_id: string
-          stop_order: number
-          stop_type: string
-        }
-        Insert: {
-          arrival_date?: string | null
-          city: string
-          city_id?: string | null
-          country: string
-          id?: string
-          is_dropoff_available?: boolean
-          is_pickup_available?: boolean
-          location_address?: string | null
-          location_name?: string | null
-          meeting_point_url?: string | null
-          route_id: string
-          stop_order: number
-          stop_type?: string
-        }
-        Update: {
-          arrival_date?: string | null
-          city?: string
-          city_id?: string | null
-          country?: string
-          id?: string
-          is_dropoff_available?: boolean
-          is_pickup_available?: boolean
-          location_address?: string | null
-          location_name?: string | null
-          meeting_point_url?: string | null
-          route_id?: string
-          stop_order?: number
-          stop_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "route_stops_route_id_fkey"
-            columns: ["route_id"]
-            isOneToOne: false
-            referencedRelation: "routes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "route_stops_city_id_fkey"
-            columns: ["city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      route_templates: {
-        Row: {
-          available_weight_kg: number
-          created_at: string | null
-          destination_city: string
-          destination_city_id: string | null
-          destination_country: string
-          driver_id: string
-          id: string
-          name: string
-          notes: string | null
-          origin_city: string
-          origin_city_id: string | null
-          origin_country: string
-          payment_methods: string[]
-          price_per_kg_eur: number
-        }
-        Insert: {
-          available_weight_kg: number
-          created_at?: string | null
-          destination_city: string
-          destination_city_id?: string | null
-          destination_country: string
-          driver_id: string
-          id?: string
-          name: string
-          notes?: string | null
-          origin_city: string
-          origin_city_id?: string | null
-          origin_country: string
-          payment_methods?: string[]
-          price_per_kg_eur: number
-        }
-        Update: {
-          available_weight_kg?: number
-          created_at?: string | null
-          destination_city?: string
-          destination_city_id?: string | null
-          destination_country?: string
-          driver_id?: string
-          id?: string
-          name?: string
-          notes?: string | null
-          origin_city?: string
-          origin_city_id?: string | null
-          origin_country?: string
-          payment_methods?: string[]
-          price_per_kg_eur?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "route_templates_driver_id_fkey"
-            columns: ["driver_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "route_templates_origin_city_id_fkey"
-            columns: ["origin_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "route_templates_destination_city_id_fkey"
-            columns: ["destination_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       recipients: {
         Row: {
-          id: string
-          user_id: string
-          name: string
-          phone: string
-          whatsapp_enabled: boolean
-          address_street: string | null
           address_city: string | null
           address_postal_code: string | null
+          address_street: string | null
           created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
+          id: string
           name: string
           phone: string
-          whatsapp_enabled?: boolean
-          address_street?: string | null
+          user_id: string
+          whatsapp_enabled: boolean
+        }
+        Insert: {
           address_city?: string | null
           address_postal_code?: string | null
+          address_street?: string | null
           created_at?: string
+          id?: string
+          name: string
+          phone: string
+          user_id: string
+          whatsapp_enabled?: boolean
         }
         Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          phone?: string
-          whatsapp_enabled?: boolean
-          address_street?: string | null
           address_city?: string | null
           address_postal_code?: string | null
+          address_street?: string | null
           created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          user_id?: string
+          whatsapp_enabled?: boolean
         }
         Relationships: [
           {
@@ -586,47 +464,41 @@ export type Database = {
       }
       route_alerts: {
         Row: {
-          id: string
-          user_id: string
-          origin_city: string
-          origin_city_id: string | null
-          destination_city: string
-          destination_city_id: string | null
+          created_at: string
           date_from: string | null
           date_to: string | null
+          destination_city_id: string | null
+          id: string
           min_weight_kg: number | null
-          created_at: string
+          origin_city_id: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          origin_city: string
-          origin_city_id?: string | null
-          destination_city: string
-          destination_city_id?: string | null
+          created_at?: string
           date_from?: string | null
           date_to?: string | null
+          destination_city_id?: string | null
+          id?: string
           min_weight_kg?: number | null
-          created_at?: string
+          origin_city_id?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          origin_city?: string
-          origin_city_id?: string | null
-          destination_city?: string
-          destination_city_id?: string | null
+          created_at?: string
           date_from?: string | null
           date_to?: string | null
+          destination_city_id?: string | null
+          id?: string
           min_weight_kg?: number | null
-          created_at?: string
+          origin_city_id?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "route_alerts_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "route_alerts_destination_city_id_fkey"
+            columns: ["destination_city_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
           {
@@ -637,35 +509,35 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "route_alerts_destination_city_id_fkey"
-            columns: ["destination_city_id"]
+            foreignKeyName: "route_alerts_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "cities"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
       route_payment_methods: {
         Row: {
-          id: string
-          route_id: string
-          payment_type: string
-          enabled: boolean
           created_at: string
+          enabled: boolean
+          id: string
+          payment_type: string
+          route_id: string
         }
         Insert: {
-          id?: string
-          route_id: string
-          payment_type: string
-          enabled?: boolean
           created_at?: string
+          enabled?: boolean
+          id?: string
+          payment_type: string
+          route_id: string
         }
         Update: {
-          id?: string
-          route_id?: string
-          payment_type?: string
-          enabled?: boolean
           created_at?: string
+          enabled?: boolean
+          id?: string
+          payment_type?: string
+          route_id?: string
         }
         Relationships: [
           {
@@ -679,37 +551,37 @@ export type Database = {
       }
       route_services: {
         Row: {
+          created_at: string
           id: string
+          instructions: string | null
+          location_address: string | null
+          location_name: string | null
+          price_eur: number
           route_id: string
           route_stop_id: string | null
           service_type: string
-          price_eur: number
-          location_name: string | null
-          location_address: string | null
-          instructions: string | null
-          created_at: string
         }
         Insert: {
+          created_at?: string
           id?: string
+          instructions?: string | null
+          location_address?: string | null
+          location_name?: string | null
+          price_eur?: number
           route_id: string
           route_stop_id?: string | null
           service_type: string
-          price_eur?: number
-          location_name?: string | null
-          location_address?: string | null
-          instructions?: string | null
-          created_at?: string
         }
         Update: {
+          created_at?: string
           id?: string
+          instructions?: string | null
+          location_address?: string | null
+          location_name?: string | null
+          price_eur?: number
           route_id?: string
           route_stop_id?: string | null
           service_type?: string
-          price_eur?: number
-          location_name?: string | null
-          location_address?: string | null
-          instructions?: string | null
-          created_at?: string
         }
         Relationships: [
           {
@@ -728,25 +600,139 @@ export type Database = {
           },
         ]
       }
+      route_stops: {
+        Row: {
+          arrival_date: string | null
+          city_id: string
+          id: string
+          is_dropoff_available: boolean
+          is_pickup_available: boolean
+          location_address: string | null
+          location_name: string | null
+          meeting_point_url: string | null
+          route_id: string
+          stop_order: number
+          stop_type: string
+        }
+        Insert: {
+          arrival_date?: string | null
+          city_id: string
+          id?: string
+          is_dropoff_available?: boolean
+          is_pickup_available?: boolean
+          location_address?: string | null
+          location_name?: string | null
+          meeting_point_url?: string | null
+          route_id: string
+          stop_order: number
+          stop_type?: string
+        }
+        Update: {
+          arrival_date?: string | null
+          city_id?: string
+          id?: string
+          is_dropoff_available?: boolean
+          is_pickup_available?: boolean
+          location_address?: string | null
+          location_name?: string | null
+          meeting_point_url?: string | null
+          route_id?: string
+          stop_order?: number
+          stop_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_stops_city_id_fkey"
+            columns: ["city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_stops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_templates: {
+        Row: {
+          available_weight_kg: number
+          created_at: string | null
+          destination_city_id: string | null
+          driver_id: string
+          id: string
+          name: string
+          notes: string | null
+          origin_city_id: string | null
+          payment_methods: string[]
+          price_per_kg_eur: number
+        }
+        Insert: {
+          available_weight_kg: number
+          created_at?: string | null
+          destination_city_id?: string | null
+          driver_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          origin_city_id?: string | null
+          payment_methods?: string[]
+          price_per_kg_eur: number
+        }
+        Update: {
+          available_weight_kg?: number
+          created_at?: string | null
+          destination_city_id?: string | null
+          driver_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          origin_city_id?: string | null
+          payment_methods?: string[]
+          price_per_kg_eur?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_templates_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_templates_driver_id_fkey"
+            columns: ["driver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "route_templates_origin_city_id_fkey"
+            columns: ["origin_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routes: {
         Row: {
           available_weight_kg: number
           created_at: string
           departure_date: string
-          destination_city: string
           destination_city_id: string | null
-          destination_country: string
           driver_id: string
           estimated_arrival_date: string | null
           id: string
-          is_featured: boolean
+          is_featured: boolean | null
           logistics_options: Json
           max_single_package_kg: number | null
           min_weight_kg: number | null
           notes: string | null
-          origin_city: string
           origin_city_id: string | null
-          origin_country: string
           payment_methods: string[]
           price_per_kg_eur: number
           prohibited_items: string[]
@@ -763,20 +749,16 @@ export type Database = {
           available_weight_kg: number
           created_at?: string
           departure_date: string
-          destination_city: string
           destination_city_id?: string | null
-          destination_country: string
           driver_id: string
           estimated_arrival_date?: string | null
           id?: string
-          is_featured?: boolean
+          is_featured?: boolean | null
           logistics_options?: Json
           max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
-          origin_city: string
           origin_city_id?: string | null
-          origin_country: string
           payment_methods?: string[]
           price_per_kg_eur: number
           prohibited_items?: string[]
@@ -793,20 +775,16 @@ export type Database = {
           available_weight_kg?: number
           created_at?: string
           departure_date?: string
-          destination_city?: string
           destination_city_id?: string | null
-          destination_country?: string
           driver_id?: string
           estimated_arrival_date?: string | null
           id?: string
-          is_featured?: boolean
+          is_featured?: boolean | null
           logistics_options?: Json
           max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
-          origin_city?: string
           origin_city_id?: string | null
-          origin_country?: string
           payment_methods?: string[]
           price_per_kg_eur?: number
           prohibited_items?: string[]
@@ -821,6 +799,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "routes_destination_city_id_fkey"
+            columns: ["destination_city_id"]
+            isOneToOne: false
+            referencedRelation: "cities"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "routes_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
@@ -832,49 +817,6 @@ export type Database = {
             columns: ["origin_city_id"]
             isOneToOne: false
             referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "routes_destination_city_id_fkey"
-            columns: ["destination_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      saved_routes: {
-        Row: {
-          id: string
-          user_id: string
-          route_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          route_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          route_id?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_routes_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "saved_routes_route_id_fkey"
-            columns: ["route_id"]
-            isOneToOne: false
-            referencedRelation: "routes"
             referencedColumns: ["id"]
           },
         ]
@@ -916,6 +858,42 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "saved_addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_routes: {
+        Row: {
+          created_at: string
+          id: string
+          route_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          route_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          route_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_routes_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "saved_routes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -979,15 +957,11 @@ export type Database = {
           created_at: string
           desired_date_from: string | null
           desired_date_to: string | null
-          destination_city: string
           destination_city_id: string | null
-          destination_country: string
           expires_at: string
           id: string
           max_budget_eur: number | null
-          origin_city: string
           origin_city_id: string | null
-          origin_country: string
           package_category: string
           package_weight_kg: number
           sender_id: string
@@ -998,15 +972,11 @@ export type Database = {
           created_at?: string
           desired_date_from?: string | null
           desired_date_to?: string | null
-          destination_city: string
           destination_city_id?: string | null
-          destination_country: string
           expires_at?: string
           id?: string
           max_budget_eur?: number | null
-          origin_city: string
           origin_city_id?: string | null
-          origin_country: string
           package_category: string
           package_weight_kg: number
           sender_id: string
@@ -1017,15 +987,11 @@ export type Database = {
           created_at?: string
           desired_date_from?: string | null
           desired_date_to?: string | null
-          destination_city?: string
           destination_city_id?: string | null
-          destination_country?: string
           expires_at?: string
           id?: string
           max_budget_eur?: number | null
-          origin_city?: string
           origin_city_id?: string | null
-          origin_country?: string
           package_category?: string
           package_weight_kg?: number
           sender_id?: string
@@ -1034,10 +1000,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "shipping_requests_sender_id_fkey"
-            columns: ["sender_id"]
+            foreignKeyName: "shipping_requests_destination_city_id_fkey"
+            columns: ["destination_city_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
+            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
           {
@@ -1048,10 +1014,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "shipping_requests_destination_city_id_fkey"
-            columns: ["destination_city_id"]
+            foreignKeyName: "shipping_requests_sender_id_fkey"
+            columns: ["sender_id"]
             isOneToOne: false
-            referencedRelation: "cities"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

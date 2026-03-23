@@ -28,7 +28,7 @@ type CountryData = {
   cityId?: string;
 };
 
-export default function WhereAreYouFrom() {
+export default function OriginCountryPicker() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
@@ -59,12 +59,12 @@ export default function WhereAreYouFrom() {
         cityIdMap[`${city.name}-${city.country}`] = city.id;
       });
 
-      // Fetch routes with origin country - only routes still available for collection
+      // Fetch routes with origin city ID - only routes still available for collection
       // with future departure dates (matching search results filter)
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('routes')
-        .select('origin_city, origin_country')
+        .select('origin_city_id')
         .eq('status', 'active')
         .gt('available_weight_kg', 0)
         .gte('departure_date', today);
@@ -76,11 +76,15 @@ export default function WhereAreYouFrom() {
 
       if (data) {
         data.forEach((route: any) => {
-          const country = route.origin_country || 'Unknown';
-          if (!countryMap[country]) {
-            countryMap[country] = { count: 0, city: route.origin_city };
+          // Look up city from store using city_id
+          const city = cities.find((c) => c.id === route.origin_city_id);
+          if (city) {
+            const country = city.country;
+            if (!countryMap[country]) {
+              countryMap[country] = { count: 0, city: city.name };
+            }
+            countryMap[country].count += 1;
           }
-          countryMap[country].count += 1;
         });
       }
 
@@ -119,7 +123,7 @@ export default function WhereAreYouFrom() {
       setCountries(result);
       setIsLoading(false);
     } catch (error) {
-      console.error('WhereAreYouFrom: Error fetching countries:', error);
+      console.error('OriginCountryPicker: Error fetching countries:', error);
       setIsLoading(false);
     }
   };
@@ -270,7 +274,10 @@ export default function WhereAreYouFrom() {
       {/* See All CTA */}
       <TouchableOpacity
         style={styles.seeAllCTA}
-        onPress={() => router.push('/(tabs)/routes/results' as any)}
+        onPress={() => router.push({
+          pathname: '/(tabs)/routes/results',
+          params: { depart_from_date: format(new Date(), 'yyyy-MM-dd') },
+        } as any)}
         activeOpacity={0.85}
       >
         <Text style={styles.seeAllText}>{t('home.whereFrom.seeAll')}</Text>

@@ -65,8 +65,8 @@ export default function ReviewPayScreen() {
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Route</Text>
-          <SummaryRow label="From" value={`${selectedRoute.origin_city}, ${selectedRoute.origin_country}`} />
-          <SummaryRow label="To" value={`${selectedRoute.destination_city}, ${selectedRoute.destination_country}`} />
+          <SummaryRow label="From" value="Origin" />
+          <SummaryRow label="To" value="Destination" />
           <SummaryRow label="Departure" value={formatDate(selectedRoute.departure_date)} />
         </View>
 

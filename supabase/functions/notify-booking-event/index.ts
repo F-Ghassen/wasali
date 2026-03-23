@@ -84,7 +84,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Profile not found' }), { status: 200 });
     }
 
-    const routeSummary = `${route.origin_city} → ${route.destination_city}`;
+    const routeSummary = `${route.origin_city_id} → ${route.destination_city_id}`;
 
     // Insert in-app notification
     await supabase.from('notifications').insert({

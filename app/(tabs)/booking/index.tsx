@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert, useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Check, Lock, AlertCircle } from 'lucide-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useBookingStore } from '@/stores/bookingStore';
+import { useCitiesStore } from '@/stores/citiesStore';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -67,17 +68,27 @@ function StepCard({
 
 export default function BookingScreen() {
   const router        = useRouter();
+  const params        = useLocalSearchParams<{ routeId?: string }>();
   const { profile }   = useAuthStore();
   const bookingStore  = useBookingStore();
   const { selectedRoute: route } = bookingStore;
   const { width }     = useWindowDimensions();
   const isWide        = width >= 768;
+  const cities        = useCitiesStore((s) => s.cities);
+
+  // Helper to get city name by ID
+  const getCityName = useMemo(() => (cityId: string) => {
+    return cities.find((c) => c.id === cityId)?.name || cityId;
+  }, [cities]);
+
+  // Determine route ID from either store or URL parameter
+  const routeId = route?.id || (params.routeId ? (Array.isArray(params.routeId) ? params.routeId[0] : params.routeId) : null);
 
   // ── Data hooks ──────────────────────────────────────────────────────────────
   const { route: routeData, collectionStops, dropoffStops,
     collectionServicesForStop, deliveryServices, paymentMethods,
     isLoading: isRouteLoading, error: routeError, retry,
-  } = useRouteData(route?.id ?? null);
+  } = useRouteData(routeId);
 
   const form = useBookingForm(
     route?.id ?? null,
@@ -158,25 +169,27 @@ export default function BookingScreen() {
 
   function handleSelectCollectionStop(stop: FetchedStop) {
     const prevStopId = fs.collectionStopId;
+    const cityName = getCityName(stop.city_id);
     setField({
       collectionStopId:              stop.id,
-      collectionStopCity:            stop.city,
+      collectionStopCity:            cityName,
       collectionStopDate:            stop.arrival_date ?? '',
       collectionStopLocationName:    stop.location_name,
       collectionStopLocationAddress: stop.location_address,
-      senderAddressCity:             stop.city,
+      senderAddressCity:             cityName,
     });
     if (prevStopId && prevStopId !== stop.id) resetLogistics();
   }
 
   function handleSelectDropoffStop(stop: FetchedStop) {
+    const cityName = getCityName(stop.city_id);
     setField({
       dropoffStopId:              stop.id,
-      dropoffStopCity:            stop.city,
+      dropoffStopCity:            cityName,
       dropoffStopDate:            stop.arrival_date ?? '',
       dropoffStopLocationName:    stop.location_name,
       dropoffStopLocationAddress: stop.location_address,
-      recipientAddressCity:       stop.city,
+      recipientAddressCity:       cityName,
     });
   }
 
@@ -535,7 +548,7 @@ export default function BookingScreen() {
           <Text style={bk.headerTitle}>Book shipment</Text>
           {routeData && (
             <Text style={bk.headerRoute}>
-              {routeData.driver?.full_name} · {routeData.origin_city} → {routeData.destination_city} · {formatDateShort(routeData.departure_date)}
+              {routeData.driver?.full_name} · Origin → Destination · {formatDateShort(routeData.departure_date)}
             </Text>
           )}
         </View>
@@ -547,8 +560,8 @@ export default function BookingScreen() {
           <View style={bk.summaryArea}>
             {routeData && (
               <OrderSummary
-                routeOriginCity={routeData.origin_city}
-                routeDestinationCity={routeData.destination_city}
+                routeOriginCity="Origin"
+                routeDestinationCity="Destination"
                 pricePerKgEur={routeData.price_per_kg_eur}
                 promotionActive={routeData.promotion_active}
                 promotionPercentage={routeData.promotion_percentage}

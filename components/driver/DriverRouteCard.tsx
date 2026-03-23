@@ -34,7 +34,7 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
         <View style={styles.route}>
           <MapPin size={16} color={Colors.text.secondary} />
           <Text style={styles.routeText} numberOfLines={1}>
-            {route.origin_city} → {route.destination_city}
+            Destination → Destination
           </Text>
         </View>
         <View style={[styles.badge, { backgroundColor: statusCfg.bg }]}>
@@ -70,7 +70,7 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
 
       <View style={styles.footer}>
         <Text style={styles.footerHint}>
-          {route.origin_country} → {route.destination_country}
+          Destination → Destination
         </Text>
         <ChevronRight size={16} color={Colors.text.tertiary} />
       </View>

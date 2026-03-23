@@ -6,8 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 export interface FetchedStop {
   id: string;
-  city: string;
-  country: string;
+  city_id: string;
   arrival_date: string | null;
   stop_type: string;
   stop_order: number;
@@ -36,10 +35,8 @@ export interface FetchedPaymentMethod {
 
 export interface FetchedRoute {
   id: string;
-  origin_city: string;
-  origin_country: string;
-  destination_city: string;
-  destination_country: string;
+  origin_city_id: string;
+  destination_city_id: string;
   departure_date: string;
   estimated_arrival_date: string | null;
   available_weight_kg: number;
@@ -91,7 +88,7 @@ export function useRouteData(routeId: string | null): {
     supabase
       .from('routes')
       .select(`
-        id, origin_city, origin_country, destination_city, destination_country,
+        id, origin_city_id, destination_city_id,
         departure_date, estimated_arrival_date,
         available_weight_kg, price_per_kg_eur,
         promotion_percentage, promotion_active,
@@ -99,7 +96,7 @@ export function useRouteData(routeId: string | null): {
           id, full_name, phone, phone_verified, rating, completed_trips
         ),
         route_stops(
-          id, city, country, arrival_date, stop_type, stop_order,
+          id, city_id, arrival_date, stop_type, stop_order,
           location_name, location_address,
           is_pickup_available, is_dropoff_available, meeting_point_url
         ),
@@ -111,37 +108,39 @@ export function useRouteData(routeId: string | null): {
       `)
       .eq('id', routeId)
       .single()
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return;
-        setIsLoading(false);
-
-        if (fetchError || !data) {
-          setError('not_found');
-          return;
-        }
-
-        const r = data as unknown as FetchedRoute;
-
-        // Guard: route departed
-        if (new Date(r.departure_date) < startOfDay(new Date())) {
-          setError('route_departed');
-          return;
-        }
-
-        // Guard: route full
-        if (r.available_weight_kg <= 0) {
-          setError('route_full');
-          return;
-        }
-
-        setRoute(r);
-      })
-      .catch(() => {
-        if (!cancelled) {
+      .then(
+        ({ data, error: fetchError }) => {
+          if (cancelled) return;
           setIsLoading(false);
-          setError('network');
+
+          if (fetchError || !data) {
+            setError('not_found');
+            return;
+          }
+
+          const r = data as unknown as FetchedRoute;
+
+          // Guard: route departed
+          if (new Date(r.departure_date) < startOfDay(new Date())) {
+            setError('route_departed');
+            return;
+          }
+
+          // Guard: route full
+          if (r.available_weight_kg <= 0) {
+            setError('route_full');
+            return;
+          }
+
+          setRoute(r);
+        },
+        () => {
+          if (!cancelled) {
+            setIsLoading(false);
+            setError('network');
+          }
         }
-      });
+      );
 
     return () => { cancelled = true; };
   }, [routeId, tick]);

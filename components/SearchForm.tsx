@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, addDays, isBefore, subMonths, addMonths, isToday, isSameDay } from 'date-fns';
+import { Search } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -346,6 +347,7 @@ export default function SearchForm() {
           disabled={!canSearch}
           activeOpacity={0.85}
         >
+          <Search size={18} color={Colors.white} strokeWidth={2.5} />
           <Text style={s.searchBtnText}>{t('home.searchDrivers')}</Text>
         </TouchableOpacity>
       </View>
@@ -419,15 +421,23 @@ const s = StyleSheet.create({
     margin: Spacing.base,
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.base,
+    paddingVertical: Spacing.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 6,
   },
   searchBtnDisabled: { opacity: 0.3 },
   searchBtnText: {
     color: Colors.white,
-    fontSize: FontSize.base,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontSize: FontSize.lg,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });
 

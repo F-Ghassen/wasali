@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
+import { useCitiesStore } from '@/stores/citiesStore';
 import type { FetchedStop } from '@/hooks/useRouteData';
 
 interface ItineraryStepProps {
@@ -23,6 +24,11 @@ function StopCard({
 }: {
   stop: FetchedStop; selected: boolean; onPress: () => void;
 }) {
+  const cities = useCitiesStore((s) => s.cities);
+  const cityName = useMemo(() => {
+    return cities.find((c) => c.id === stop.city_id)?.name || stop.city_id || 'Unknown';
+  }, [stop.city_id, cities]);
+
   return (
     <TouchableOpacity
       style={[s.stopCard, selected && s.stopCardActive]}
@@ -36,7 +42,7 @@ function StopCard({
         <View style={{ flex: 1 }}>
           <View style={s.cityRow}>
             <MapPin size={13} color={selected ? Colors.primary : Colors.text.tertiary} strokeWidth={2.5} />
-            <Text style={[s.city, selected && s.cityActive]}>{stop.city}</Text>
+            <Text style={[s.city, selected && s.cityActive]}>{cityName}</Text>
             {stop.arrival_date ? (
               <Text style={[s.date, selected && s.dateActive]}>
                 {formatDateShort(stop.arrival_date)}

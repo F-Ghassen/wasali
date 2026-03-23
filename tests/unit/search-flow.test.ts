@@ -37,10 +37,10 @@ function splitTiers(
   destCityName: string,
 ): { tier1: RouteResult[]; tier2: RouteResult[] } {
   const tier1 = routes.filter(
-    (r) => r.origin_city === originCityName && r.destination_city === destCityName,
+    (r) => r.origin_city_id === originCityName && r.destination_city_id === destCityName,
   );
   const tier2 = routes.filter(
-    (r) => !(r.origin_city === originCityName && r.destination_city === destCityName),
+    (r) => !(r.origin_city_id === originCityName && r.destination_city_id === destCityName),
   );
   return { tier1, tier2 };
 }
@@ -64,10 +64,10 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
       (r) => filters.maxPriceEur == null || effectivePrice(r) <= filters.maxPriceEur,
     )
     .filter(
-      (r) => !filters.originCityOverride || r.origin_city === filters.originCityOverride,
+      (r) => !filters.originCityOverride || r.origin_city_id === filters.originCityOverride,
     )
     .filter(
-      (r) => !filters.destCityOverride || r.destination_city === filters.destCityOverride,
+      (r) => !filters.destCityOverride || r.destination_city_id === filters.destCityOverride,
     );
 }
 
@@ -76,9 +76,9 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
 function makeRoute(overrides: Partial<RouteResult> = {}): RouteResult {
   return {
     id: 'route-1',
-    origin_city: 'Berlin',
+    origin_city_id: 'berlin-id',
     origin_country: 'DE',
-    destination_city: 'Tunis',
+    destination_city_id: 'tunis-id',
     destination_country: 'TN',
     departure_date: '2026-07-01',
     estimated_arrival_date: '2026-07-05',
@@ -188,23 +188,23 @@ describe('effectivePrice', () => {
 
 describe('splitTiers', () => {
   it('places exact city-pair matches in tier1', () => {
-    const r = makeRoute({ origin_city: 'Berlin', destination_city: 'Tunis' });
-    const { tier1, tier2 } = splitTiers([r], 'Berlin', 'Tunis');
+    const r = makeRoute({ origin_city_id: 'berlin-id', destination_city_id: 'tunis-id' });
+    const { tier1, tier2 } = splitTiers([r], 'berlin-id', 'tunis-id');
     expect(tier1).toHaveLength(1);
     expect(tier2).toHaveLength(0);
   });
 
   it('places country-level matches (different city) in tier2', () => {
-    const r = makeRoute({ origin_city: 'Hamburg', destination_city: 'Sfax' });
-    const { tier1, tier2 } = splitTiers([r], 'Berlin', 'Tunis');
+    const r = makeRoute({ origin_city_id: 'hamburg-id', destination_city_id: 'sfax-id' });
+    const { tier1, tier2 } = splitTiers([r], 'berlin-id', 'tunis-id');
     expect(tier1).toHaveLength(0);
     expect(tier2).toHaveLength(1);
   });
 
   it('correctly splits a mixed list', () => {
-    const exact = makeRoute({ id: 'r1', origin_city: 'Berlin', destination_city: 'Tunis' });
-    const near  = makeRoute({ id: 'r2', origin_city: 'Hamburg', destination_city: 'Sfax' });
-    const { tier1, tier2 } = splitTiers([exact, near], 'Berlin', 'Tunis');
+    const exact = makeRoute({ id: 'r1', origin_city_id: 'berlin-id', destination_city_id: 'tunis-id' });
+    const near  = makeRoute({ id: 'r2', origin_city_id: 'hamburg-id', destination_city_id: 'sfax-id' });
+    const { tier1, tier2 } = splitTiers([exact, near], 'berlin-id', 'tunis-id');
     expect(tier1.map((r) => r.id)).toEqual(['r1']);
     expect(tier2.map((r) => r.id)).toEqual(['r2']);
   });
@@ -257,9 +257,9 @@ describe('sortRoutes', () => {
 describe('applyFilters', () => {
   const r30kg   = makeRoute({ id: 'r30', available_weight_kg: 30, price_per_kg_eur: 8 });
   const r10kg   = makeRoute({ id: 'r10', available_weight_kg: 10, price_per_kg_eur: 5 });
-  const berlin  = makeRoute({ id: 'berlin',  origin_city: 'Berlin',  destination_city: 'Tunis' });
-  const hamburg = makeRoute({ id: 'hamburg', origin_city: 'Hamburg', destination_city: 'Tunis' });
-  const sfax    = makeRoute({ id: 'sfax',    origin_city: 'Berlin',  destination_city: 'Sfax' });
+  const berlin  = makeRoute({ id: 'berlin',  origin_city_id: 'berlin-id',  destination_city_id: 'tunis-id' });
+  const hamburg = makeRoute({ id: 'hamburg', origin_city_id: 'hamburg-id', destination_city_id: 'tunis-id' });
+  const sfax    = makeRoute({ id: 'sfax',    origin_city_id: 'berlin-id',  destination_city_id: 'sfax-id' });
 
   it('empty filters returns all routes', () => {
     expect(applyFilters([r30kg, r10kg], {})).toHaveLength(2);

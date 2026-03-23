@@ -33,10 +33,10 @@ async function searchRoutes(
 ) {
   let query = (client as typeof adminClient)
     .from('routes')
-    .select('id, origin_city, destination_city, status, available_weight_kg, price_per_kg_eur, departure_date')
+    .select('id, origin_country, destination_country, status, available_weight_kg, price_per_kg_eur, departure_date')
     .eq('status', 'active')
-    .eq('origin_city', params.originCity)
-    .eq('destination_city', params.destinationCity);
+    .eq('origin_country', params.originCity)
+    .eq('destination_country', params.destinationCity);
 
   if (params.minWeightKg !== undefined) {
     query = query.gte('available_weight_kg', params.minWeightKg);
@@ -93,8 +93,8 @@ describe.skipIf(SKIP)('Route search (integration)', () => {
     expect(error).toBeNull();
     expect(data!.length).toBeGreaterThanOrEqual(1);
     expect(data!.every((r) => r.status === 'active')).toBe(true);
-    expect(data!.every((r) => r.origin_city === 'Berlin')).toBe(true);
-    expect(data!.every((r) => r.destination_city === 'Tunis')).toBe(true);
+    expect(data!.every((r) => r.origin_city_id === 'Berlin')).toBe(true);
+    expect(data!.every((r) => r.destination_city_id === 'Tunis')).toBe(true);
   });
 
   // ── 2. No results for wrong city pair ────────────────────────────────────

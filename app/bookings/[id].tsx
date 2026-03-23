@@ -62,7 +62,7 @@ function stepSubtitle(
   state: StepState,
   booking: BookingWithDriver,
 ): string {
-  const destCity  = booking.route?.destination_city ?? 'destination';
+  const destCity  = booking.route?.destination_city_id ?? 'destination';
   const weightKg  = booking.package_weight_kg ?? 0;
   const updatedAt = booking.updated_at ? formatDate(booking.updated_at as string) : undefined;
 
@@ -166,7 +166,7 @@ export default function BookingDetailScreen() {
     const lines = [
       `📦 Booking ${ref}`,
       ``,
-      `🗺  Route: ${booking.route?.origin_city} → ${booking.route?.destination_city}`,
+      `🗺  Route: ${booking.route?.origin_city_id} → ${booking.route?.destination_city_id}`,
       booking.route?.departure_date ? `📅 Departure: ${formatDate(booking.route.departure_date)}` : null,
       ``,
       `⚖️  Weight: ${booking.package_weight_kg} kg`,
@@ -207,9 +207,9 @@ export default function BookingDetailScreen() {
 
   const labelData: LabelData | null = booking && id ? {
     trackingId:            `WSL-${id.slice(0, 6).toUpperCase()}`,
-    originCity:            booking.route?.origin_city ?? '—',
+    originCity:            booking.route?.origin_city_id ?? '—',
     originFlag:            '🇪🇺',
-    destCity:              booking.route?.destination_city ?? '—',
+    destCity:              booking.route?.destination_city_id ?? '—',
     destFlag:              '🇹🇳',
     departureDate:         booking.route?.departure_date ? formatDate(booking.route.departure_date) : '—',
     arrivalDate:           booking.route?.estimated_arrival_date
@@ -247,7 +247,7 @@ export default function BookingDetailScreen() {
         <View style={styles.card}>
           <View style={styles.routeRow}>
             <Text style={styles.route}>
-              {booking.route?.origin_city} → {booking.route?.destination_city}
+              {booking.route?.origin_city_id} → {booking.route?.destination_city_id}
             </Text>
             <Text style={styles.amount}>€{Number(booking.price_eur).toFixed(2)}</Text>
           </View>

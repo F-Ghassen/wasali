@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
+import { useCitiesStore } from '@/stores/citiesStore';
 
 const PAGE_SIZE = 100;
 
@@ -8,8 +10,6 @@ export type SortKey = 'earliest' | 'cheapest' | 'top_rated';
 export interface FilterState {
   minCapacityKg?: number;
   maxPriceEur?: number;
-  originCityOverride?: string;
-  destCityOverride?: string;
 }
 
 export interface RouteResultDriver {
@@ -23,10 +23,8 @@ export interface RouteResultDriver {
 
 export interface RouteResult {
   id: string;
-  origin_city: string;
-  origin_country: string;
-  destination_city: string;
-  destination_country: string;
+  origin_city_id: string | null;
+  destination_city_id: string | null;
   departure_date: string;
   estimated_arrival_date: string | null;
   available_weight_kg: number;
@@ -39,14 +37,16 @@ export interface RouteResult {
   promotion_active: boolean;
   route_stops: {
     id: string;
-    city: string;
-    country: string;
+    city_id: string;
+    route_id: string;
     stop_order: number;
     stop_type: string;
     is_pickup_available: boolean;
     is_dropoff_available: boolean;
     arrival_date: string | null;
     meeting_point_url: string | null;
+    location_name: string | null;
+    location_address: string | null;
   }[];
   route_services: {
     id: string;
@@ -64,19 +64,19 @@ function effectivePrice(route: RouteResult): number {
 
 function splitTiers(
   routes: RouteResult[],
-  originCityName: string,
-  destCityName: string,
+  originCityId: string | undefined,
+  destCityId: string | undefined,
 ): { tier1: RouteResult[]; tier2: RouteResult[] } {
   // If no destination specified, show all routes in tier1 (no tier2)
-  if (!destCityName) {
+  if (!destCityId) {
     return { tier1: routes, tier2: [] };
   }
 
   const tier1 = routes.filter(
-    (r) => r.origin_city === originCityName && r.destination_city === destCityName,
+    (r) => r.origin_city_id === originCityId && r.destination_city_id === destCityId,
   );
   const tier2 = routes.filter(
-    (r) => !(r.origin_city === originCityName && r.destination_city === destCityName),
+    (r) => !(r.origin_city_id === originCityId && r.destination_city_id === destCityId),
   );
   return { tier1, tier2 };
 }
@@ -98,12 +98,6 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
     .filter((r) => r.available_weight_kg >= (filters.minCapacityKg ?? 0))
     .filter(
       (r) => filters.maxPriceEur == null || effectivePrice(r) <= filters.maxPriceEur,
-    )
-    .filter(
-      (r) => !filters.originCityOverride || r.origin_city === filters.originCityOverride,
-    )
-    .filter(
-      (r) => !filters.destCityOverride || r.destination_city === filters.destCityOverride,
     );
 }
 
@@ -119,6 +113,7 @@ interface UseRouteResultsParams {
 
 export function useRouteResults(params: UseRouteResultsParams) {
   const { originCityName, originCountry, originCityId, destCityName, destCountry, destCityId, departFromDate } = params;
+  const cities = useCitiesStore((s) => s.cities);
 
   const [allRoutes, setAllRoutes] = useState<RouteResult[]>([]);
   const [isFetching, setIsFetching] = useState(false);
@@ -141,34 +136,39 @@ export function useRouteResults(params: UseRouteResultsParams) {
         let query = supabase
           .from('routes')
           .select(`
-            id, origin_city, origin_country, destination_city, destination_country,
+            id, origin_city_id, destination_city_id,
             departure_date, estimated_arrival_date,
             available_weight_kg, min_weight_kg, price_per_kg_eur,
             vehicle_type, notes, status,
             promotion_percentage, promotion_active,
-            route_stops(id, city, country, stop_order, stop_type, is_pickup_available, is_dropoff_available, arrival_date, meeting_point_url),
+            route_stops(id, city_id, route_id, stop_order, stop_type, is_pickup_available, is_dropoff_available, arrival_date, meeting_point_url, location_name, location_address),
             route_services(id, service_type, price_eur),
             driver:profiles!driver_id(id, full_name, avatar_url, phone_verified, rating, completed_trips)
           `)
           .eq('status', 'active')
           .gt('available_weight_kg', 0)
-          .gte('departure_date', departFromDate);
+          .gte('departure_date', departFromDate || format(new Date(), 'yyyy-MM-dd'));
 
         // Apply origin filter
         if (originCityId) {
           query = query.eq('origin_city_id', originCityId);
-        } else if (originCityName) {
-          query = query.eq('origin_city', originCityName);
         } else if (originCountry) {
-          // Country-level search: show routes from any city in this country
-          query = query.eq('origin_country', originCountry);
+          // Country-level search: get all city IDs from this country, then filter routes
+          const countryCityIds = cities
+            .filter((c) => c.country === originCountry)
+            .map((c) => c.id);
+
+          if (countryCityIds.length > 0) {
+            query = query.in('origin_city_id', countryCityIds);
+          } else {
+            // No cities in this country, return empty results
+            query = query.in('origin_city_id', []);
+          }
         }
 
         // Apply destination filter only if specified
         if (destCityId) {
           query = query.eq('destination_city_id', destCityId);
-        } else if (destCityName) {
-          query = query.eq('destination_city', destCityName);
         }
         // If no destination specified, show all destinations
 
@@ -199,8 +199,8 @@ export function useRouteResults(params: UseRouteResultsParams) {
 
   const { tier1: rawTier1, tier2: rawTier2 } = splitTiers(
     allRoutes,
-    originCityName,
-    destCityName,
+    originCityId,
+    destCityId,
   );
 
   const tier1 = sortRoutes(applyFilters(rawTier1, filters), sortKey);
@@ -208,9 +208,7 @@ export function useRouteResults(params: UseRouteResultsParams) {
 
   const activeFilterCount =
     (filters.minCapacityKg != null && filters.minCapacityKg > 0 ? 1 : 0) +
-    (filters.maxPriceEur != null ? 1 : 0) +
-    (filters.originCityOverride ? 1 : 0) +
-    (filters.destCityOverride ? 1 : 0);
+    (filters.maxPriceEur != null ? 1 : 0);
 
   return {
     tier1,

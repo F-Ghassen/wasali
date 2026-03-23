@@ -66,7 +66,7 @@ export default function RequestDetailScreen() {
       <FlatList
         ListHeaderComponent={
           <View style={styles.info}>
-            <Text style={styles.route}>{activeRequest.origin_city} → {activeRequest.destination_city}</Text>
+            <Text style={styles.route}>Origin → Destination</Text>
             <Text style={styles.meta}>{activeRequest.package_weight_kg} kg · {activeRequest.package_category}</Text>
             {activeRequest.max_budget_eur && (
               <Text style={styles.budget}>Budget: {formatPrice(activeRequest.max_budget_eur)}</Text>

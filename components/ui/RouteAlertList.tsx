@@ -55,7 +55,7 @@ function AlertRow({
         <View style={styles.routeLine}>
           <MapPin size={12} color={Colors.text.tertiary} />
           <Text style={styles.routeText}>
-            {item.origin_city} → {item.destination_city}
+            Route Alert
           </Text>
         </View>
         <Text style={styles.dateText}>{dateLabel}</Text>

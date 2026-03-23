@@ -973,7 +973,7 @@ const s = StyleSheet.create({
   resetBtn: { alignSelf: 'flex-start', marginTop: Spacing.xs },
   resetText: { fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },
 
-  list: { padding: Spacing.base, flexGrow: 1 },
+  list: { padding: Spacing.base, flexGrow: 1, gap: Spacing.md },
 
   sectionHeader: {
     paddingVertical: Spacing.md,

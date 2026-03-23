@@ -34,7 +34,7 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
           </View>
           <View style={s.driverMeta}>
             <Text style={s.driverName}>{r.driverName}</Text>
-            {r.driverRating !== null ? (
+            {r.driverRating !== null && r.driverRating > 0 ? (
               <Text style={s.trustSignal}>⭐ {r.driverRating.toFixed(1)} • {r.driverTrips} trips</Text>
             ) : (
               <Text style={s.trustSignal}>New driver</Text>

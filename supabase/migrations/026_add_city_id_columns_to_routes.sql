@@ -1,0 +1,3 @@
+-- Migration 026: No changes needed
+-- Route stops is the single source of truth for all cities.
+-- Origin and destination cities are computed from route_stops at query time.

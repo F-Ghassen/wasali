@@ -723,7 +723,6 @@ export type Database = {
           available_weight_kg: number
           created_at: string
           departure_date: string
-          destination_city_id: string | null
           driver_id: string
           estimated_arrival_date: string | null
           id: string
@@ -732,7 +731,6 @@ export type Database = {
           max_single_package_kg: number | null
           min_weight_kg: number | null
           notes: string | null
-          origin_city_id: string | null
           payment_methods: string[]
           price_per_kg_eur: number
           prohibited_items: string[]
@@ -749,7 +747,6 @@ export type Database = {
           available_weight_kg: number
           created_at?: string
           departure_date: string
-          destination_city_id?: string | null
           driver_id: string
           estimated_arrival_date?: string | null
           id?: string
@@ -758,7 +755,6 @@ export type Database = {
           max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
-          origin_city_id?: string | null
           payment_methods?: string[]
           price_per_kg_eur: number
           prohibited_items?: string[]
@@ -775,7 +771,6 @@ export type Database = {
           available_weight_kg?: number
           created_at?: string
           departure_date?: string
-          destination_city_id?: string | null
           driver_id?: string
           estimated_arrival_date?: string | null
           id?: string
@@ -784,7 +779,6 @@ export type Database = {
           max_single_package_kg?: number | null
           min_weight_kg?: number | null
           notes?: string | null
-          origin_city_id?: string | null
           payment_methods?: string[]
           price_per_kg_eur?: number
           prohibited_items?: string[]
@@ -799,24 +793,10 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "routes_destination_city_id_fkey"
-            columns: ["destination_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "routes_driver_id_fkey"
             columns: ["driver_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "routes_origin_city_id_fkey"
-            columns: ["origin_city_id"]
-            isOneToOne: false
-            referencedRelation: "cities"
             referencedColumns: ["id"]
           },
         ]

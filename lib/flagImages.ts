@@ -63,6 +63,16 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
  *
  * Currently using w160 for best performance on mobile cards
  */
+// Map ISO alpha-2 codes to flag emoji
+const FLAG_EMOJI: Record<string, string> = Object.fromEntries(
+  Object.entries(COUNTRY_CODE_MAP).map(([name, code]) => [
+    name,
+    code.toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0))),
+  ])
+);
+
+export const getCountryFlag = (country: string): string => FLAG_EMOJI[country] ?? '🌍';
+
 export const getFlagImageUrl = (country: string): string => {
   const countryCode = COUNTRY_CODE_MAP[country];
 

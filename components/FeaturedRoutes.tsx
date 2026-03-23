@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { ArrowRight } from 'lucide-react-native';
+import { ArrowRight, Package } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -22,14 +22,41 @@ import { supabase } from '@/lib/supabase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type StopType = 'collection' | 'dropoff';
+
+type RouteStop = {
+  city_id: string;
+  cityName: string;
+  country: string;
+  flagEmoji: string;
+  stopType: StopType;
+  stopOrder: number;
+  arrivalDate: string;
+};
+
 type FeaturedRoute = {
   id: string;
   driverName: string;
+  driverRating: number | null;
+  driverTrips: number;
   from: string;
   to: string;
+  fromCountry: string;
+  fromFlag: string;
+  toCountry: string;
+  toFlag: string;
+  originCity: string;
+  originDate: string;
+  destinationCity: string;
+  destinationDate: string;
   departureDate: Date;
   capacityLeft: number;
   pricePerKg: number;
+  pricePromotion: number | null;
+  prohibitedItems: string[];
+  createdAt: string;
+  services: string[];
+  stops: RouteStop[];
   isFull: boolean;
 };
 
@@ -46,7 +73,7 @@ function RouteDetailsModal({ routeId, visible, onClose }: { routeId: string; vis
       supabase
         .from('routes')
         .select(`
-          id, origin_city_id, destination_city_id,
+          id,
           departure_date, estimated_arrival_date,
           available_weight_kg, price_per_kg_eur,
           promotion_percentage, promotion_active,
@@ -71,8 +98,7 @@ function RouteDetailsModal({ routeId, visible, onClose }: { routeId: string; vis
           if (!error && data) {
             setRoute(data);
             const cityIds: string[] = [];
-            if (data.origin_city_id) cityIds.push(data.origin_city_id);
-            if (data.destination_city_id) cityIds.push(data.destination_city_id);
+            // All cities come from route_stops
             data.route_stops?.forEach((s: any) => { if (s.city_id) cityIds.push(s.city_id); });
 
             if (cityIds.length > 0) {
@@ -115,14 +141,20 @@ function RouteDetailsModal({ routeId, visible, onClose }: { routeId: string; vis
                   <View>
                     <Text style={modalS.label}>From</Text>
                     <Text style={modalS.value}>
-                      {route.origin_city_id ? cityNames[route.origin_city_id] : 'Origin'}
+                      {route.route_stops && route.route_stops.length > 0
+                        ? (cityNames[route.route_stops[0]?.city_id] || 'Origin')
+                        : 'Origin'
+                      }
                     </Text>
                   </View>
                   <ArrowRight size={20} color={Colors.text.secondary} />
                   <View>
                     <Text style={modalS.label}>To</Text>
                     <Text style={modalS.value}>
-                      {route.destination_city_id ? cityNames[route.destination_city_id] : 'Destination'}
+                      {route.route_stops && route.route_stops.length > 0
+                        ? (cityNames[route.route_stops[route.route_stops.length - 1]?.city_id] || 'Destination')
+                        : 'Destination'
+                      }
                     </Text>
                   </View>
                 </View>
@@ -242,53 +274,142 @@ function RouteDetailsModal({ routeId, visible, onClose }: { routeId: string; vis
 
 function FeaturedRouteCard({ route: r, routeId, onBook }: { route: FeaturedRoute; routeId: string; onBook: (routeId: string) => void }) {
   const { t } = useTranslation();
-  const [showDetails, setShowDetails] = useState(false);
+
+  const promotionPercentage = r.pricePromotion ? `${r.pricePromotion}% off` : null;
+  const effectivePrice = r.pricePromotion
+    ? (r.pricePerKg * (1 - r.pricePromotion / 100)).toFixed(2)
+    : r.pricePerKg.toFixed(2);
 
   return (
-    <>
-      <View style={cardS.card}>
-        <View style={cardS.featuredBadge}>
-          <Text style={cardS.featuredBadgeText}>Featured</Text>
-        </View>
-        <View style={cardS.topRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={cardS.route}>{r.from} → {r.to}</Text>
-            <Text style={cardS.departure}>Departs {format(r.departureDate, 'EEE, MMM d')}</Text>
-          </View>
-          <View style={cardS.pricePill}>
-            <Text style={cardS.price}>€{r.pricePerKg}</Text>
-            <Text style={cardS.perKg}>/kg</Text>
-          </View>
-        </View>
-
-        <View style={cardS.driverRow}>
+    <View style={cardS.card}>
+      {/* Row 1: Driver Trust + Capacity + Price */}
+      <View style={cardS.row1}>
+        <View style={cardS.driverHighlight}>
           <View style={cardS.avatar}>
             <Text style={cardS.avatarLetter}>{r.driverName[0]}</Text>
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={cardS.driverMeta}>
             <Text style={cardS.driverName}>{r.driverName}</Text>
-            <Text style={cardS.driverMeta}>{r.capacityLeft} kg available</Text>
+            {r.driverRating !== null ? (
+              <Text style={cardS.trustSignal}>⭐ {r.driverRating.toFixed(1)} • {r.driverTrips} trips</Text>
+            ) : (
+              <Text style={cardS.trustSignal}>New driver</Text>
+            )}
           </View>
         </View>
 
-        {r.isFull ? (
-          <View style={cardS.fullBox}>
-            <Text style={cardS.fullText}>{t('home.routeFull')}</Text>
+        <View style={cardS.capacityHighlight}>
+          <View style={cardS.capacityLabelRow}>
+            <Package size={14} color={Colors.text.secondary} strokeWidth={2} />
+            <Text style={cardS.capacityLabel}>Remaining</Text>
           </View>
-        ) : (
-          <View style={cardS.buttonRow}>
-            <TouchableOpacity style={[cardS.secondaryBtn, { flex: 1 }]} onPress={() => setShowDetails(true)} activeOpacity={0.7}>
-              <Text style={cardS.secondaryBtnText}>View Details</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[cardS.primaryBtn, { flex: 1 }]} onPress={() => onBook(routeId)} activeOpacity={0.85}>
-              <Text style={cardS.primaryBtnText}>{t('home.bookSlot')}</Text>
-            </TouchableOpacity>
+          <Text style={cardS.capacityValue}>{r.capacityLeft} kg</Text>
+        </View>
+
+        <View style={cardS.priceHighlight}>
+          <View style={cardS.priceDisplay}>
+            <Text style={cardS.effectivePrice}>€{effectivePrice}</Text>
+            <Text style={cardS.priceUnit}>/kg</Text>
           </View>
-        )}
+          {promotionPercentage && (
+            <View style={cardS.promotionBadge}>
+              <Text style={cardS.promotionText}>{promotionPercentage}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      <RouteDetailsModal routeId={routeId} visible={showDetails} onClose={() => setShowDetails(false)} />
-    </>
+      {/* Row 2: Route Summary (Origin Country → Destination Country with stops) */}
+      <View style={cardS.routeSummary}>
+        <View style={cardS.countrySection}>
+          <View style={cardS.countryHeader}>
+            <View style={cardS.labelWithCountry}>
+              <Text style={cardS.countrySectionLabel}>From</Text>
+              <Text style={cardS.countryFlagSmall}>
+                {r.fromFlag}
+              </Text>
+              <Text style={cardS.countryNameSmall}>{r.fromCountry}</Text>
+            </View>
+          </View>
+          <View style={cardS.stopsList}>
+            <View style={cardS.stopsLabelRow}>
+              <Text style={cardS.stopsLabelIcon}>📍</Text>
+              <Text style={cardS.stopsSubLabel}>Pickup Locations</Text>
+            </View>
+            {r.stops
+              .filter((s) => s.stopType === 'collection')
+              .map((stop) => (
+                <View key={`${stop.city_id}-${stop.stopOrder}`} style={cardS.stopChip}>
+                  <Text style={cardS.stopChipText}>{stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}</Text>
+                </View>
+              ))}
+          </View>
+        </View>
+
+        <View style={cardS.routeArrow}>
+          <ArrowRight size={20} color={Colors.primary} strokeWidth={2} />
+        </View>
+
+        <View style={cardS.countrySection}>
+          <View style={cardS.countryHeader}>
+            <View style={cardS.labelWithCountry}>
+              <Text style={cardS.countrySectionLabel}>To</Text>
+              <Text style={cardS.countryFlagSmall}>
+                {r.toFlag}
+              </Text>
+              <Text style={cardS.countryNameSmall}>{r.toCountry}</Text>
+            </View>
+          </View>
+          <View style={cardS.stopsList}>
+            <View style={cardS.stopsLabelRow}>
+              <Text style={cardS.stopsLabelIcon}>🎯</Text>
+              <Text style={cardS.stopsSubLabel}>Delivery Locations</Text>
+            </View>
+            {r.stops
+              .filter((s) => s.stopType === 'dropoff')
+              .map((stop) => (
+                <View key={`${stop.city_id}-${stop.stopOrder}`} style={cardS.stopChip}>
+                  <Text style={cardS.stopChipText}>{stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}</Text>
+                </View>
+              ))}
+          </View>
+        </View>
+      </View>
+
+
+      {/* Row 4: Services */}
+      {r.services.length > 0 && (
+        <View style={cardS.servicesRow}>
+          <Text style={cardS.servicesLabel}>Driver Offered Services</Text>
+          <View style={cardS.servicesList}>
+            {r.services.map((svc, idx) => (
+              <View key={idx} style={cardS.serviceBadge}>
+                <Text style={cardS.serviceName}>{svc}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Row 5: Prohibited Items */}
+      {r.prohibitedItems.length > 0 && (
+        <View style={cardS.prohibitedRow}>
+          <Text style={cardS.prohibitedLabel}>⚠️ Prohibited</Text>
+          <Text style={cardS.prohibitedList}>{r.prohibitedItems.join(', ')}</Text>
+        </View>
+      )}
+
+      {/* Row 6: CTA Button */}
+      {!r.isFull ? (
+        <TouchableOpacity style={cardS.bookBtn} onPress={() => onBook(routeId)} activeOpacity={0.85}>
+          <Text style={cardS.bookBtnText}>{t('home.bookSlot')}</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={cardS.fullBox}>
+          <Text style={cardS.fullText}>{t('home.routeFull')}</Text>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -296,35 +417,100 @@ function FeaturedRouteCard({ route: r, routeId, onBook }: { route: FeaturedRoute
 
 async function mapRoutes(rows: any[]): Promise<FeaturedRoute[]> {
   const cityIds = new Set<string>();
+
+  // Collect all city IDs from route_stops
   rows.forEach((r) => {
-    if (r.origin_city_id) cityIds.add(r.origin_city_id);
-    if (r.destination_city_id) cityIds.add(r.destination_city_id);
+    r.route_stops?.forEach((stop: any) => {
+      if (stop.city_id) cityIds.add(stop.city_id);
+    });
   });
 
-  const { data: citiesData } = await supabase
-    .from('cities')
-    .select('id, name, country')
-    .in('id', Array.from(cityIds));
+  const cityMap = await fetchCitiesForStops(Array.from(cityIds));
 
-  const cityMap = new Map(citiesData?.map((c: any) => [c.id, c.name]) ?? []);
+  return rows.map((r) => {
+    // Sort stops by order
+    const sortedStops = r.route_stops?.sort((a: any, b: any) => a.stop_order - b.stop_order) ?? [];
+    const originStop = sortedStops.length > 0 ? sortedStops[0] : null;
+    const destinationStop = sortedStops.length > 0 ? sortedStops[sortedStops.length - 1] : null;
 
-  return rows.map((r) => ({
-    id: r.id,
-    driverName: r.driver?.full_name ?? 'Driver',
-    from: r.origin_city_id ? (cityMap.get(r.origin_city_id) ?? 'Origin') : 'Origin',
-    to: r.destination_city_id ? (cityMap.get(r.destination_city_id) ?? 'Destination') : 'Destination',
-    departureDate: new Date(r.departure_date),
-    capacityLeft: r.available_weight_kg,
-    pricePerKg: r.price_per_kg_eur,
-    isFull: r.available_weight_kg <= 0,
-  }));
+    const originCityData = originStop ? cityMap.get(originStop.city_id) : null;
+    const destinationCityData = destinationStop ? cityMap.get(destinationStop.city_id) : null;
+
+    const originCity = originCityData?.name ?? 'Origin';
+    const originCountry = originCityData?.country ?? '';
+    const originFlag = originCityData?.flagEmoji ?? '🌍';
+    const destinationCity = destinationCityData?.name ?? 'Destination';
+    const destinationCountry = destinationCityData?.country ?? '';
+    const destinationFlag = destinationCityData?.flagEmoji ?? '🌍';
+
+    const services = r.route_services?.map((svc: any) => svc.service_type).filter(Boolean) ?? [];
+    const prohibitedItems = Array.isArray(r.prohibited_items) ? r.prohibited_items : [];
+
+    // Build all stops with city data
+    const stops: RouteStop[] = sortedStops.map((stop: any) => {
+      const cityData = cityMap.get(stop.city_id);
+      const stopType: StopType = stop.stop_type === 'dropoff' ? 'dropoff' : 'collection';
+      return {
+        city_id: stop.city_id,
+        cityName: cityData?.name ?? 'Unknown',
+        country: cityData?.country ?? '',
+        flagEmoji: cityData?.flagEmoji ?? '🌍',
+        stopType: stopType,
+        stopOrder: stop.stop_order,
+        arrivalDate: stop.arrival_date,
+      };
+    });
+
+    return {
+      id: r.id,
+      driverName: r.driver?.full_name ?? 'Driver',
+      driverRating: r.driver?.rating ?? null,
+      driverTrips: r.driver?.completed_trips ?? 0,
+      from: originCity,
+      to: destinationCity,
+      fromCountry: originCountry,
+      fromFlag: originFlag,
+      toCountry: destinationCountry,
+      toFlag: destinationFlag,
+      originCity: originCity,
+      originDate: originStop?.arrival_date ?? r.departure_date,
+      destinationCity: destinationCity,
+      destinationDate: destinationStop?.arrival_date ?? r.departure_date,
+      departureDate: new Date(r.departure_date),
+      capacityLeft: r.available_weight_kg,
+      pricePerKg: r.price_per_kg_eur,
+      pricePromotion: r.promotion_active && r.promotion_percentage ? r.promotion_percentage : null,
+      prohibitedItems: prohibitedItems,
+      createdAt: r.created_at,
+      services: services,
+      stops: stops,
+      isFull: r.available_weight_kg <= 0,
+    };
+  });
 }
 
 const ROUTE_SELECT = `
-  id, origin_city_id, destination_city_id,
+  id,
   departure_date, available_weight_kg, price_per_kg_eur,
-  is_featured, driver:profiles!driver_id(id, full_name, rating, avatar_url)
+  promotion_percentage, promotion_active, prohibited_items, created_at,
+  is_featured, driver:profiles!driver_id(id, full_name, rating, completed_trips),
+  route_stops(id, city_id, stop_type, stop_order, arrival_date),
+  route_services(id, service_type)
 `;
+
+// Fetch detailed cities data for route stops
+async function fetchCitiesForStops(cityIds: string[]): Promise<Map<string, { name: string; country: string; flagEmoji: string }>> {
+  if (cityIds.length === 0) return new Map();
+
+  const { data: citiesData } = await supabase
+    .from('cities')
+    .select('id, name, country, flag_emoji')
+    .in('id', cityIds);
+
+  return new Map(
+    citiesData?.map((c: any) => [c.id, { name: c.name, country: c.country, flagEmoji: c.flag_emoji ?? '🌍' }]) ?? []
+  );
+}
 
 // ─── FeaturedRoutes (main export) ─────────────────────────────────────────────
 
@@ -446,7 +632,7 @@ const cardS = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
+    padding: Spacing.md,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
@@ -455,79 +641,271 @@ const cardS = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primaryLight,
     overflow: 'hidden',
+    gap: Spacing.md,
   },
-  featuredBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(201, 162, 39, 0.1)',
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 3,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.gold,
-  },
-  featuredBadgeText: { fontSize: 10, fontWeight: '600', color: Colors.gold, letterSpacing: 0.3 },
-  topRow: {
+
+  // Row 1: Price + Capacity + Driver (horizontal layout)
+  row1: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: Spacing.base,
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
   },
-  route: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.text.primary },
-  departure: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 3 },
-  pricePill: {
+  priceHighlight: {
+    flex: 0.6,
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  priceDisplay: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: 2,
   },
-  price: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.white },
-  perKg: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.8)', marginLeft: 2 },
-  driverRow: {
+  effectivePrice: {
+    fontSize: FontSize.xl,
+    fontWeight: '900',
+    color: Colors.primary,
+  },
+  priceUnit: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+  promotionBadge: {
+    marginTop: 4,
+    backgroundColor: Colors.gold,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignSelf: 'flex-end',
+  },
+  promotionText: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.white,
+  },
+
+  capacityHighlight: {
+    flex: 0.9,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    alignItems: 'center',
+  },
+  capacityLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 4,
+  },
+  capacityLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+  capacityValue: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+
+  driverHighlight: {
+    flex: 0.85,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
   avatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarLetter: { fontSize: FontSize.base, fontWeight: '800', color: Colors.text.primary },
-  driverName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
-  driverMeta: { fontSize: FontSize.xs, color: Colors.text.secondary, marginTop: 2 },
-  primaryBtn: {
+  avatarLetter: {
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+    color: Colors.white,
+  },
+  driverMeta: {
+    flex: 1,
+  },
+  driverName: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  trustSignal: {
+    fontSize: FontSize.xs,
+    fontWeight: '500',
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
+
+  // Row 2: Route summary (Origin Country → Destination Country)
+  routeSummary: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Spacing.md,
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+  },
+  countrySection: {
+    flex: 1,
+    gap: Spacing.md,
+  },
+  countryHeader: {
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
+  },
+  labelWithCountry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  countrySectionLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  countryFlagSmall: {
+    fontSize: 18,
+  },
+  countryNameSmall: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  countryDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  countryFlagLarge: {
+    fontSize: 24,
+  },
+  countryNameLarge: {
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+  stopsList: {
+    gap: Spacing.sm,
+  },
+  stopsLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  stopsLabelIcon: {
+    fontSize: 16,
+  },
+  stopsSubLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  stopChip: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  stopChipText: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.text.primary,
+  },
+  routeArrow: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+
+
+  // Row 4: Services
+  servicesRow: {
+    gap: Spacing.sm,
+  },
+  servicesLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.secondary,
+  },
+  servicesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  serviceBadge: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+  },
+  serviceName: {
+    fontSize: FontSize.xs,
+    fontWeight: '600',
+    color: Colors.text.primary,
+  },
+
+  // Row 5: Prohibited items
+  prohibitedRow: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.gold,
+  },
+  prohibitedLabel: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.text.primary,
+    marginBottom: Spacing.xs,
+  },
+  prohibitedList: {
+    fontSize: FontSize.xs,
+    color: Colors.text.secondary,
+  },
+
+  // CTA Button
+  bookBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
+  bookBtnText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: FontSize.base,
+  },
   fullBox: {
     backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     padding: Spacing.md,
     alignItems: 'center',
   },
-  fullText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '500', textAlign: 'center' },
-  buttonRow: { flexDirection: 'row', gap: Spacing.sm },
-  secondaryBtn: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border.light,
+  fullText: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    fontWeight: '500',
+    textAlign: 'center',
   },
-  secondaryBtnText: { color: Colors.text.primary, fontWeight: '600', fontSize: FontSize.base },
 });
 
 const modalS = StyleSheet.create({

@@ -38,7 +38,7 @@ export function RouteDetailsModal({ routeId, visible, onClose, onBook }: RouteDe
         id,
         departure_date, estimated_arrival_date,
         available_weight_kg, price_per_kg_eur,
-        promotion_percentage, promotion_active,
+        promotion_percentage, promotion_active, prohibited_items,
         driver:profiles!driver_id(
           id, full_name, phone, phone_verified, rating, completed_trips
         ),
@@ -223,6 +223,15 @@ export function RouteDetailsModal({ routeId, visible, onClose, onBook }: RouteDe
               </View>
             )}
 
+            {route.prohibited_items && route.prohibited_items.length > 0 && (
+              <View style={s.section}>
+                <Text style={s.sectionTitle}>Prohibited Items</Text>
+                <View style={s.prohibitedBox}>
+                  <Text style={s.prohibitedText}>⚠️ {route.prohibited_items.join(', ')}</Text>
+                </View>
+              </View>
+            )}
+
             <TouchableOpacity
               style={s.bookBtn}
               onPress={() => { onClose(); onBook(routeId); }}
@@ -291,6 +300,8 @@ const s = StyleSheet.create({
   stopDetail: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.primary, marginBottom: 4 },
   stopAddress: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: 8 },
   meetingPoint: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
+  prohibitedBox: { backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.lg, padding: Spacing.md, borderLeftWidth: 3, borderLeftColor: Colors.gold },
+  prohibitedText: { fontSize: FontSize.sm, color: Colors.text.primary, fontWeight: '500' },
   bookBtn: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,

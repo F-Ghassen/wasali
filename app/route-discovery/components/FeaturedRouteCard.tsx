@@ -26,8 +26,9 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
 
   return (
     <View style={s.card}>
-      {/* Row 1: Driver + Price */}
-      <View style={s.row1}>
+      <View style={s.content}>
+        {/* Row 1: Driver + Price */}
+        <View style={s.row1}>
         <View style={s.driverHighlight}>
           <View style={s.avatar}>
             <Text style={s.avatarLetter}>{r.driverName[0]}</Text>
@@ -137,14 +138,7 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
           </View>
         </View>
       )}
-
-      {/* Row 4: Prohibited items */}
-      {r.prohibitedItems.length > 0 && (
-        <View style={s.prohibitedRow}>
-          <Text style={s.prohibitedLabel}>⚠️ Prohibited</Text>
-          <Text style={s.prohibitedList}>{r.prohibitedItems.join(', ')}</Text>
-        </View>
-      )}
+      </View>
 
       {/* CTA */}
       {!r.isFull ? (
@@ -162,6 +156,7 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
 
 const s = StyleSheet.create({
   card: {
+    flex: 1,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
     padding: Spacing.md,
@@ -173,6 +168,11 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.primaryLight,
     overflow: 'hidden',
+    gap: Spacing.md,
+    flexDirection: 'column',
+  },
+  content: {
+    flex: 1,
     gap: Spacing.md,
   },
   row1: {

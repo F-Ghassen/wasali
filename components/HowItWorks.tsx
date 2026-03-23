@@ -129,7 +129,7 @@ export default function HowItWorks() {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: Colors.background.primary,
+    backgroundColor: Colors.background.secondary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing['2xl'],
   },

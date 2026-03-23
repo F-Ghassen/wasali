@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
-import { BorderRadius, Spacing } from '@/constants/spacing';
+import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useFeaturedRoutes } from '@/app/route-discovery/hooks/useFeaturedRoutes';
 import { FeaturedRouteCard } from '@/app/route-discovery/components/FeaturedRouteCard';
@@ -37,7 +37,7 @@ export default function FeaturedRoutes() {
   const handleSeeAll = () => router.push('/(tabs)/routes/results' as any);
 
   return (
-    <Animated.View style={[s.section, { paddingHorizontal: horizontalPadding, transform: [{ translateY: slideY }], opacity }]}>
+    <Animated.View style={[s.section, { paddingHorizontal: horizontalPadding, paddingVertical: Spacing.xl, transform: [{ translateY: slideY }], opacity }]}>
       <Text style={s.sectionLabel}>{t('home.featuredRoutes')}</Text>
 
       <View style={{ gap: GAP }}>
@@ -53,7 +53,7 @@ export default function FeaturedRoutes() {
       </View>
 
       <TouchableOpacity style={s.seeAllBtn} onPress={handleSeeAll} activeOpacity={0.7}>
-        <Text style={s.seeAllBtnText}>{t('home.showAllRoutes')}</Text>
+        <Text style={s.seeAllBtnText}>{t('home.whereFrom.seeAll')}</Text>
       </TouchableOpacity>
 
       {selectedRouteId && (
@@ -73,17 +73,18 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row' },
   sectionLabel: {
     fontSize: FontSize.lg,
-    fontWeight: '900',
-    letterSpacing: 0,
+    fontWeight: '700',
+    letterSpacing: 0.2,
     color: Colors.text.primary,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
+    textTransform: 'capitalize',
   },
   seeAllBtn: {
-    borderRadius: BorderRadius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    paddingVertical: Spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
   },
   seeAllBtnText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
 });

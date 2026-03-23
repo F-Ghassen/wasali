@@ -23,8 +23,6 @@ export interface RouteResultDriver {
 
 export interface RouteResult {
   id: string;
-  origin_city_id: string | null;
-  destination_city_id: string | null;
   departure_date: string;
   estimated_arrival_date: string | null;
   available_weight_kg: number;
@@ -72,12 +70,18 @@ function splitTiers(
     return { tier1: routes, tier2: [] };
   }
 
-  const tier1 = routes.filter(
-    (r) => r.origin_city_id === originCityId && r.destination_city_id === destCityId,
-  );
-  const tier2 = routes.filter(
-    (r) => !(r.origin_city_id === originCityId && r.destination_city_id === destCityId),
-  );
+  const tier1 = routes.filter((r) => {
+    const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
+    const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
+    return pickupStop?.city_id === originCityId && dropoffStop?.city_id === destCityId;
+  });
+
+  const tier2 = routes.filter((r) => {
+    const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
+    const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
+    return !(pickupStop?.city_id === originCityId && dropoffStop?.city_id === destCityId);
+  });
+
   return { tier1, tier2 };
 }
 
@@ -132,12 +136,11 @@ export function useRouteResults(params: UseRouteResultsParams) {
       else setIsFetchingMore(true);
 
       try {
-        // Build filter based on whether destination is specified
+        // Fetch all routes with stops (we'll filter in-memory by route_stops)
         let query = supabase
           .from('routes')
           .select(`
-            id, origin_city_id, destination_city_id,
-            departure_date, estimated_arrival_date,
+            id, departure_date, estimated_arrival_date,
             available_weight_kg, min_weight_kg, price_per_kg_eur,
             vehicle_type, notes, status,
             promotion_percentage, promotion_active,
@@ -149,34 +152,38 @@ export function useRouteResults(params: UseRouteResultsParams) {
           .gt('available_weight_kg', 0)
           .gte('departure_date', departFromDate || format(new Date(), 'yyyy-MM-dd'));
 
-        // Apply origin filter
-        if (originCityId) {
-          query = query.eq('origin_city_id', originCityId);
-        } else if (originCountry) {
-          // Country-level search: get all city IDs from this country, then filter routes
-          const countryCityIds = cities
-            .filter((c) => c.country === originCountry)
-            .map((c) => c.id);
-
-          if (countryCityIds.length > 0) {
-            query = query.in('origin_city_id', countryCityIds);
-          } else {
-            // No cities in this country, return empty results
-            query = query.in('origin_city_id', []);
-          }
-        }
-
-        // Apply destination filter only if specified
-        if (destCityId) {
-          query = query.eq('destination_city_id', destCityId);
-        }
-        // If no destination specified, show all destinations
-
-        const { data, error } = await query
-          .order('departure_date', { ascending: true })
-          .range(start, end);
+        const { data: allData, error } = await query
+          .order('departure_date', { ascending: true });
 
         if (error) throw error;
+
+        // Filter by origin and destination using route_stops
+        let filtered = (allData ?? []) as RouteResult[];
+
+        if (originCityId || originCountry) {
+          filtered = filtered.filter((r) => {
+            const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
+            if (!pickupStop?.city_id) return false;
+
+            if (originCityId) {
+              return pickupStop.city_id === originCityId;
+            } else {
+              // Country-level search
+              const city = cities.find((c) => c.id === pickupStop.city_id);
+              return city?.country === originCountry;
+            }
+          });
+        }
+
+        if (destCityId) {
+          filtered = filtered.filter((r) => {
+            const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
+            return dropoffStop?.city_id === destCityId;
+          });
+        }
+
+        // Apply pagination
+        const data = filtered.slice(start, end);
 
         const fetched = (data ?? []) as RouteResult[];
         setAllRoutes((prev) => (reset ? fetched : [...prev, ...fetched]));

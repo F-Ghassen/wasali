@@ -31,8 +31,6 @@ interface PaymentTypeInput {
 }
 
 interface CreateRouteInput {
-  origin_city_id: string;
-  destination_city_id: string;
   departure_date: string;
   estimated_arrival_date?: string | null;
   available_weight_kg: number;
@@ -112,8 +110,6 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
     try {
       const routeInsert = {
         driver_id: driverId,
-        origin_city_id: data.origin_city_id,
-        destination_city_id: data.destination_city_id,
         departure_date: data.departure_date,
         estimated_arrival_date: data.estimated_arrival_date ?? null,
         available_weight_kg: data.available_weight_kg,
@@ -188,11 +184,15 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
       }
 
       if (data.save_as_template && data.template_name) {
+        // Extract origin and destination city IDs from stops
+        const collectionStop = data.stops?.find((s) => s.stop_type === 'collection');
+        const dropoffStop = data.stops?.find((s) => s.stop_type === 'dropoff');
+
         const templateInsert = {
           driver_id: driverId,
           name: data.template_name,
-          origin_city_id: data.origin_city_id,
-          destination_city_id: data.destination_city_id,
+          origin_city_id: collectionStop?.city_id ?? null,
+          destination_city_id: dropoffStop?.city_id ?? null,
           available_weight_kg: data.available_weight_kg,
           price_per_kg_eur: data.price_per_kg_eur,
           payment_methods: data.payment_methods ?? ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'],
@@ -340,8 +340,6 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
     const template = get().templates.find((t) => t.id === templateId);
     if (!template) return null;
     return {
-      origin_city_id: template.origin_city_id,
-      destination_city_id: template.destination_city_id,
       available_weight_kg: template.available_weight_kg,
       price_per_kg_eur: template.price_per_kg_eur,
       payment_methods: template.payment_methods,

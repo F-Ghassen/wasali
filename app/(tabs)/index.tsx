@@ -101,7 +101,7 @@ export default function HomeScreen() {
         <View style={{ height: Spacing.xl }} />
 
         {/* ── Ship Docs Fast promo ────────────────────────────── */}
-        <View style={s.section}>
+        <View style={s.promoSection}>
           <ShipDocsBanner onPress={() => router.push('/p2p' as any)} />
         </View>
 
@@ -134,6 +134,7 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1 },
   heroSafe: { backgroundColor: Colors.background.primary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
+  promoSection: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl, backgroundColor: Colors.white, paddingVertical: Spacing.xl },
   trustBand: {
     paddingHorizontal: Spacing.base,
     paddingBottom: Spacing.base,

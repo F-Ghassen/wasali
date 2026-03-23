@@ -59,12 +59,12 @@ export default function OriginCountryPicker() {
         cityIdMap[`${city.name}-${city.country}`] = city.id;
       });
 
-      // Fetch routes with origin city ID - only routes still available for collection
+      // Fetch routes with their stops - only routes still available for collection
       // with future departure dates (matching search results filter)
       const today = format(new Date(), 'yyyy-MM-dd');
       const { data, error } = await supabase
         .from('routes')
-        .select('origin_city_id')
+        .select('id, route_stops(city_id, stop_type)')
         .eq('status', 'active')
         .gt('available_weight_kg', 0)
         .gte('departure_date', today);
@@ -76,14 +76,17 @@ export default function OriginCountryPicker() {
 
       if (data) {
         data.forEach((route: any) => {
-          // Look up city from store using city_id
-          const city = cities.find((c) => c.id === route.origin_city_id);
-          if (city) {
-            const country = city.country;
-            if (!countryMap[country]) {
-              countryMap[country] = { count: 0, city: city.name };
+          // Get origin city from pickup stop
+          const pickupStop = route.route_stops?.find((s: any) => s.stop_type === 'collection');
+          if (pickupStop?.city_id) {
+            const city = cities.find((c) => c.id === pickupStop.city_id);
+            if (city) {
+              const country = city.country;
+              if (!countryMap[country]) {
+                countryMap[country] = { count: 0, city: city.name };
+              }
+              countryMap[country].count += 1;
             }
-            countryMap[country].count += 1;
           }
         });
       }
@@ -270,46 +273,37 @@ export default function OriginCountryPicker() {
           ))}
         </View>
       )}
-
-      {/* See All CTA */}
-      <TouchableOpacity
-        style={styles.seeAllCTA}
-        onPress={() => router.push({
-          pathname: '/(tabs)/routes/results',
-          params: { depart_from_date: format(new Date(), 'yyyy-MM-dd') },
-        } as any)}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.seeAllText}>{t('home.whereFrom.seeAll')}</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: Colors.background.primary,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing['2xl'],
   },
 
   // ── Header ──────────────────────────────────────────────────────────────
   header: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing['2xl'],
     alignItems: 'center',
   },
   title: {
-    fontSize: FontSize['2xl'],
-    fontWeight: '800',
+    fontSize: FontSize.lg,
+    fontWeight: '700',
     color: Colors.text.primary,
-    marginBottom: Spacing.xs,
-    lineHeight: 32,
-    textAlign: 'center',
+    marginBottom: Spacing.sm,
+    textTransform: 'capitalize',
+    letterSpacing: 0.2,
   },
   subtitle: {
     fontSize: FontSize.sm,
     color: Colors.text.secondary,
-    lineHeight: 20,
     textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 480,
+    fontWeight: '500',
   },
 
   // ── Desktop Row Layout ───────────────────────────────────────────────────

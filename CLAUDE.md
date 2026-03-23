@@ -100,3 +100,87 @@ Vercel SPA: `npx expo export --platform web` → `dist/`. `vercel.json` rewrites
 
 - Maintain Infrastructure in `terraform/TERRAFORM.md` and
 - Documented Infrastructure in `docs/infrastructure.md`
+
+# Architecture Principles (STRICT)
+
+When generating or refactoring code, you MUST follow this architecture:
+
+## 1. Separation of Concerns (REQUIRED)
+
+Always split code into the following layers:
+
+- **Components**
+  - reponsability: rendering
+  - MUST NOT contain:
+    - API calls
+    - business logic
+    - complex state logic
+
+- **Hooks**
+- reponsability: state management + side effects
+- MUST contain:
+  - data fetching
+  - useEffect logic
+  - derived state
+
+- **Services**
+  - reponsability: APIs / backend
+  - MUST:
+    - contain all external calls (e.g. Supabase, REST)
+    - be reusable
+  - MUST NOT:
+    - contain UI logic
+
+- **Utils**
+  - reponsability: MUST: function only
+    - be deterministic
+    - have no side effects
+
+## 2. File Structure (REQUIRED)
+
+For every feature, use this structure:
+
+app/feature-name/
+/components/
+/hooks/
+/services/
+/utils/
+/types/
+
+If a file exceeds 150-200 lines → split it.
+
+## 3. Anti-Patterns (FORBIDDEN)
+
+NEVER:
+
+- mix API calls inside components
+- put business logic inside JSX
+- create "God files" (multiple responsibilities)
+- duplicate logic across components
+
+## 4. Refactoring Rule
+
+When refactoring existing code:
+
+- First identify responsibilities
+- Then extract:
+  - API → services
+  - state/effects → hooks
+  - logic → utils
+  - UI → components
+
+## 5. Output Format (IMPORTANT)
+
+When I ask for:
+
+- a new feature OR
+- a refactor
+
+## Engineering Mindset
+
+Always optimize for:
+
+- readability over cleverness
+- reusability
+- testability
+- scalability

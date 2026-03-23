@@ -1,8 +1,10 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-22_
+_Last updated: 2026-03-23_
 
 **Recent updates:**
+- `FeaturedRoutes` refactored (SoC): types → `types/featured-route.ts`; API → `services/featuredRoutesService.ts`; state/animation → `hooks/useFeaturedRoutes.ts`; card UI → `components/featured/FeaturedRouteCard.tsx`; modal UI → `components/featured/RouteDetailsModal.tsx`; orchestrator `FeaturedRoutes.tsx` reduced to ~60 lines (2026-03-23)
+- `DriverRouteCard` refactored: derived state extracted to `hooks/useDriverRouteCard.ts`; city names resolved via `citiesStore`; `as any` casts removed (2026-03-23)
 - WhereAreYouFrom component redesigned with modern Uber-inspired styling (2026-03-22)
 
 ## Infrastructure

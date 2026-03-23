@@ -15,7 +15,7 @@ import { FontSize } from '@/constants/typography';
 import Hero from '@/components/Hero';
 import HowItWorks from '@/components/HowItWorks';
 import OriginCountryPicker from '@/components/OriginCountryPicker';
-import FeaturedRoutes from '@/components/FeaturedRoutes';
+import FeaturedRoutes from '@/app/route-discovery/components/FeaturedRoutes';
 
 // ─── Ship Docs Fast promo banner ──────────────────────────────────────────────
 

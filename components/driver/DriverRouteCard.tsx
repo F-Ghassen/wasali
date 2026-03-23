@@ -1,18 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { format } from 'date-fns';
 import { MapPin, ChevronRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
+import { useDriverRouteCard } from '@/hooks/useDriverRouteCard';
 import type { RouteWithStops } from '@/types/models';
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  active: { label: 'Active', color: Colors.success, bg: Colors.successLight },
-  full: { label: 'Full', color: Colors.warning, bg: Colors.warningLight },
-  completed: { label: 'Completed', color: Colors.text.secondary, bg: Colors.background.secondary },
-  cancelled: { label: 'Cancelled', color: Colors.error, bg: Colors.errorLight },
-};
 
 interface DriverRouteCardProps {
   route: RouteWithStops;
@@ -21,11 +14,17 @@ interface DriverRouteCardProps {
 }
 
 export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRouteCardProps) {
-  const statusCfg = STATUS_CONFIG[route.status] ?? STATUS_CONFIG.active;
-  const r = route as any;
-  const promoActive =
-    r.promo_discount_pct != null &&
-    (r.promo_expires_at == null || new Date(r.promo_expires_at) >= new Date());
+  const {
+    originCityName,
+    destinationCityName,
+    departureDateLabel,
+    statusLabel,
+    statusColor,
+    statusBg,
+    promoActive,
+    promoLabel,
+    totalKg,
+  } = useDriverRouteCard(route);
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -34,19 +33,17 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
         <View style={styles.route}>
           <MapPin size={16} color={Colors.text.secondary} />
           <Text style={styles.routeText} numberOfLines={1}>
-            Destination → Destination
+            {originCityName} → {destinationCityName}
           </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: statusCfg.bg }]}>
-          <Text style={[styles.badgeText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+        <View style={[styles.badge, { backgroundColor: statusBg }]}>
+          <Text style={[styles.badgeText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
 
       {/* Date and capacity */}
       <View style={styles.meta}>
-        <Text style={styles.metaText}>
-          {format(new Date(route.departure_date), 'MMM d, yyyy')}
-        </Text>
+        <Text style={styles.metaText}>{departureDateLabel}</Text>
         <Text style={styles.dot}>·</Text>
         <Text style={styles.metaText}>€{route.price_per_kg_eur}/kg</Text>
         <Text style={styles.dot}>·</Text>
@@ -56,21 +53,19 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
       {/* Promo badge */}
       {promoActive && (
         <View style={styles.promoBadge}>
-          <Text style={styles.promoBadgeText}>
-            {(route as any).promo_label || `${(route as any).promo_discount_pct}% off`}
-          </Text>
+          <Text style={styles.promoBadgeText}>{promoLabel}</Text>
         </View>
       )}
 
-      {/* Capacity bar */}
+      {/* Capacity */}
       <View style={styles.capacityRow}>
         <Text style={styles.capacityLabel}>Available capacity</Text>
-        <Text style={styles.capacityValue}>{route.available_weight_kg} kg</Text>
+        <Text style={styles.capacityValue}>{totalKg} kg</Text>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerHint}>
-          Destination → Destination
+          {originCityName} → {destinationCityName}
         </Text>
         <ChevronRight size={16} color={Colors.text.tertiary} />
       </View>

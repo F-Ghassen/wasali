@@ -22,7 +22,10 @@ import { SlidersHorizontal, X, Bell, BellOff, Check } from 'lucide-react-native'
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { RouteCard } from '@/components/route/RouteCard';
+import { FeaturedRouteCard } from '@/app/route-discovery/components/FeaturedRouteCard';
+import { RouteDetailsModal } from '@/app/route-discovery/components/RouteDetailsModal';
+import { mapRouteResultToFeaturedRoute } from '@/app/route-discovery/utils/mapRouteResult';
+import { useCitiesStore } from '@/stores/citiesStore';
 import { SkeletonCard } from '@/components/ui/Skeleton';
 import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
@@ -509,8 +512,14 @@ export default function ResultsScreen() {
     refresh,
   } = useRouteResults({ originCityName, originCountry, originCityId, destCityName, destCountry, destCityId, departFromDate });
 
-  const [showFilter, setShowFilter]   = useState(false);
-  const [showAlert, setShowAlert]     = useState(false);
+  const [showFilter, setShowFilter]     = useState(false);
+  const [showAlert, setShowAlert]       = useState(false);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const cities = useCitiesStore((s) => s.cities);
+  const getCity = (id: string) => {
+    const c = cities.find((c) => c.id === id);
+    return c ? { name: c.name, country: c.country ?? '', flagEmoji: (c as any).flag_emoji ?? '🌍' } : undefined;
+  };
   const [minCapInput, setMinCapInput] = useState('');
   const [maxPriceInput, setMaxPriceInput] = useState('');
 
@@ -531,8 +540,10 @@ export default function ResultsScreen() {
     setFilters({ ...filters, minCapacityKg: minCap, maxPriceEur: maxPrice });
   };
 
-  const handleSelect = (route: RouteResult) => {
-    setRoute(route as any);
+  const handleSelect = (routeId: string) => {
+    const route = [...tier1, ...tier2].find((r) => r.id === routeId);
+    if (route) setRoute(route as any);
+    setSelectedRouteId(null);
     router.push('/booking');
   };
 
@@ -636,13 +647,9 @@ export default function ResultsScreen() {
           );
         }
         return (
-          <RouteCard
-            route={item.route}
-            onPress={() => handleSelect(item.route)}
-            serviceTags={item.route.route_services?.map((rs) => ({
-              type: rs.service_type,
-              price_eur: rs.price_eur,
-            }))}
+          <FeaturedRouteCard
+            route={mapRouteResultToFeaturedRoute(item.route, getCity)}
+            onBook={(routeId) => setSelectedRouteId(routeId)}
           />
         );
       }}
@@ -852,6 +859,15 @@ export default function ResultsScreen() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {selectedRouteId && (
+        <RouteDetailsModal
+          routeId={selectedRouteId}
+          visible
+          onClose={() => setSelectedRouteId(null)}
+          onBook={handleSelect}
+        />
+      )}
     </SafeAreaView>
   );
 }

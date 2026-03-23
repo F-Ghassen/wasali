@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs, Redirect, useRouter } from 'expo-router';
 import { View, Text, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, Package, User, SendHorizonal } from 'lucide-react-native';
+import { Search, Package, User, SendHorizonal, Bell } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -149,15 +149,22 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="notifications"
         options={{
-          title: 'Profile',
+          title: 'Notifications',
           tabBarIcon: ({ color }) => (
             <BadgeIcon
-              icon={<User size={iconSize} color={color} strokeWidth={2} />}
+              icon={<Bell size={iconSize} color={color} strokeWidth={2} />}
               unread={unreadCount}
             />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <User size={iconSize} color={color} strokeWidth={2} />,
         }}
       />
       <Tabs.Screen name="requests" options={{ href: null }} />

@@ -15,7 +15,6 @@ import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { NotificationList } from '@/components/ui/NotificationList';
 import { RouteAlertList } from '@/components/ui/RouteAlertList';
 import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
 
@@ -51,8 +50,7 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const { profile, signOut } = useAuthStore();
   const { showToast } = useUIStore();
-  const { unreadCount, fetchNotifications, subscribeRealtime } = useNotificationStore();
-  const [notifVisible, setNotifVisible] = useState(false);
+  const { fetchNotifications, subscribeRealtime } = useNotificationStore();
   const [alertsVisible, setAlertsVisible] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
 
@@ -89,13 +87,6 @@ export default function ProfileScreen() {
             <ProfileRow icon="📍" label={t('senderProfile.savedAddresses')} onPress={() => router.push('/profile/addresses')} />
             <View style={styles.separator} />
             <ProfileRow
-              icon="🔔"
-              label={t('profile.notifications')}
-              badge={unreadCount}
-              onPress={() => setNotifVisible(true)}
-            />
-            <View style={styles.separator} />
-            <ProfileRow
               icon="🛎️"
               label="Route Alerts"
               onPress={() => setAlertsVisible(true)}
@@ -105,7 +96,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <NotificationList visible={notifVisible} onClose={() => setNotifVisible(false)} />
         <RouteAlertList visible={alertsVisible} onClose={() => setAlertsVisible(false)} />
 
         <View style={styles.section}>

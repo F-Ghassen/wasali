@@ -51,6 +51,7 @@ type FeaturedRoute = {
   destinationDate: string;
   departureDate: Date;
   capacityLeft: number;
+  totalWeight: number;
   pricePerKg: number;
   pricePromotion: number | null;
   prohibitedItems: string[];
@@ -282,7 +283,7 @@ function FeaturedRouteCard({ route: r, routeId, onBook }: { route: FeaturedRoute
 
   return (
     <View style={cardS.card}>
-      {/* Row 1: Driver Trust + Capacity + Price */}
+      {/* Row 1: Driver Trust + Price */}
       <View style={cardS.row1}>
         <View style={cardS.driverHighlight}>
           <View style={cardS.avatar}>
@@ -296,14 +297,6 @@ function FeaturedRouteCard({ route: r, routeId, onBook }: { route: FeaturedRoute
               <Text style={cardS.trustSignal}>New driver</Text>
             )}
           </View>
-        </View>
-
-        <View style={cardS.capacityHighlight}>
-          <View style={cardS.capacityLabelRow}>
-            <Package size={14} color={Colors.text.secondary} strokeWidth={2} />
-            <Text style={cardS.capacityLabel}>Remaining</Text>
-          </View>
-          <Text style={cardS.capacityValue}>{r.capacityLeft} kg</Text>
         </View>
 
         <View style={cardS.priceHighlight}>
@@ -377,10 +370,21 @@ function FeaturedRouteCard({ route: r, routeId, onBook }: { route: FeaturedRoute
       </View>
 
 
-      {/* Row 4: Services */}
+      {/* Row 4: Services + Remaining Weight */}
       {r.services.length > 0 && (
         <View style={cardS.servicesRow}>
-          <Text style={cardS.servicesLabel}>Driver Offered Services</Text>
+          <View style={cardS.servicesTopRow}>
+            <Text style={cardS.servicesLabel}>Driver Offered Services</Text>
+            <View style={cardS.capacityHighlight}>
+              <View style={cardS.capacityLabelRow}>
+                <Package size={12} color={Colors.text.secondary} strokeWidth={2} />
+                <Text style={cardS.capacityLabel}>{r.capacityLeft} / {r.totalWeight} kg</Text>
+              </View>
+              <View style={cardS.progressTrack}>
+                <View style={[cardS.progressFill, { width: `${Math.round((r.capacityLeft / r.totalWeight) * 100)}%` as any }]} />
+              </View>
+            </View>
+          </View>
           <View style={cardS.servicesList}>
             {r.services.map((svc, idx) => (
               <View key={idx} style={cardS.serviceBadge}>
@@ -478,6 +482,7 @@ async function mapRoutes(rows: any[]): Promise<FeaturedRoute[]> {
       destinationDate: destinationStop?.arrival_date ?? r.departure_date,
       departureDate: new Date(r.departure_date),
       capacityLeft: r.available_weight_kg,
+      totalWeight: r.total_weight_kg || r.available_weight_kg,
       pricePerKg: r.price_per_kg_eur,
       pricePromotion: r.promotion_active && r.promotion_percentage ? r.promotion_percentage : null,
       prohibitedItems: prohibitedItems,
@@ -491,7 +496,7 @@ async function mapRoutes(rows: any[]): Promise<FeaturedRoute[]> {
 
 const ROUTE_SELECT = `
   id,
-  departure_date, available_weight_kg, price_per_kg_eur,
+  departure_date, available_weight_kg, total_weight_kg, price_per_kg_eur,
   promotion_percentage, promotion_active, prohibited_items, created_at,
   is_featured, driver:profiles!driver_id(id, full_name, rating, completed_trips),
   route_stops(id, city_id, stop_type, stop_order, arrival_date),
@@ -689,17 +694,12 @@ const cardS = StyleSheet.create({
   },
 
   capacityHighlight: {
-    flex: 0.9,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.sm,
-    alignItems: 'center',
+    gap: 4,
   },
   capacityLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4,
   },
   capacityLabel: {
     fontSize: FontSize.xs,
@@ -710,6 +710,18 @@ const cardS = StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: '700',
     color: Colors.text.primary,
+  },
+  progressTrack: {
+    height: 6,
+    width: 80,
+    backgroundColor: Colors.border.light,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
   },
 
   driverHighlight: {
@@ -839,6 +851,11 @@ const cardS = StyleSheet.create({
   // Row 4: Services
   servicesRow: {
     gap: Spacing.sm,
+  },
+  servicesTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   servicesLabel: {
     fontSize: FontSize.xs,

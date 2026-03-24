@@ -544,7 +544,7 @@ export default function ResultsScreen() {
     const route = [...tier1, ...tier2].find((r) => r.id === routeId);
     if (route) setRoute(route as any);
     setSelectedRouteId(null);
-    router.push('/booking');
+    router.push(`/(tabs)/booking/bookingCreation?routeId=${routeId}`);
   };
 
   const totalCount = tier1.length + tier2.length;

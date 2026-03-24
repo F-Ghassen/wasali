@@ -33,7 +33,7 @@ export default function FeaturedRoutes() {
   const handleOpenModal = (routeId: string) => setSelectedRouteId(routeId);
   const handleCloseModal = () => setSelectedRouteId(null);
   const handleBook = (routeId: string) =>
-    router.push({ pathname: '/(tabs)/booking', params: { routeId } } as any);
+    router.push(`/(tabs)/booking/bookingCreation?routeId=${routeId}`);
   const handleSeeAll = () => router.push('/(tabs)/routes/results' as any);
 
   return (

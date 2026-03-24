@@ -49,7 +49,7 @@ export default function RaiseDisputeScreen() {
       });
 
       Alert.alert('Dispute Filed', 'Our team will review your dispute within 48 hours.', [
-        { text: 'OK', onPress: () => router.push('/(tabs)/bookings') },
+        { text: 'OK', onPress: () => router.push('/(tabs)/booking') },
       ]);
     } catch (error) {
       Alert.alert('Error', 'Failed to file dispute. Please try again.');

@@ -135,7 +135,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="bookings"
+        name="booking"
         options={{
           title: 'Bookings',
           tabBarIcon: ({ color }) => <Package size={iconSize} color={color} strokeWidth={2} />,
@@ -170,8 +170,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="requests" options={{ href: null }} />
       {/* Hidden screens — part of tabs layout for nav bar, not shown as tab items */}
       <Tabs.Screen name="routes/results"        options={{ href: null }} />
-      <Tabs.Screen name="booking/index"         options={{ href: null }} />
-      <Tabs.Screen name="booking/confirmation"  options={{ href: null }} />
       <Tabs.Screen name="p2p/send"              options={{ href: null }} />
       <Tabs.Screen name="p2p/carry"             options={{ href: null }} />
       <Tabs.Screen name="p2p/leaderboard"       options={{ href: null }} />

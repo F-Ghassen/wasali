@@ -33,7 +33,7 @@ export default function RequestDetailScreen() {
         onPress: async () => {
           try {
             await acceptOffer(offerId, id);
-            router.push('/(tabs)/bookings');
+            router.push('/(tabs)/booking');
           } catch {
             Alert.alert('Error', 'Could not accept offer. Please try again.');
           }

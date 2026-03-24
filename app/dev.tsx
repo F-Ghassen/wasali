@@ -45,7 +45,7 @@ const SECTIONS: Section[] = [
     color: Colors.primary,
     routes: [
       { label: 'Home — Browse Routes', path: '/(tabs)' },
-      { label: 'My Bookings', path: '/(tabs)/bookings' },
+      { label: 'My Bookings', path: '/(tabs)/booking/bookingList' },
       { label: 'Shipping Requests', path: '/(tabs)/requests' },
       { label: 'P2P — Send Docs', path: '/(tabs)/p2p/index' },
       { label: 'Profile', path: '/(tabs)/profile' },

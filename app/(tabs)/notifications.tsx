@@ -75,7 +75,7 @@ export default function NotificationsScreen() {
       if (profile?.role === 'driver') {
         router.push({ pathname: '/driver/bookings/[id]' as any, params: { id: item.booking_id } });
       } else {
-        router.push({ pathname: '/bookings/[id]' as any, params: { id: item.booking_id } });
+        router.push({ pathname: '/(tabs)/booking/bookingDetail/[id]', params: { id: item.booking_id } } as any);
       }
     }
   };

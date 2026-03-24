@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Alert } from 'react-native';
+import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
+import { useUIStore } from '@/stores/uiStore';
 import { useRatingForm } from '@/app/driver/rate/hooks/useRatingForm';
 import { RatingForm } from '@/app/driver/rate/components/RatingForm';
 
@@ -18,6 +19,7 @@ interface RateScreenProps {
 export function RateScreen({ bookingId, title, subtitle, headerTitle }: RateScreenProps) {
   const router = useRouter();
   const { session } = useAuthStore();
+  const { showToast } = useUIStore();
 
   if (!bookingId || !session) {
     return (
@@ -31,7 +33,10 @@ export function RateScreen({ bookingId, title, subtitle, headerTitle }: RateScre
     bookingId,
     onSuccess: (isUpdate) => {
       const message = isUpdate ? 'Rating updated successfully!' : 'Thank you! Your rating has been submitted.';
-      Alert.alert('Success', message);
+      console.log('[RateScreen] onSuccess called, showing toast:', message);
+      showToast(message, 'success', 2000);
+      // Navigate back after a brief delay to let the toast show
+      setTimeout(() => router.back(), 500);
     },
   });
 

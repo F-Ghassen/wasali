@@ -101,6 +101,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(driver-tabs)" />
         <Stack.Screen name="driver" />
+        <Stack.Screen name="rate" />
         <Stack.Screen name="routes" />
         <Stack.Screen name="booking" />
         <Stack.Screen name="bookings" />

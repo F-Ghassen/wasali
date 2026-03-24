@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { submitRating } from '../services/ratingService';
@@ -20,7 +19,6 @@ export function useRatingForm({
   bookingId,
   onSuccess,
 }: UseRatingFormProps): RatingFormState & RatingFormActions {
-  const router = useRouter();
   const { session, profile } = useAuthStore();
   const [score, setScore] = useState(5);
   const [comment, setComment] = useState('');
@@ -117,11 +115,10 @@ export function useRatingForm({
       });
 
       console.log('[DEBUG] submitRating result:', result);
+      console.log('[DEBUG] Calling onSuccess callback with isUpdate:', result.isUpdate);
       onSuccess?.(result.isUpdate);
-
-      const redirectPath = userRole === 'driver' ? '/(driver-tabs)/bookings' : '/(tabs)/bookings';
-      console.log('[DEBUG] Redirecting to:', redirectPath);
-      router.push(redirectPath);
+      console.log('[DEBUG] onSuccess callback completed');
+      // Note: redirect is now handled by the onSuccess callback in RateScreen
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
       setError(errorMsg);

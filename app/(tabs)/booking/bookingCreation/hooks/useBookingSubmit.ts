@@ -89,8 +89,8 @@ export function useBookingSubmit({
       });
 
       clearDraft();
-      router.push({
-        pathname: '/(tabs)/booking/bookingDetail/[id]',
+      router.replace({
+        pathname: '/booking/bookingDetail/[id]',
         params: { id: bookingId },
       } as any);
     } catch (err) {

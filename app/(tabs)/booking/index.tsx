@@ -66,7 +66,7 @@ export default function BookingListScreen() {
           renderItem={({ item }) => (
             <BookingCard
               booking={item}
-              onPress={() => router.push(`/booking/bookingDetail/${item.id}`)}
+              onPress={() => router.push(`/(tabs)/booking/bookingDetail/${item.id}`)}
             />
           )}
           ListEmptyComponent={

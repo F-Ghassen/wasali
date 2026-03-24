@@ -1,0 +1,3 @@
+-- Placeholder migration
+-- All ratings table fixes are handled in migration 031
+-- This file is kept for migration order consistency

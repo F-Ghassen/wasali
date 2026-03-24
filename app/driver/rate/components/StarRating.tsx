@@ -3,12 +3,7 @@ import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-
-interface StarRatingProps {
-  score: number;
-  onScoreChange: (score: number) => void;
-  maxStars?: number;
-}
+import type { StarRatingProps } from '../types';
 
 const SCORE_LABELS = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
 

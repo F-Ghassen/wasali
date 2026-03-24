@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       bookings: {
@@ -327,7 +352,7 @@ export type Database = {
           phone_verified: boolean
           push_token: string | null
           rating: number
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id: string | null
           stripe_customer_id: string | null
           updated_at: string
@@ -343,7 +368,7 @@ export type Database = {
           phone_verified?: boolean
           push_token?: string | null
           rating?: number
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
@@ -359,7 +384,7 @@ export type Database = {
           phone_verified?: boolean
           push_token?: string | null
           rating?: number
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
           updated_at?: string
@@ -373,8 +398,10 @@ export type Database = {
           created_at: string
           driver_id: string
           id: string
+          rater_type: Database["public"]["Enums"]["user_role"]
           score: number
           sender_id: string
+          updated_at: string
         }
         Insert: {
           booking_id: string
@@ -382,8 +409,10 @@ export type Database = {
           created_at?: string
           driver_id: string
           id?: string
+          rater_type: Database["public"]["Enums"]["user_role"]
           score: number
           sender_id: string
+          updated_at?: string
         }
         Update: {
           booking_id?: string
@@ -391,14 +420,16 @@ export type Database = {
           created_at?: string
           driver_id?: string
           id?: string
+          rater_type?: Database["public"]["Enums"]["user_role"]
           score?: number
           sender_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "ratings_booking_id_fkey"
             columns: ["booking_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id"]
           },
@@ -612,7 +643,7 @@ export type Database = {
           meeting_point_url: string | null
           route_id: string
           stop_order: number
-          stop_type: string
+          stop_type: Database["public"]["Enums"]["stop_type_enum"]
         }
         Insert: {
           arrival_date?: string | null
@@ -625,7 +656,7 @@ export type Database = {
           meeting_point_url?: string | null
           route_id: string
           stop_order: number
-          stop_type?: string
+          stop_type?: Database["public"]["Enums"]["stop_type_enum"]
         }
         Update: {
           arrival_date?: string | null
@@ -638,7 +669,7 @@ export type Database = {
           meeting_point_url?: string | null
           route_id?: string
           stop_order?: number
-          stop_type?: string
+          stop_type?: Database["public"]["Enums"]["stop_type_enum"]
         }
         Relationships: [
           {
@@ -740,6 +771,7 @@ export type Database = {
           promotion_active: boolean
           promotion_percentage: number | null
           status: string
+          total_weight_kg: number
           updated_at: string
           vehicle_type: string | null
         }
@@ -764,6 +796,7 @@ export type Database = {
           promotion_active?: boolean
           promotion_percentage?: number | null
           status?: string
+          total_weight_kg?: number
           updated_at?: string
           vehicle_type?: string | null
         }
@@ -788,6 +821,7 @@ export type Database = {
           promotion_active?: boolean
           promotion_percentage?: number | null
           status?: string
+          total_weight_kg?: number
           updated_at?: string
           vehicle_type?: string | null
         }
@@ -1013,7 +1047,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      stop_type_enum: "collection" | "dropoff"
+      user_role: "sender" | "driver"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1139,7 +1174,13 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  graphql_public: {
     Enums: {},
+  },
+  public: {
+    Enums: {
+      stop_type_enum: ["collection", "dropoff"],
+      user_role: ["sender", "driver"],
+    },
   },
 } as const

@@ -106,7 +106,7 @@ export default function HomeScreen() {
         <View style={{ height: Spacing.xl }} />
 
         {/* ── Route Alert Subscription ────────────────────────── */}
-        <View style={s.section}>
+        <View style={[s.section, s.alertSection]}>
           <RouteAlertSubscription onOpenAlertSheet={() => setAlertModalVisible(true)} />
         </View>
 
@@ -153,6 +153,7 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1 },
   heroSafe: { backgroundColor: Colors.background.primary },
   section: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl },
+  alertSection: { marginHorizontal: '10%' },
   promoSection: { paddingHorizontal: Spacing.base, marginBottom: Spacing.xl, backgroundColor: Colors.white, paddingVertical: Spacing.xl },
   trustBand: {
     paddingHorizontal: Spacing.base,

@@ -39,7 +39,7 @@ export default function DriverBookingsScreen() {
     if (profile) fetchBookings(profile.id, filter === 'all' ? 'all' : filter);
   };
 
-  useEffect(() => { load(); }, [profile?.id, filter]);
+  useEffect(() => { load(); }, [profile?.id, filter, fetchBookings]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -70,8 +70,8 @@ export default function DriverBookingsScreen() {
             booking={item}
             onConfirm={item.status === 'pending' ? () => confirmBooking(item.id) : undefined}
             onReject={item.status === 'pending' ? () => rejectBooking(item.id) : undefined}
-            onRate={item.status === 'delivered' ? () => router.push({ pathname: '/driver/bookings/rate/[bookingId]' as any, params: { bookingId: item.id } }) : undefined}
-            onPress={() => router.push({ pathname: '/driver/bookings/[id]' as any, params: { id: item.id } })}
+            onRate={item.status === 'delivered' ? () => router.push(`/driver/rate/${item.id}`) : undefined}
+            onPress={() => router.push(`/driver/bookings/${item.id}`)}
           />
         )}
         contentContainerStyle={styles.list}

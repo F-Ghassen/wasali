@@ -117,12 +117,15 @@ CREATE TABLE IF NOT EXISTS shipping_request_offers (
 -- Ratings
 CREATE TABLE IF NOT EXISTS ratings (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  booking_id  uuid NOT NULL UNIQUE REFERENCES bookings(id) ON DELETE CASCADE,
+  booking_id  uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
   sender_id   uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   driver_id   uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  rater_type  text NOT NULL DEFAULT 'sender' CHECK (rater_type IN ('driver', 'sender')),
   score       smallint NOT NULL CHECK (score BETWEEN 1 AND 5),
   comment     text,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (booking_id, rater_type)
 );
 
 -- Disputes
@@ -248,8 +251,37 @@ CREATE POLICY "Sender can view offers on their requests" ON shipping_request_off
   USING (request_id IN (SELECT id FROM shipping_requests WHERE sender_id = auth.uid()));
 
 -- ratings
-CREATE POLICY "Sender can insert own ratings" ON ratings FOR INSERT WITH CHECK (auth.uid() = sender_id);
-CREATE POLICY "Anyone can read ratings"       ON ratings FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Driver rates sender" ON ratings
+FOR INSERT WITH CHECK (
+  auth.uid() = driver_id AND
+  rater_type = 'driver'
+);
+
+CREATE POLICY "Sender rates driver" ON ratings
+FOR INSERT WITH CHECK (
+  auth.uid() = sender_id AND
+  rater_type = 'sender'
+);
+
+CREATE POLICY "Driver updates rating" ON ratings
+FOR UPDATE USING (
+  auth.uid() = driver_id AND
+  rater_type = 'driver'
+) WITH CHECK (
+  auth.uid() = driver_id AND
+  rater_type = 'driver'
+);
+
+CREATE POLICY "Sender updates rating" ON ratings
+FOR UPDATE USING (
+  auth.uid() = sender_id AND
+  rater_type = 'sender'
+) WITH CHECK (
+  auth.uid() = sender_id AND
+  rater_type = 'sender'
+);
+
+CREATE POLICY "Anyone can read ratings" ON ratings FOR SELECT TO authenticated USING (true);
 
 -- disputes
 CREATE POLICY "Sender can view own disputes"   ON disputes FOR SELECT USING (auth.uid() = sender_id);

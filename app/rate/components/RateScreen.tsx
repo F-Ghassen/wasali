@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, SafeAreaView, TouchableOpacity, Text, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -8,8 +8,15 @@ import { useAuthStore } from '@/stores/authStore';
 import { useRatingForm } from '@/app/driver/rate/hooks/useRatingForm';
 import { RatingForm } from '@/app/driver/rate/components/RatingForm';
 
-export default function RateSenderScreen() {
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+interface RateScreenProps {
+  bookingId: string;
+  title: string;
+  subtitle: string;
+  headerTitle: string;
+}
+
+export function RateScreen({ bookingId, title, subtitle, headerTitle }: RateScreenProps) {
+  const router = useRouter();
   const { session } = useAuthStore();
 
   if (!bookingId || !session) {
@@ -20,21 +27,21 @@ export default function RateSenderScreen() {
     );
   }
 
-  const { score, setScore, comment, setComment, isLoading, error, handleSubmit } = useRatingForm({
+  const { score, setScore, comment, setComment, isLoading, error, isExistingRating, handleSubmit } = useRatingForm({
     bookingId,
-    driverId: session.user.id,
-    onSuccess: () => {
-      Alert.alert('Thank you!', 'Your rating has been submitted.');
+    onSuccess: (isUpdate) => {
+      const message = isUpdate ? 'Rating updated successfully!' : 'Thank you! Your rating has been submitted.';
+      Alert.alert('Success', message);
     },
   });
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => {}} style={styles.back}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Rate Sender</Text>
+        <Text style={styles.headerTitle}>{headerTitle}</Text>
       </View>
 
       <RatingForm
@@ -45,9 +52,10 @@ export default function RateSenderScreen() {
         isLoading={isLoading}
         error={error}
         onSubmit={handleSubmit}
-        title="How was your experience?"
-        subtitle="Your feedback helps maintain a positive community."
+        title={title}
+        subtitle={subtitle}
         submitLabel="Submit Rating"
+        isExistingRating={isExistingRating}
       />
     </SafeAreaView>
   );

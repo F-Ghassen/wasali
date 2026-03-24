@@ -10,6 +10,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
+import type { UserRole } from '../types/models';
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ export interface TestUser {
  * @param role  'sender' | 'driver'  — stored in user_metadata.role and used
  *              by the handle_new_user trigger to populate profiles.role
  */
-export async function createTestUser(role: 'sender' | 'driver'): Promise<TestUser> {
+export async function createTestUser(role: UserRole): Promise<TestUser> {
   const email = `test-${role}-${Date.now()}@wasali-test.com`;
   const password = 'Test1234!';
 

@@ -4,7 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
-import type { Profile } from '@/types/models';
+import type { Profile, UserRole } from '@/types/models';
 
 interface AuthState {
   session: Session | null;
@@ -19,7 +19,7 @@ interface AuthActions {
   setSession: (session: Session | null) => void;
   setProfile: (profile: Profile | null) => void;
   setInitialized: () => void;
-  signUp: (email: string, password: string, fullName: string, role?: 'sender' | 'driver') => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, role?: UserRole) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   setProfile: (profile) => set({ profile }),
   setInitialized: () => set({ isInitialized: true }),
 
-  signUp: async (email, password, fullName, role = 'sender') => {
+  signUp: async (email, password, fullName, role: UserRole = 'sender') => {
     set({ isLoading: true });
     try {
       const redirectTo = Platform.OS === 'web'

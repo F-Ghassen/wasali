@@ -12,19 +12,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { StarRating } from './StarRating';
-
-interface RatingFormProps {
-  score: number;
-  onScoreChange: (score: number) => void;
-  comment: string;
-  onCommentChange: (text: string) => void;
-  isLoading: boolean;
-  error?: string | null;
-  onSubmit: () => void;
-  title: string;
-  subtitle: string;
-  submitLabel?: string;
-}
+import type { RatingFormProps } from '../types';
 
 export function RatingForm({
   score,
@@ -37,6 +25,7 @@ export function RatingForm({
   title,
   subtitle,
   submitLabel = 'Submit Rating',
+  isExistingRating,
 }: RatingFormProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -59,8 +48,18 @@ export function RatingForm({
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
+      {isExistingRating && (
+        <View style={styles.feedbackContainer}>
+          <Text style={styles.feedbackText}>✓ Rating already submitted</Text>
+          <Text style={styles.feedbackSubtext}>You can update your rating below</Text>
+        </View>
+      )}
+
       <TouchableOpacity
-        style={[styles.submitBtn, isLoading && styles.submitBtnDisabled]}
+        style={[
+          styles.submitBtn,
+          isLoading && styles.submitBtnDisabled,
+        ]}
         onPress={onSubmit}
         disabled={isLoading}
         activeOpacity={0.7}
@@ -68,7 +67,9 @@ export function RatingForm({
         {isLoading ? (
           <ActivityIndicator size="small" color={Colors.white} />
         ) : (
-          <Text style={styles.submitBtnText}>{submitLabel}</Text>
+          <Text style={styles.submitBtnText}>
+            {isExistingRating ? 'Update Rating' : submitLabel}
+          </Text>
         )}
       </TouchableOpacity>
     </ScrollView>
@@ -121,5 +122,24 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     fontWeight: '700',
     color: Colors.white,
+  },
+  feedbackContainer: {
+    backgroundColor: Colors.successLight,
+    borderColor: Colors.success,
+    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.base,
+    marginBottom: Spacing.lg,
+  },
+  feedbackText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.success,
+    marginBottom: Spacing.xs,
+  },
+  feedbackSubtext: {
+    fontSize: FontSize.sm,
+    color: Colors.success,
+    opacity: 0.8,
   },
 });

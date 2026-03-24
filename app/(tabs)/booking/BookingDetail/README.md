@@ -5,13 +5,13 @@ Refactored following SoC (Separation of Concerns) architecture with clear layer 
 ## Structure
 
 ```
-app/bookings/
+app/(tabs)/booking/bookingDetail/
 ├── [id].tsx                    # Screen component (routing + layout only)
 ├── components/
 │   └── TimelineStep.tsx        # Reusable timeline step component
 ├── hooks/
 │   ├── useBookingDetail.ts     # Data fetching + realtime subscriptions
-│   └── useBookingActions.ts    # User interactions (WhatsApp, call)
+│   └── useBookingActions.ts    # User interactions (WhatsApp, messaging)
 ├── utils/
 │   ├── routeCities.ts          # Derive origin/destination from route_stops
 │   ├── stepState.ts            # Timeline step state logic
@@ -53,7 +53,7 @@ app/bookings/
 ## Usage
 
 ```tsx
-import BookingDetailScreen from '@/app/bookings/[id]'
+import BookingDetailScreen from '@/app/(tabs)/booking/bookingDetail/[id]'
 ```
 
-The screen automatically loads when navigating to `/bookings/[id]` route via Expo Router.
+The screen automatically loads when navigating to `/(tabs)/booking/bookingDetail/[id]` route via Expo Router.

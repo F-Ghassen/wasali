@@ -112,7 +112,7 @@ serve(async (req) => {
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const emailTo = profile.notification_email;
     if (resendKey && emailTo) {
-      const bookingUrl = `https://wasali.app/bookings/${record.id}`;
+      const bookingUrl = `https://wasali.app/booking/bookingDetail/${record.id}`;
       const html = buildEmailHtml({
         recipientName: profile.full_name ?? 'User',
         message: event.message,

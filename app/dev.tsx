@@ -74,16 +74,14 @@ const SECTIONS: Section[] = [
     title: '📋 Booking Flow',
     color: Colors.success,
     routes: [
-      { label: 'Package Details', path: '/booking/package-details', note: 'needs routeId param' },
-      { label: 'Logistics', path: '/booking/logistics', note: 'needs booking state' },
-      { label: 'Review & Pay', path: '/booking/review-pay', note: 'needs booking state' },
+      { label: 'Create Booking', path: '/(tabs)/booking', note: 'step-based wizard' },
     ],
   },
   {
     title: '🔍 Detail Screens',
     color: '#D97706',
     routes: [
-      { label: 'Booking Detail (Sender)', path: '/bookings/[id]', note: 'replace [id] with UUID' },
+      { label: 'Booking Detail (Sender)', path: '/(tabs)/booking/bookingDetail/[id]', note: 'replace [id] with UUID' },
       { label: 'Route Results', path: '/(tabs)/routes/results', note: 'needs search params' },
     ],
   },

@@ -70,9 +70,9 @@ export function NotificationList({ visible, onClose }: NotificationListProps) {
     if (item.booking_id) {
       onClose();
       if (profile?.role === 'driver') {
-        router.push({ pathname: '/driver/bookings/[id]' as any, params: { id: item.booking_id } });
+        router.push(`/driver/bookings/${item.booking_id}`);
       } else {
-        router.push({ pathname: '/bookings/[id]' as any, params: { id: item.booking_id } });
+        router.push(`/(tabs)/booking/bookingDetail/${item.booking_id}`);
       }
     }
   };

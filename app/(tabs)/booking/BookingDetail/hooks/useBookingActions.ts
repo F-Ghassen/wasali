@@ -28,16 +28,5 @@ export function useBookingActions(bookingId: string | undefined, profile: any) {
     );
   };
 
-  const handleCallDriver = (booking: BookingWithDriver) => {
-    const phone = booking.route?.driver?.phone;
-    if (!phone) {
-      Alert.alert('No phone number', 'The driver has not shared a phone number.');
-      return;
-    }
-    Linking.openURL(`tel:${phone}`).catch(() =>
-      Alert.alert('Cannot call', 'Could not open the phone app.')
-    );
-  };
-
-  return { handleWhatsApp, handleCallDriver };
+  return { handleWhatsApp };
 }

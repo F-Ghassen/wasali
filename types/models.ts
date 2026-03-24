@@ -1,4 +1,5 @@
 import type { Tables } from './database';
+export type { BookingStatus, PaymentStatus } from '@/constants/bookingStatus';
 
 // Re-export for convenience
 export type Profile = Tables<'profiles'>;
@@ -54,15 +55,7 @@ export type BookingWithSender = Booking & {
   sender?: Partial<Profile>;
 };
 
-export type BookingStatus =
-  | 'pending'
-  | 'confirmed'
-  | 'in_transit'
-  | 'delivered'
-  | 'disputed'
-  | 'cancelled';
-
-export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+// BookingStatus and PaymentStatus are re-exported from constants/bookingStatus
 export type RouteStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'completed';
 export type RequestStatus = 'open' | 'offer_accepted' | 'expired' | 'cancelled';
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';

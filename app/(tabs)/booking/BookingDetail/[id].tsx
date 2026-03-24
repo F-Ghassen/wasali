@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+// BookingDetail - shows booking status, timeline, and tracking
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,190 +7,71 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
-  Linking,
+  SafeAreaView,
+  useWindowDimensions,
+  Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Printer, Lock, Check } from 'lucide-react-native';
+import { Printer, CheckCircle } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { Button } from '@/components/ui/Button';
 import { formatDate, formatPrice } from '@/utils/formatters';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { ShipmentLabelModal, type LabelData } from '@/components/tracking/ShipmentLabelModal';
-import type { BookingWithRoute } from '@/types/models';
 import type { BookingStatus } from '@/constants/bookingStatus';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type BookingWithDriver = BookingWithRoute & {
-  route?: BookingWithRoute['route'] & {
-    estimated_arrival_date?: string | null;
-    driver?: { full_name: string | null; phone: string | null } | null;
-  };
-  recipient_name?: string | null;
-  recipient_phone?: string | null;
-};
-
-// ─── Timeline ─────────────────────────────────────────────────────────────────
-
-type StepState = 'done' | 'current' | 'pending';
-
-const TIMELINE_STEPS: { key: BookingStatus; label: string }[] = [
-  { key: 'pending',    label: 'Booking received' },
-  { key: 'confirmed',  label: 'Confirmed' },
-  { key: 'in_transit', label: 'In transit' },
-  { key: 'delivered',  label: 'Delivered' },
-];
-
-function stepState(stepKey: BookingStatus, currentStatus: BookingStatus): StepState {
-  const order: BookingStatus[] = ['pending', 'confirmed', 'in_transit', 'delivered'];
-  const stepIdx    = order.indexOf(stepKey);
-  const currentIdx = order.indexOf(currentStatus);
-  if (stepIdx < currentIdx)  return 'done';
-  if (stepIdx === currentIdx) return 'current';
-  return 'pending';
-}
-
-function stepSubtitle(
-  key: BookingStatus,
-  state: StepState,
-  booking: BookingWithDriver,
-): string {
-  const destCity  = booking.route?.destination_city_id ?? 'destination';
-  const weightKg  = booking.package_weight_kg ?? 0;
-  const updatedAt = booking.updated_at ? formatDate(booking.updated_at as string) : undefined;
-
-  switch (key) {
-    case 'pending':
-      return 'Awaiting driver confirmation';
-    case 'confirmed':
-      return state === 'done' || state === 'current'
-        ? `${updatedAt ? updatedAt + ' · ' : ''}Payment secured in escrow`
-        : 'Payment will be held in escrow';
-    case 'in_transit':
-      return state === 'done' || state === 'current'
-        ? `${updatedAt ? updatedAt + ' · ' : ''}${weightKg} kg · En route to ${destCity}`
-        : `En route to ${destCity}`;
-    case 'delivered':
-      return state === 'done'
-        ? `${updatedAt ? updatedAt + ' · ' : ''}Confirmed by driver`
-        : state === 'current'
-        ? 'Confirming delivery…'
-        : 'Pending';
-    default:
-      return '';
-  }
-}
-
-function TimelineStep({
-  step, state, isLast, booking,
-}: {
-  step: { key: BookingStatus; label: string };
-  state: StepState;
-  isLast: boolean;
-  booking: BookingWithDriver;
-}) {
-  const isDone    = state === 'done';
-  const isCurrent = state === 'current';
-
-  return (
-    <View style={tl.row}>
-      <View style={tl.dotCol}>
-        <View style={[tl.dot, isDone && tl.dotDone, isCurrent && tl.dotCurrent, !isDone && !isCurrent && tl.dotPending]}>
-          {isDone ? (
-            <Check size={12} color={Colors.white} strokeWidth={3} />
-          ) : isCurrent ? (
-            <View style={tl.dotCurrentInner} />
-          ) : null}
-        </View>
-        {!isLast && <View style={[tl.line, isDone && tl.lineDone]} />}
-      </View>
-      <View style={tl.body}>
-        <Text style={[tl.label, isDone && tl.labelDone, isCurrent && tl.labelCurrent, !isDone && !isCurrent && tl.labelPending]}>
-          {step.label}
-        </Text>
-        <Text style={[tl.subtitle, !isDone && !isCurrent && tl.subtitlePending]}>
-          {stepSubtitle(step.key, state, booking)}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-// ─── Screen ───────────────────────────────────────────────────────────────────
+import { TimelineStep } from './components/TimelineStep';
+import { useBookingDetail } from './hooks/useBookingDetail';
+import { useBookingActions } from './hooks/useBookingActions';
+import { stepState } from './utils/stepState';
+import { getOriginCity, getDestinationCity } from './utils/routeCities';
+import { TIMELINE_STEPS } from './types/index';
 
 export default function BookingDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
-  const [booking, setBooking] = useState<BookingWithDriver | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { booking, isLoading } = useBookingDetail(id);
+  const { handleWhatsApp: whatsAppAction } = useBookingActions(id, profile);
   const [labelVisible, setLabelVisible] = useState(false);
+  const [isNewBooking, setIsNewBooking] = useState(false);
+
+  // Celebration animation
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('bookings')
-        .select('*, route:routes(*, route_stops(*), driver:profiles!driver_id(full_name, phone))')
-        .eq('id', id)
-        .single();
-      setBooking(data as unknown as BookingWithDriver);
-      setIsLoading(false);
-    };
-    load();
+    // Check if this is a newly created booking (just submitted)
+    if (booking && booking.status === 'pending' && booking.created_at) {
+      const createdAt = new Date(booking.created_at);
+      const now = new Date();
+      const diffMs = now.getTime() - createdAt.getTime();
+      const isNew = diffMs < 5000; // Within 5 seconds = new booking
 
-    const channel = supabase
-      .channel(`booking-${id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}` },
-        (payload) => setBooking((prev) => prev ? { ...prev, ...payload.new } : null)
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [id]);
-
-  const handleWhatsApp = () => {
-    const phone = booking?.route?.driver?.phone;
-    if (!phone) {
-      Alert.alert('No phone number', 'The driver has not shared a phone number.');
-      return;
+      if (isNew) {
+        setIsNewBooking(true);
+        // Animate the check icon
+        Animated.parallel([
+          Animated.spring(scale, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 50,
+            friction: 6,
+          }),
+          Animated.timing(opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
     }
-    const ref = id ? `#BOOK-${id.slice(0, 8).toUpperCase()}` : '';
-    const lines = [
-      `📦 Booking ${ref}`,
-      ``,
-      `🗺  Route: ${booking.route?.origin_city_id} → ${booking.route?.destination_city_id}`,
-      booking.route?.departure_date ? `📅 Departure: ${formatDate(booking.route.departure_date)}` : null,
-      ``,
-      `⚖️  Weight: ${booking.package_weight_kg} kg`,
-      booking.package_category ? `📦 Category: ${booking.package_category}` : null,
-      `💶 Total: ${formatPrice(booking.price_eur)}`,
-    ].filter(Boolean).join('\n');
-
-    const normalised = phone.replace(/\s+/g, '');
-    Linking.openURL(`whatsapp://send?phone=${normalised}&text=${encodeURIComponent(lines)}`).catch(() =>
-      Alert.alert('WhatsApp not available', 'Could not open WhatsApp.')
-    );
-  };
-
-  const handleCallDriver = () => {
-    const phone = booking?.route?.driver?.phone;
-    if (!phone) {
-      Alert.alert('No phone number', 'The driver has not shared a phone number.');
-      return;
-    }
-    Linking.openURL(`tel:${phone}`).catch(() =>
-      Alert.alert('Cannot call', 'Could not open the phone app.')
-    );
-  };
+  }, [booking]);
 
   if (isLoading) {
     return (
@@ -207,9 +89,9 @@ export default function BookingDetailScreen() {
 
   const labelData: LabelData | null = booking && id ? {
     trackingId:            `WSL-${id.slice(0, 6).toUpperCase()}`,
-    originCity:            booking.route?.origin_city_id ?? '—',
+    originCity:            getOriginCity(booking),
     originFlag:            '🇪🇺',
-    destCity:              booking.route?.destination_city_id ?? '—',
+    destCity:              getDestinationCity(booking),
     destFlag:              '🇹🇳',
     departureDate:         booking.route?.departure_date ? formatDate(booking.route.departure_date) : '—',
     arrivalDate:           booking.route?.estimated_arrival_date
@@ -230,6 +112,32 @@ export default function BookingDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {isNewBooking && (
+        <View style={styles.celebrationOverlay}>
+          <Animated.View
+            style={[
+              styles.celebrationContent,
+              {
+                transform: [{ scale }],
+                opacity,
+              },
+            ]}
+          >
+            <CheckCircle size={80} color={Colors.success} strokeWidth={1.5} />
+            <Text style={styles.celebrationTitle}>Booking submitted!</Text>
+            <Text style={styles.celebrationSubtitle}>
+              Your shipment is now pending driver confirmation
+            </Text>
+            <TouchableOpacity
+              style={styles.celebrationBtn}
+              onPress={() => setIsNewBooking(false)}
+            >
+              <Text style={styles.celebrationBtnText}>Continue</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>‹ {t('common.back')}</Text>
@@ -247,7 +155,7 @@ export default function BookingDetailScreen() {
         <View style={styles.card}>
           <View style={styles.routeRow}>
             <Text style={styles.route}>
-              {booking.route?.origin_city_id} → {booking.route?.destination_city_id}
+              {getOriginCity(booking)} → {getDestinationCity(booking)}
             </Text>
             <Text style={styles.amount}>€{Number(booking.price_eur).toFixed(2)}</Text>
           </View>
@@ -262,8 +170,7 @@ export default function BookingDetailScreen() {
             )}
           </View>
           <View style={styles.escrowBanner}>
-            <Lock size={13} color={Colors.success} strokeWidth={2} />
-            <Text style={styles.escrowBannerText}>Payment held in escrow until delivery</Text>
+            <Text style={styles.escrowBannerText}>🔒 Payment held in escrow until delivery</Text>
           </View>
         </View>
 
@@ -300,16 +207,6 @@ export default function BookingDetailScreen() {
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}><Text style={styles.infoLabel}>{t('bookingDetail.labels.totalPrice')}</Text><Text style={[styles.infoValue, styles.price]}>{formatPrice(booking.price_eur)}</Text></View>
         </View>
 
-        {/* ── Call driver ───────────────────────────────────── */}
-        <TouchableOpacity style={styles.callBtn} onPress={handleCallDriver} activeOpacity={0.85}>
-          <Text style={styles.callBtnText}>📞  Call driver</Text>
-        </TouchableOpacity>
-
-        {/* ── WhatsApp driver ───────────────────────────────── */}
-        <TouchableOpacity style={styles.whatsappBtn} onPress={handleWhatsApp} activeOpacity={0.85}>
-          <Text style={styles.whatsappBtnText}>💬  Message driver on WhatsApp</Text>
-        </TouchableOpacity>
-
         {/* ── Print shipping label ──────────────────────────── */}
         {labelData && (
           <TouchableOpacity style={styles.printBtn} onPress={() => setLabelVisible(true)} activeOpacity={0.85}>
@@ -317,6 +214,11 @@ export default function BookingDetailScreen() {
             <Text style={styles.printBtnText}>Print shipping label</Text>
           </TouchableOpacity>
         )}
+
+        {/* ── WhatsApp driver ───────────────────────────────── */}
+        <TouchableOpacity style={styles.whatsappBtn} onPress={() => whatsAppAction(booking)} activeOpacity={0.85}>
+          <Text style={styles.whatsappBtnText}>💬  Message driver on WhatsApp</Text>
+        </TouchableOpacity>
 
         {/* ── Rate driver ───────────────────────────────────── */}
         {booking.status === 'delivered' && (
@@ -328,15 +230,13 @@ export default function BookingDetailScreen() {
           />
         )}
 
-        {/* ── Report a problem ──────────────────────────────── */}
-        {(booking.status === 'confirmed' || booking.status === 'in_transit') && (
-          <Button
-            label="Report a Problem"
-            onPress={() => router.push(`/post-delivery/dispute/${booking.id}`)}
-            variant="ghost"
-            size="md"
-          />
-        )}
+        {/* ── Report an issue ──────────────────────────────── */}
+        <Button
+          label="Report an Issue"
+          onPress={() => router.push(`/post-delivery/dispute/${booking.id}`)}
+          variant="ghost"
+          size="md"
+        />
 
       </ScrollView>
 
@@ -450,30 +350,51 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   printBtnText: { color: Colors.primary, fontSize: FontSize.base, fontWeight: '700' },
-});
 
-// ─── Timeline styles ──────────────────────────────────────────────────────────
-
-const tl = StyleSheet.create({
-  row:    { flexDirection: 'row', gap: Spacing.md },
-  dotCol: { alignItems: 'center', width: 28 },
-  dot: {
-    width: 28, height: 28, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.border.medium,
-    backgroundColor: Colors.background.secondary,
+  // Celebration overlay
+  celebrationOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1000,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dotDone:         { backgroundColor: Colors.success, borderColor: Colors.success },
-  dotCurrent:      { backgroundColor: Colors.white, borderColor: Colors.success, borderWidth: 2.5 },
-  dotCurrentInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.success },
-  dotPending:      { backgroundColor: Colors.background.tertiary, borderColor: Colors.border.light },
-  line:     { flex: 1, width: 2, minHeight: 32, backgroundColor: Colors.border.light, marginVertical: 2 },
-  lineDone: { backgroundColor: Colors.success },
-  body:     { flex: 1, paddingBottom: Spacing.lg, gap: 3 },
-  label:          { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
-  labelDone:      { color: Colors.text.primary },
-  labelCurrent:   { color: Colors.success },
-  labelPending:   { color: Colors.text.tertiary, fontWeight: '500' },
-  subtitle:        { fontSize: FontSize.sm, color: Colors.text.secondary },
-  subtitlePending: { color: Colors.text.tertiary },
+  celebrationContent: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: 'center',
+    maxWidth: 320,
+  },
+  celebrationTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: '800',
+    color: Colors.text.primary,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
+  },
+  celebrationSubtitle: {
+    fontSize: FontSize.base,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    lineHeight: 20,
+  },
+  celebrationBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    width: '100%',
+    alignItems: 'center',
+  },
+  celebrationBtnText: {
+    color: Colors.white,
+    fontSize: FontSize.base,
+    fontWeight: '700',
+  },
 });

@@ -35,8 +35,6 @@ export interface FetchedPaymentMethod {
 
 export interface FetchedRoute {
   id: string;
-  origin_city_id: string;
-  destination_city_id: string;
   departure_date: string;
   estimated_arrival_date: string | null;
   available_weight_kg: number;
@@ -88,7 +86,7 @@ export function useRouteData(routeId: string | null): {
     supabase
       .from('routes')
       .select(`
-        id, origin_city_id, destination_city_id,
+        id,
         departure_date, estimated_arrival_date,
         available_weight_kg, price_per_kg_eur,
         promotion_percentage, promotion_active,

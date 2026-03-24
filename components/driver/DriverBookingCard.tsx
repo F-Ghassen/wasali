@@ -1,52 +1,71 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
-import { Colors } from '@/constants/colors';
-import { BorderRadius, Spacing } from '@/constants/spacing';
-import { FontSize } from '@/constants/typography';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import type { BookingWithSender } from '@/types/models';
-import type { BookingStatus } from '@/constants/bookingStatus';
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { ChevronRight, Star } from "lucide-react-native";
+import { Colors } from "@/constants/colors";
+import { BorderRadius, Spacing } from "@/constants/spacing";
+import { FontSize } from "@/constants/typography";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import type { BookingWithSender } from "@/types/models";
+import type { BookingStatus } from "@/constants/bookingStatus";
 
 interface DriverBookingCardProps {
   booking: BookingWithSender;
   onPress?: () => void;
   onConfirm?: () => void;
   onReject?: () => void;
+  onRate?: () => void;
 }
 
-export function DriverBookingCard({ booking, onPress, onConfirm, onReject }: DriverBookingCardProps) {
-  const sender = booking.sender as { full_name?: string; phone?: string } | undefined;
-  const isPending = booking.status === 'pending';
+export function DriverBookingCard({
+  booking,
+  onPress,
+  onConfirm,
+  onReject,
+  onRate,
+}: DriverBookingCardProps) {
+  const sender = booking.sender as
+    | { full_name?: string; phone?: string }
+    | undefined;
+  const isPending = booking.status === "pending";
+  const isDelivered = booking.status === "delivered";
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.header}>
         <View style={styles.senderInfo}>
-          <Text style={styles.senderName}>{sender?.full_name ?? 'Sender'}</Text>
+          <Text style={styles.senderName}>{sender?.full_name ?? "Sender"}</Text>
           <Text style={styles.packageMeta}>
             {booking.package_weight_kg}kg · {booking.package_category}
           </Text>
         </View>
-        <StatusBadge status={booking.status as BookingStatus} showIcon={false} />
+        <StatusBadge
+          status={booking.status as BookingStatus}
+          showIcon={false}
+        />
       </View>
 
       <View style={styles.details}>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Pickup</Text>
           <Text style={styles.detailValue}>
-            {booking.pickup_type === 'driver_pickup' ? '🚗 Driver collects' : '📍 Sender drops off'}
+            {booking.pickup_type === "driver_pickup"
+              ? "🚗 Driver collects"
+              : "📍 Sender drops off"}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Delivery</Text>
           <Text style={styles.detailValue}>
-            {booking.dropoff_type === 'home_delivery' ? '🏠 Home delivery' : '📦 Recipient pickup'}
+            {booking.dropoff_type === "home_delivery"
+              ? "🏠 Home delivery"
+              : "📦 Recipient pickup"}
           </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Price</Text>
-          <Text style={[styles.detailValue, styles.price]}>€{booking.price_eur}</Text>
+          <Text style={[styles.detailValue, styles.price]}>
+            €{booking.price_eur}
+          </Text>
         </View>
       </View>
 
@@ -54,15 +73,34 @@ export function DriverBookingCard({ booking, onPress, onConfirm, onReject }: Dri
         <View style={styles.actions}>
           <TouchableOpacity
             style={[styles.actionBtn, styles.rejectBtn]}
-            onPress={(e) => { e.stopPropagation(); onReject(); }}
+            onPress={(e) => {
+              e.stopPropagation();
+              onReject();
+            }}
           >
             <Text style={styles.rejectText}>Reject</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.confirmBtn]}
-            onPress={(e) => { e.stopPropagation(); onConfirm(); }}
+            onPress={(e) => {
+              e.stopPropagation();
+              onConfirm();
+            }}
           >
             <Text style={styles.confirmText}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+      ) : isDelivered && onRate ? (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.rateBtn]}
+            onPress={(e) => {
+              e.stopPropagation();
+              onRate();
+            }}
+          >
+            <Star size={14} color={Colors.secondary} />
+            <Text style={styles.rateText}>Rate Sender</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -84,24 +122,36 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   senderInfo: { flex: 1 },
-  senderName: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
-  packageMeta: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 2 },
+  senderName: {
+    fontSize: FontSize.base,
+    fontWeight: "700",
+    color: Colors.text.primary,
+  },
+  packageMeta: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    marginTop: 2,
+  },
   details: { gap: Spacing.xs },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  detailRow: { flexDirection: "row", justifyContent: "space-between" },
   detailLabel: { fontSize: FontSize.sm, color: Colors.text.tertiary },
-  detailValue: { fontSize: FontSize.sm, color: Colors.text.primary, fontWeight: '500' },
-  price: { fontWeight: '700', color: Colors.success },
-  actions: { flexDirection: 'row', gap: Spacing.sm },
+  detailValue: {
+    fontSize: FontSize.sm,
+    color: Colors.text.primary,
+    fontWeight: "500",
+  },
+  price: { fontWeight: "700", color: Colors.success },
+  actions: { flexDirection: "row", gap: Spacing.sm },
   actionBtn: {
     flex: 1,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.lg,
-    alignItems: 'center',
+    alignItems: "center",
   },
   rejectBtn: {
     backgroundColor: Colors.errorLight,
@@ -109,12 +159,26 @@ const styles = StyleSheet.create({
   confirmBtn: {
     backgroundColor: Colors.primary,
   },
-  rejectText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.error },
-  confirmText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.white },
+  rejectText: { fontSize: FontSize.sm, fontWeight: "700", color: Colors.error },
+  confirmText: {
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+    color: Colors.white,
+  },
+  rateBtn: {
+    backgroundColor: Colors.background.tertiary,
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  rateText: {
+    fontSize: FontSize.sm,
+    fontWeight: "700",
+    color: Colors.secondary,
+  },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
     gap: 4,
   },
   footerHint: { fontSize: FontSize.xs, color: Colors.text.tertiary },

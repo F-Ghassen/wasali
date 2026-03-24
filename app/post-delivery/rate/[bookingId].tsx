@@ -37,18 +37,45 @@ export default function RateDriverScreen() {
 
       if (!booking) throw new Error('Booking not found');
 
-      await supabase.from('ratings').insert({
-        booking_id: bookingId,
-        sender_id: session.user.id,
-        driver_id: ((booking as any).route as any)?.driver_id,
-        score,
-        comment: comment.trim() || null,
-      });
+      const driverId = ((booking as any).route as any)?.driver_id;
+
+      // Check if rating already exists
+      const { data: existingRating, error: checkError } = await supabase
+        .from('ratings')
+        .select('id')
+        .eq('booking_id', bookingId)
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is fine
+        throw checkError;
+      }
+
+      if (existingRating) {
+        // Update existing rating
+        await supabase
+          .from('ratings')
+          .update({
+            score,
+            comment: comment.trim() || null,
+          })
+          .eq('booking_id', bookingId);
+      } else {
+        // Insert new rating
+        await supabase.from('ratings').insert({
+          booking_id: bookingId,
+          sender_id: session.user.id,
+          driver_id: driverId,
+          score,
+          comment: comment.trim() || null,
+        });
+      }
 
       Alert.alert('Thank you!', 'Your rating has been submitted.', [
         { text: 'OK', onPress: () => router.push('/(tabs)/bookings') },
       ]);
     } catch (error) {
+      console.error('Rating error:', error);
       Alert.alert('Error', 'Failed to submit rating. Please try again.');
     } finally {
       setIsLoading(false);

@@ -70,6 +70,7 @@ export default function DriverBookingsScreen() {
             booking={item}
             onConfirm={item.status === 'pending' ? () => confirmBooking(item.id) : undefined}
             onReject={item.status === 'pending' ? () => rejectBooking(item.id) : undefined}
+            onRate={item.status === 'delivered' ? () => router.push({ pathname: '/driver/bookings/rate/[bookingId]' as any, params: { bookingId: item.id } }) : undefined}
             onPress={() => router.push({ pathname: '/driver/bookings/[id]' as any, params: { id: item.id } })}
           />
         )}

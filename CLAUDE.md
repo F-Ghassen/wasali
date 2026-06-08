@@ -88,13 +88,53 @@ On web, `@stripe/stripe-react-native` is stubbed out via `metro.config.js` resol
 
 Vercel SPA: `npx expo export --platform web` → `dist/`. `vercel.json` rewrites all paths to `index.html`.
 
+## Components Organization
+
+**Structure by domain + layer:**
+
+```
+components/
+├── shared/                  # ← Reusable across all features
+│   ├── ui/
+│   │   ├── primitives/      # Button, Input, Badge, Toast, etc.
+│   │   ├── forms/           # DateInput, PhoneInput, CityPicker, etc.
+│   │   ├── layouts/         # EmptyState, Skeleton, StepProgress
+│   │   └── modals/          # LanguagePickerModal, QrScannerModal
+│   └── navigation/          # Footer, LanguageNavButton
+├── home/                    # Homepage features
+├── search/                  # Route search + results (sender browsing)
+├── booking/                 # Booking checkout (payment, etc.)
+├── driver/                  # Driver-specific features
+│   ├── routes/              # Driver's route management (CRUD)
+│   ├── stats/               # Dashboard stats
+│   └── earnings/            # Revenue, charts
+├── notifications/           # Notifications + alerts
+├── request/                 # Shipping requests from drivers
+├── tracking/                # Post-delivery shipment tracking
+└── dev/                     # Dev tools (DevRoleSwitcher)
+```
+
+**Import patterns:**
+- From primitives: `import { Button, Input } from '@/components/shared/ui/primitives'`
+- From a feature: `import { DriverRouteCard } from '@/components/driver/routes'`
+- Re-exported at folder level: `import { EarningsSummary } from '@/components/driver'`
+
 ## Key Conventions
 
 - `@/*` path alias maps to the repo root (configured in `tsconfig.json`)
 - After every change: update `docs/user-flow.md` and `docs/architecture.md`, then commit them alongside the code change
 - Zod v4 is installed — use `.number().min()` not `.number({ invalid_type_error: ... })`
-- Claude Plans are store in `docs/plans`
-- Changes is Schema should are saved in respective files in `stores/`
+- Claude Plans are stored in `docs/plans`
+- Schema changes: create migration → push → regenerate types → update stores (see **Schema Changes Workflow** below)
+
+## Schema Changes Workflow
+
+1. Create migration: `supabase/migrations/NNN_description.sql`
+2. Push locally: `supabase db push`
+3. Regenerate types: `npx supabase gen types typescript --project-id cxlxlisfvbfqtysgnklu > types/database.ts`
+4. Update stores to use new columns/types
+5. Update `supabase/schema-changelog.md` with the change
+6. Commit migration + types + changelog + store changes together
 
 ### Infrastructure
 

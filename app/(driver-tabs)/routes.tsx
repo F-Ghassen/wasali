@@ -17,8 +17,8 @@ import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
-import { DriverRouteCard } from '@/components/driver/DriverRouteCard';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { DriverRouteCard } from '@/components/driver/routes/DriverRouteCard';
+import { EmptyState } from '@/components/shared/ui/layouts/EmptyState';
 
 type FilterOption = 'all' | 'active' | 'completed' | 'cancelled';
 

@@ -10,7 +10,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/shared/ui/primitives/Button';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getAuthErrorMessage } from '@/utils/errorMessages';

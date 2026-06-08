@@ -26,7 +26,7 @@ import { FeaturedRouteCard } from '@/app/route-discovery/components/FeaturedRout
 import { RouteDetailsModal } from '@/app/route-discovery/components/RouteDetailsModal';
 import { mapRouteResultToFeaturedRoute } from '@/app/route-discovery/utils/mapRouteResult';
 import { useCitiesStore } from '@/stores/citiesStore';
-import { SkeletonCard } from '@/components/ui/Skeleton';
+import { SkeletonCard } from '@/components/shared/ui/primitives/Skeleton';
 import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
 import { useAuthStore } from '@/stores/authStore';

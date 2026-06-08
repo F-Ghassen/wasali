@@ -18,7 +18,7 @@ import { FontSize } from '@/constants/typography';
 import { supabase } from '@/lib/supabase';
 import { useSearchStore } from '@/stores/searchStore';
 import { useCitiesStore } from '@/stores/citiesStore';
-import { Skeleton } from '@/components/ui/Skeleton';
+import { Skeleton } from '@/components/shared/ui/primitives/Skeleton';
 import { getFlagImageUrl } from '@/lib/flagImages';
 
 type CountryData = {
@@ -45,10 +45,10 @@ export default function OriginCountryPicker() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!citiesLoading && cities.length > 0) {
+    if (!citiesLoading) {
       fetchCountries();
     }
-  }, [citiesLoading, cities]);
+  }, [citiesLoading]);
 
   const fetchCountries = async () => {
     try {

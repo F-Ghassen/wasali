@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { Button } from './Button';
+import { Button } from '@/components/shared/ui/primitives';
 
 interface EmptyStateProps {
   icon?: string;

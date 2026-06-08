@@ -22,8 +22,8 @@ import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCitiesStore } from '@/stores/citiesStore';
-import { Button } from '@/components/ui/Button';
-import { DriverBookingCard } from '@/components/driver/DriverBookingCard';
+import { Button } from '@/components/shared/ui/primitives/Button';
+import { DriverBookingCard } from '@/components/notifications/DriverBookingCard';
 import type { RouteWithStops } from '@/types/models';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {

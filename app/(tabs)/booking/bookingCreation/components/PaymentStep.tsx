@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { PaymentOption } from '@/components/ui/PaymentOption';
+import { PaymentOption } from '@/components/booking/PaymentOption';
 import type { FetchedPaymentMethod } from '@/hooks/useRouteData';
 
 // ─── All possible payment types (defines display order) ──────────────────────

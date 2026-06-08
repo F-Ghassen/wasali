@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/shared/ui/primitives/Button';
 
 export default function WelcomeScreen() {
   const router = useRouter();

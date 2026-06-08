@@ -35,17 +35,15 @@ import { format } from "date-fns";
 import { Colors } from "@/constants/colors";
 import { BorderRadius, Spacing } from "@/constants/spacing";
 import { FontSize } from "@/constants/typography";
-import { Button } from "@/components/ui/Button";
-import { DateInput } from "@/components/ui/DateInput";
-import { URLInput } from "@/components/ui/URLInput";
-import { CityPickerInput } from "@/components/ui/CityPickerInput";
+import { Button } from "@/components/shared/ui/primitives";
+import { DateInput, URLInput, CityPickerInput } from "@/components/shared/ui/forms";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/authStore";
 import { useDriverRouteStore } from "@/stores/driverRouteStore";
 import { useUIStore } from "@/stores/uiStore";
 import { useCitiesStore } from "@/stores/citiesStore";
 import { supabase } from "@/lib/supabase";
-import { RouteSummaryCard } from "@/components/driver/RouteSummaryCard";
+import { RouteSummaryCard } from "@/components/driver/routes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

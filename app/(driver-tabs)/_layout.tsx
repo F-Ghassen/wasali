@@ -9,8 +9,8 @@ import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { Button } from '@/components/ui/Button';
-import { LanguageNavButton } from '@/components/ui/LanguageNavButton';
+import { Button } from '@/components/shared/ui/primitives/Button';
+import { LanguageNavButton } from '@/components/shared/navigation/LanguageNavButton';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;

@@ -16,8 +16,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { NotificationList } from '@/components/ui/NotificationList';
-import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
+import { NotificationList } from '@/components/notifications/NotificationList';
+import { LanguagePickerModal } from '@/components/shared/ui/modals/LanguagePickerModal';
 
 function ProfileRow({
   icon,

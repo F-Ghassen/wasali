@@ -15,8 +15,8 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
-import { DriverBookingCard } from '@/components/driver/DriverBookingCard';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { DriverBookingCard } from '@/components/notifications/DriverBookingCard';
+import { EmptyState } from '@/components/shared/ui/layouts/EmptyState';
 
 type FilterOption = 'all' | 'pending' | 'confirmed' | 'in_transit' | 'delivered';
 

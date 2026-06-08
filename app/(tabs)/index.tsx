@@ -13,10 +13,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
-import Hero from '@/components/Hero';
-import HowItWorks from '@/components/HowItWorks';
-import OriginCountryPicker from '@/components/OriginCountryPicker';
-import RouteAlertSubscription from '@/components/RouteAlertSubscription';
+import { Hero, HowItWorks, OriginCountryPicker, RouteAlertSubscription } from '@/components/home';
 import { RouteAlertModal } from '@/app/route-alert/components/RouteAlertModal';
 import FeaturedRoutes from '@/app/route-discovery/components/FeaturedRoutes';
 

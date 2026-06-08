@@ -18,9 +18,9 @@ import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
-import { Button } from '@/components/ui/Button';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { QrScannerModal } from '@/components/driver/QrScannerModal';
+import { Button } from '@/components/shared/ui/primitives/Button';
+import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
+import { QrScannerModal } from '@/components/shared/ui/modals/QrScannerModal';
 import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverBookingDetailScreen() {

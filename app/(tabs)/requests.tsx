@@ -12,9 +12,9 @@ import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { RequestCard } from '@/components/request/RequestCard';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { SkeletonCard } from '@/components/ui/Skeleton';
-import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/shared/ui/layouts/EmptyState';
+import { SkeletonCard } from '@/components/shared/ui/primitives/Skeleton';
+import { Button } from '@/components/shared/ui/primitives/Button';
 import { useRequestStore } from '@/stores/requestStore';
 import { useAuthStore } from '@/stores/authStore';
 

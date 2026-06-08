@@ -18,7 +18,7 @@ import { ChevronDown, MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { CityPickerInput } from '@/components/ui/CityPickerInput';
+import { CityPickerInput } from '@/components/shared/ui/forms/CityPickerInput';
 import { useCitiesStore } from '@/stores/citiesStore';
 
 type DocType = 'passport_id' | 'letter' | 'contract' | 'medical' | 'other';

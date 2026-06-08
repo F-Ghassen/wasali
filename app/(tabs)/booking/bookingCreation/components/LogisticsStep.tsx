@@ -7,7 +7,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
-import { ServiceOption } from '@/components/ui/ServiceOption';
+import { ServiceOption } from '@/components/shared/ui/primitives/ServiceOption';
 import { useCitiesStore } from '@/stores/citiesStore';
 import type { FetchedStop, FetchedService } from '@/hooks/useRouteData';
 

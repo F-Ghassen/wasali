@@ -6,8 +6,8 @@ import { MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { PhoneInput } from '@/components/ui/PhoneInput';
-import { AddressFields } from '@/components/ui/AddressFields';
+import { PhoneInput } from '@/components/shared/ui/forms/PhoneInput';
+import { AddressFields } from '@/components/shared/ui/forms/AddressFields';
 import type { SavedRecipient } from '@/hooks/useSavedRecipients';
 
 // ─── Props ────────────────────────────────────────────────────────────────────

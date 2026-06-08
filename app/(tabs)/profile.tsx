@@ -15,8 +15,8 @@ import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { RouteAlertList } from '@/components/ui/RouteAlertList';
-import { LanguagePickerModal } from '@/components/ui/LanguagePickerModal';
+import { RouteAlertList } from '@/components/notifications/RouteAlertList';
+import { LanguagePickerModal } from '@/components/shared/ui/modals/LanguagePickerModal';
 
 function ProfileRow({
   icon,

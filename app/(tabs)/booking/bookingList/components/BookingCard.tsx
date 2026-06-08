@@ -4,7 +4,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDate, formatPrice } from '@/utils/formatters';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
 import type { BookingWithRoute } from '@/types/models';
 import type { BookingStatus } from '@/constants/bookingStatus';
 

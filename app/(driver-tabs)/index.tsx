@@ -18,10 +18,10 @@ import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
 import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
-import { StatCard } from '@/components/driver/StatCard';
-import { EarningsSummary } from '@/components/driver/EarningsSummary';
-import { RevenueChart } from '@/components/driver/RevenueChart';
-import { StatusBadge } from '@/components/ui/StatusBadge';
+import { StatCard } from '@/components/driver/stats/StatCard';
+import { EarningsSummary } from '@/components/driver/earnings/EarningsSummary';
+import { RevenueChart } from '@/components/driver/earnings/RevenueChart';
+import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
 import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverDashboardScreen() {

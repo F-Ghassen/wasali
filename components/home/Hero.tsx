@@ -12,7 +12,7 @@ import { ArrowRight, Search } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import SearchForm from '@/components/SearchForm';
+import { SearchForm } from '@/components/search';
 
 interface HeroProps {
   onDriverCTAPress?: () => void;

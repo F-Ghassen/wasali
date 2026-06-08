@@ -6,11 +6,11 @@ import { Search, Package, User, SendHorizonal, Bell } from 'lucide-react-native'
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { Footer } from '@/components/ui/Footer';
+import { Footer } from '@/components/shared/navigation/Footer';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationStore } from '@/stores/notificationStore';
-import { Button } from '@/components/ui/Button';
-import { LanguageNavButton } from '@/components/ui/LanguageNavButton';
+import { Button } from '@/components/shared/ui/primitives/Button';
+import { LanguageNavButton } from '@/components/shared/navigation/LanguageNavButton';
 
 const ICON_SIZE_WIDE = 18;
 const ICON_SIZE_MOBILE = 22;

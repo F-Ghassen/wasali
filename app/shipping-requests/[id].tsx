@@ -13,9 +13,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { EmptyState } from '@/components/shared/ui/layouts/EmptyState';
 import { formatPrice, formatDate } from '@/utils/formatters';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/shared/ui/primitives/Button';
 import { useRequestStore } from '@/stores/requestStore';
 
 export default function RequestDetailScreen() {

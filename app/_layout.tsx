@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { useCitiesStore } from '@/stores/citiesStore';
 import { supabase } from '@/lib/supabase';
-import { ToastContainer } from '@/components/ui/Toast';
+import { ToastContainer } from '@/components/shared/ui/primitives/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
 import { initI18n } from '@/lib/i18n';

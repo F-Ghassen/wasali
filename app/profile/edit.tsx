@@ -15,8 +15,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/shared/ui/primitives/Button';
+import { Input } from '@/components/shared/ui/primitives/Input';
 import { useAuthStore } from '@/stores/authStore';
 
 export default function EditProfileScreen() {

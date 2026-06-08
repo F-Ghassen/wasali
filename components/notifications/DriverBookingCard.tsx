@@ -4,7 +4,7 @@ import { ChevronRight, Star } from "lucide-react-native";
 import { Colors } from "@/constants/colors";
 import { BorderRadius, Spacing } from "@/constants/spacing";
 import { FontSize } from "@/constants/typography";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StatusBadge } from "@/components/shared/ui/primitives";
 import type { BookingWithSender } from "@/types/models";
 import type { BookingStatus } from "@/constants/bookingStatus";
 

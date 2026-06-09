@@ -37,9 +37,24 @@ export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
   const { booking, isLoading } = useBookingDetail(id);
-  const { handleWhatsApp: whatsAppAction } = useBookingActions(id, profile);
+  const { handleWhatsApp: whatsAppAction, cancelBooking } = useBookingActions(id, profile);
   const [labelVisible, setLabelVisible] = useState(false);
   const [isNewBooking, setIsNewBooking] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(false);
+
+  const handleCancelConfirm = async () => {
+    setCancelling(true);
+    setCancelError(false);
+    const ok = await cancelBooking();
+    if (ok) {
+      router.push('/(tabs)/booking' as any);
+    } else {
+      setCancelling(false);
+      setCancelError(true);
+    }
+  };
 
   // Celebration animation
   const scale = useRef(new Animated.Value(0)).current;
@@ -238,6 +253,47 @@ export default function BookingDetailScreen() {
           />
         )}
 
+        {/* ── Cancel booking ────────────────────────────────── */}
+        {booking.status === 'pending' && (
+          confirmingCancel ? (
+            <View style={styles.cancelConfirmBox}>
+              <Text style={styles.cancelConfirmText}>
+                Are you sure? This cannot be undone.
+              </Text>
+              {cancelError && (
+                <Text style={styles.cancelErrorText}>Could not cancel. Please try again.</Text>
+              )}
+              <View style={styles.cancelConfirmRow}>
+                <TouchableOpacity
+                  style={styles.keepBtn}
+                  onPress={() => { setConfirmingCancel(false); setCancelError(false); }}
+                  disabled={cancelling}
+                >
+                  <Text style={styles.keepBtnText}>Keep Booking</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.confirmCancelBtn, cancelling && styles.disabledBtn]}
+                  onPress={handleCancelConfirm}
+                  disabled={cancelling}
+                >
+                  {cancelling
+                    ? <ActivityIndicator size="small" color={Colors.white} />
+                    : <Text style={styles.confirmCancelBtnText}>Yes, Cancel</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setConfirmingCancel(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+            </TouchableOpacity>
+          )
+        )}
+
         {/* ── Report an issue ──────────────────────────────── */}
         <Button
           label="Report an Issue"
@@ -358,6 +414,55 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   printBtnText: { color: Colors.primary, fontSize: FontSize.base, fontWeight: '700' },
+
+  cancelBtn: {
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    backgroundColor: Colors.errorLight,
+  },
+  cancelBtnText: { color: Colors.error, fontSize: FontSize.base, fontWeight: '700' },
+  cancelConfirmBox: {
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    backgroundColor: Colors.errorLight,
+    gap: Spacing.md,
+  },
+  cancelConfirmText: {
+    fontSize: FontSize.sm,
+    color: Colors.error,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  cancelErrorText: {
+    fontSize: FontSize.xs,
+    color: Colors.error,
+    textAlign: 'center',
+  },
+  cancelConfirmRow: { flexDirection: 'row', gap: Spacing.sm },
+  keepBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.error,
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+  },
+  keepBtnText: { color: Colors.error, fontWeight: '700', fontSize: FontSize.sm },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.error,
+    alignItems: 'center',
+  },
+  confirmCancelBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.sm },
+  disabledBtn: { opacity: 0.6 },
 
   // Celebration overlay
   celebrationOverlay: {

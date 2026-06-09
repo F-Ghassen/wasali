@@ -1,9 +1,21 @@
 import { Alert, Linking } from 'react-native';
+import { supabase } from '@/lib/supabase';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import type { BookingWithDriver } from '../types/index';
 import { getOriginCity, getDestinationCity } from '../utils/routeCities';
 
 export function useBookingActions(bookingId: string | undefined, profile: any) {
+  const cancelBooking = async (): Promise<boolean> => {
+    if (!bookingId) return false;
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ status: 'cancelled' })
+      .eq('id', bookingId)
+      .select('id, status');
+    if (error || !data || data.length === 0) return false;
+    return true;
+  };
+
   const handleWhatsApp = (booking: BookingWithDriver) => {
     const phone = booking.route?.driver?.phone;
     if (!phone) {
@@ -28,5 +40,5 @@ export function useBookingActions(bookingId: string | undefined, profile: any) {
     );
   };
 
-  return { handleWhatsApp };
+  return { handleWhatsApp, cancelBooking };
 }

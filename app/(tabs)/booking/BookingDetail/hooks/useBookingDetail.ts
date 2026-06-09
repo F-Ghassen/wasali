@@ -15,7 +15,7 @@ export function useBookingDetail(bookingId: string | undefined) {
     const load = async () => {
       const { data } = await supabase
         .from('bookings')
-        .select('*, route:routes(*, route_stops(*), driver:profiles!driver_id(full_name, phone))')
+        .select('*, route:routes(*, route_stops(*, city:cities(id, name, flag_emoji, country_code)), driver:profiles!driver_id(full_name, phone))')
         .eq('id', bookingId)
         .single();
       setBooking(data as unknown as BookingWithDriver);

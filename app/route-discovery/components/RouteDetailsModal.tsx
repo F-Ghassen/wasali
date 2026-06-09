@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { ArrowRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-import { supabase } from '@/lib/supabase';
+import { useRouteDetails } from '../hooks/useRouteDetails';
 
 interface RouteDetailsModalProps {
   routeId: string;
@@ -24,67 +24,18 @@ interface RouteDetailsModalProps {
 }
 
 export function RouteDetailsModal({ routeId, visible, onClose, onBook }: RouteDetailsModalProps) {
-  const [route, setRoute]         = useState<any>(null);
-  const [loading, setLoading]     = useState(false);
-  const [cityNames, setCityNames] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (!visible || route) return;
-
-    setLoading(true);
-    supabase
-      .from('routes')
-      .select(`
-        id,
-        departure_date, estimated_arrival_date,
-        available_weight_kg, price_per_kg_eur,
-        promotion_percentage, promotion_active, prohibited_items,
-        driver:profiles!driver_id(
-          id, full_name, phone, phone_verified, rating, completed_trips
-        ),
-        route_stops(
-          id, city_id, arrival_date, stop_type, stop_order,
-          location_name, location_address,
-          is_pickup_available, is_dropoff_available, meeting_point_url
-        ),
-        route_services(
-          id, route_stop_id, service_type, price_eur,
-          location_name, location_address, instructions
-        ),
-        route_payment_methods(id, payment_type, enabled)
-      `)
-      .eq('id', routeId)
-      .single()
-      .then(async ({ data, error }) => {
-        setLoading(false);
-        if (error || !data) return;
-
-        setRoute(data);
-
-        const cityIds = data.route_stops
-          ?.map((s: any) => s.city_id)
-          .filter(Boolean) as string[];
-
-        if (cityIds.length > 0) {
-          const { data: citiesData } = await supabase
-            .from('cities')
-            .select('id, name')
-            .in('id', cityIds);
-
-          const names: Record<string, string> = {};
-          citiesData?.forEach((c: any) => { names[c.id] = c.name; });
-          setCityNames(names);
-        }
-      });
-  }, [visible, routeId, route]);
+  const { routeDetail: route, isLoading: loading } = useRouteDetails(routeId, visible);
+  const cityNames = route?.cityNames ?? {};
 
   const pickupStops  = route?.route_stops?.filter((s: any) => s.is_pickup_available)
     .sort((a: any, b: any) => a.stop_order - b.stop_order) ?? [];
   const dropoffStops = route?.route_stops?.filter((s: any) => s.is_dropoff_available)
     .sort((a: any, b: any) => a.stop_order - b.stop_order) ?? [];
 
-  const originCity      = cityNames[route?.route_stops?.[0]?.city_id] ?? 'Origin';
-  const destinationCity = cityNames[route?.route_stops?.[route?.route_stops?.length - 1]?.city_id] ?? 'Destination';
+  const firstStopCityId = route?.route_stops?.[0]?.city_id;
+  const lastStopCityId  = route?.route_stops?.[route.route_stops.length - 1]?.city_id;
+  const originCity      = (firstStopCityId ? cityNames[firstStopCityId] : undefined) ?? 'Origin';
+  const destinationCity = (lastStopCityId  ? cityNames[lastStopCityId]  : undefined) ?? 'Destination';
 
   return (
     <Modal visible={visible} transparent animationType="slide">

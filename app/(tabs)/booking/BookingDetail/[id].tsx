@@ -28,7 +28,7 @@ import { TimelineStep } from './components/TimelineStep';
 import { useBookingDetail } from './hooks/useBookingDetail';
 import { useBookingActions } from './hooks/useBookingActions';
 import { stepState } from './utils/stepState';
-import { getOriginCity, getDestinationCity } from './utils/routeCities';
+import { getOriginCity, getDestinationCity, getOriginFlag, getDestinationFlag } from './utils/routeCities';
 import { TIMELINE_STEPS } from './types/index';
 
 export default function BookingDetailScreen() {
@@ -90,9 +90,9 @@ export default function BookingDetailScreen() {
   const labelData: LabelData | null = booking && id ? {
     trackingId:            `WSL-${id.slice(0, 6).toUpperCase()}`,
     originCity:            getOriginCity(booking),
-    originFlag:            '🇪🇺',
+    originFlag:            getOriginFlag(booking),
     destCity:              getDestinationCity(booking),
-    destFlag:              '🇹🇳',
+    destFlag:              getDestinationFlag(booking),
     departureDate:         booking.route?.departure_date ? formatDate(booking.route.departure_date) : '—',
     arrivalDate:           booking.route?.estimated_arrival_date
                              ? formatDate(booking.route.estimated_arrival_date)
@@ -104,8 +104,10 @@ export default function BookingDetailScreen() {
     senderPhone:           profile?.phone ?? '',
     recipientName:         booking.recipient_name ?? '—',
     recipientPhone:        booking.recipient_phone ?? '',
-    recipientAddressLine1: '',
-    recipientAddressLine2: '',
+    recipientAddressLine1: booking.recipient_address_street ?? '',
+    recipientAddressLine2: booking.recipient_address_city
+      ? `${booking.recipient_address_postal_code ?? ''} ${booking.recipient_address_city}`.trim()
+      : '',
     weightKg:              Number(booking.package_weight_kg),
     deliveryMethod:        booking.package_category ?? 'Standard',
   } : null;
@@ -139,7 +141,13 @@ export default function BookingDetailScreen() {
       )}
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}>
+        <TouchableOpacity
+          onPress={() => {
+            // Navigate back to bookings list
+            router.push('/(tabs)/booking');
+          }}
+          style={styles.back}
+        >
           <Text style={styles.backText}>‹ {t('common.back')}</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>

@@ -59,7 +59,6 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
         .single();
 
       if (error) {
-        console.error('Supabase insert error:', JSON.stringify(error));
         throw error;
       }
 

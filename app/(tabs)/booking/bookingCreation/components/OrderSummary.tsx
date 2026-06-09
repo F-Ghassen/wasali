@@ -5,6 +5,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDateShort } from '@/utils/formatters';
+import { computeTotalPrice } from '@/hooks/useBookingForm';
 
 export interface OrderSummaryProps {
   routeOriginCity: string;
@@ -21,7 +22,6 @@ export interface OrderSummaryProps {
   collectionServicePrice?: number;
   deliveryServiceLabel?: string;
   deliveryServicePrice?: number;
-  totalPrice: number;
 }
 
 function Row({
@@ -51,8 +51,9 @@ export function OrderSummary({
   weightKg,
   collectionServiceLabel, collectionServicePrice = 0,
   deliveryServiceLabel, deliveryServicePrice = 0,
-  totalPrice,
 }: OrderSummaryProps) {
+  const route = { price_per_kg_eur: pricePerKgEur, promotion_active: !!promotionActive, promotion_percentage: promotionPercentage ?? null };
+  const computedTotal = computeTotalPrice(weightKg, route, collectionServicePrice, deliveryServicePrice);
   const effectiveRate = promotionActive && promotionPercentage
     ? pricePerKgEur * (1 - promotionPercentage / 100)
     : pricePerKgEur;
@@ -92,7 +93,7 @@ export function OrderSummary({
           <Divider />
           <Row label="Platform fee"  value="Included · Free" green />
           <Divider />
-          <Row label="Total"         value={fmt(totalPrice)} bold />
+          <Row label="Total"         value={fmt(computedTotal)} bold />
           <Divider />
         </>
       ) : (

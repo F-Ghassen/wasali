@@ -78,6 +78,9 @@ export function PackageStep({
       {maxWeight != null && (
         <Text style={s.fieldNote}>Max single package: {maxWeight} kg</Text>
       )}
+      {maxWeight != null && parseFloat(weight) > maxWeight && (
+        <Text style={s.weightError}>Exceeds maximum of {maxWeight} kg per package</Text>
+      )}
       <View style={s.weightRow}>
         <TextInput
           style={[s.input, s.weightInput]}
@@ -195,6 +198,13 @@ const s = StyleSheet.create({
     color: Colors.text.tertiary,
     marginTop: 4,
     marginBottom: Spacing.xs,
+  },
+  weightError: {
+    fontSize: FontSize.xs,
+    color: Colors.error,
+    marginTop: 4,
+    marginBottom: Spacing.xs,
+    fontWeight: '500',
   },
   input: {
     borderWidth: 1,

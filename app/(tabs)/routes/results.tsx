@@ -32,7 +32,7 @@ import { useBookingStore } from '@/stores/bookingStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useRouteResults, type RouteResult, type SortKey, type FilterState } from '@/hooks/useRouteResults';
 import { useCities, type CityRow } from '@/hooks/useCities';
-import { supabase } from '@/lib/supabase';
+import { createRouteAlert, createAlertNotification } from '@/app/route-alert/services/routeAlertService';
 import { parseISO } from 'date-fns';
 
 // ─── Sort options ─────────────────────────────────────────────────────────────
@@ -266,23 +266,19 @@ function RouteAlertSheet({
     setIsSubmitting(true);
     setError(null);
     try {
-      const { error: dbError } = await supabase
-        .from('route_alerts' as any)
-        .insert({
-          user_id: profile!.id,
-          origin_city: fromCity,
-          origin_city_id: fromCityId || null,
-          destination_city: toCity,
-          destination_city_id: toCityId || null,
-          date_from: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
-        });
-      if (dbError) throw dbError;
+      await createRouteAlert({
+        userId: profile!.id,
+        email: '',
+        originCity: fromCity,
+        originCityId: fromCityId || null,
+        destinationCity: toCity,
+        destinationCityId: toCityId || null,
+        dateFrom: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
+      });
 
-      // Insert a confirmation notification so the user sees the alert in their inbox
       const dateLabel = dateFrom ? ` from ${format(dateFrom, 'MMM d, yyyy')}` : '';
-      await supabase.from('notifications').insert({
-        user_id: profile!.id,
-        type: 'route_alert_created',
+      await createAlertNotification({
+        userId: profile!.id,
         message: `Alert saved: you'll be notified when a ${fromCity} → ${toCity} route is published${dateLabel}.`,
       });
 
@@ -544,7 +540,10 @@ export default function ResultsScreen() {
     const route = [...tier1, ...tier2].find((r) => r.id === routeId);
     if (route) setRoute(route as any);
     setSelectedRouteId(null);
-    router.push(`/(tabs)/booking/bookingCreation?routeId=${routeId}`);
+    router.push({
+      pathname: '/(tabs)/booking/bookingCreation',
+      params: { routeId },
+    } as any);
   };
 
   const totalCount = tier1.length + tier2.length;

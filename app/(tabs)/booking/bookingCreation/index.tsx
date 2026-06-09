@@ -75,6 +75,7 @@ export default function BookingScreen() {
     routeId,
     profile?.full_name ?? '',
     profile?.phone ?? '',
+    routeData?.max_single_package_kg,
   );
   const {
     state: fs,
@@ -368,7 +369,7 @@ export default function BookingScreen() {
           otherDesc={fs.otherDesc}
           packageDesc={fs.packageDesc}
           photos={fs.photos}
-          maxWeight={(route as any)?.max_single_package_kg}
+          maxWeight={routeData?.max_single_package_kg}
           isValid={stepValidity[4]}
           onWeightChange={(v) => setField({ weight: v })}
           onTogglePackageType={(key) =>
@@ -435,7 +436,6 @@ export default function BookingScreen() {
                 collectionServicePrice={fs.collectionServicePrice}
                 deliveryServiceLabel={fs.deliveryServiceType ?? undefined}
                 deliveryServicePrice={fs.deliveryServicePrice}
-                totalPrice={totalPrice}
               />
             )}
           </View>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useBookingStore } from '@/stores/bookingStore';
+import { useUIStore } from '@/stores/uiStore';
 import { updateProfileNamePhone } from '../services/profileService';
 
 interface UseBookingSubmitParams {
@@ -31,6 +32,7 @@ export function useBookingSubmit({
 }: UseBookingSubmitParams) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const bookingStore = useBookingStore();
+  const showToast = useUIStore((s) => s.showToast);
   const router = useRouter();
 
   async function handleSubmit() {
@@ -50,15 +52,19 @@ export function useBookingSubmit({
       const bookingId = await bookingStore.submitBooking(payload as any);
 
       if (fs.saveRecipient && fs.recipientName && fs.recipientPhone) {
-        await upsertRecipient({
-          user_id: profile.id,
-          name: fs.recipientName,
-          phone: `${fs.recipientCC}${fs.recipientPhone}`,
-          whatsapp_enabled: fs.recipientWhatsapp,
-          address_street: fs.recipientAddressStreet || null,
-          address_city: fs.recipientAddressCity || null,
-          address_postal_code: fs.recipientAddressPostalCode || null,
-        });
+        try {
+          await upsertRecipient({
+            user_id: profile.id,
+            name: fs.recipientName,
+            phone: `${fs.recipientCC}${fs.recipientPhone}`,
+            whatsapp_enabled: fs.recipientWhatsapp,
+            address_street: fs.recipientAddressStreet || null,
+            address_city: fs.recipientAddressCity || null,
+            address_postal_code: fs.recipientAddressPostalCode || null,
+          });
+        } catch {
+          showToast('Contact not saved — your booking was created successfully.', 'error');
+        }
       }
 
       if (fs.senderMode === 'own' && fs.updateMyProfile) {
@@ -89,8 +95,9 @@ export function useBookingSubmit({
       });
 
       clearDraft();
+      // Pop back to the root booking stack (bookings list), then push detail
       router.replace({
-        pathname: '/booking/bookingDetail/[id]',
+        pathname: '/(tabs)/booking/bookingDetail/[id]',
         params: { id: bookingId },
       } as any);
     } catch (err) {

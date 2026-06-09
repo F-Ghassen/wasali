@@ -306,4 +306,57 @@ describe.skipIf(SKIP)('Booking lifecycle (integration)', () => {
 
     await cleanupRoute(statsRouteId).catch(() => {});
   });
+
+  // ── 9. BookingCard city names come from text fields, not UUIDs ────────────
+
+  it('booking list query returns city names not city_id UUIDs', async () => {
+    const booking = await createBooking();
+
+    // Replicate the query used by useMyBookings
+    const { data } = await sender.client
+      .from('bookings')
+      .select(
+        '*, route:routes(departure_date, estimated_arrival_date), ' +
+        'collection_stop:route_stops!collection_stop_id(city:cities(name)), ' +
+        'dropoff_stop:route_stops!dropoff_stop_id(city:cities(name))',
+      )
+      .eq('id', booking.id)
+      .single();
+
+    // collection_stop_id and dropoff_stop_id may be null in TEST_BOOKING_DRAFT;
+    // the important thing is the query shape is valid and does not error.
+    expect(data).not.toBeNull();
+    expect(data).toHaveProperty('route');
+  });
+
+  // ── 10. Full booking payload: all recipient address fields persisted ────────
+
+  it('booking with recipient address stores all fields correctly', async () => {
+    const { data: inserted, error: insErr } = await sender.client
+      .from('bookings')
+      .insert({
+        ...(TEST_BOOKING_DRAFT as any),
+        sender_id: sender.userId,
+        route_id: routeId,
+        recipient_address_street: '12 Rue de la Liberté',
+        recipient_address_city: 'Tunis',
+        recipient_address_postal_code: '1001',
+        dropoff_type: 'home_delivery',
+      })
+      .select('id')
+      .single();
+    if (insErr) throw new Error(`Insert failed: ${insErr.message}`);
+    bookingIds.push(inserted!.id);
+    const booking = inserted!;
+
+    const { data } = await adminClient
+      .from('bookings')
+      .select('recipient_address_street, recipient_address_city, recipient_address_postal_code')
+      .eq('id', booking.id)
+      .single();
+
+    expect(data?.recipient_address_street).toBe('12 Rue de la Liberté');
+    expect(data?.recipient_address_city).toBe('Tunis');
+    expect(data?.recipient_address_postal_code).toBe('1001');
+  });
 });

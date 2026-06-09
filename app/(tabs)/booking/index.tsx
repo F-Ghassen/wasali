@@ -4,9 +4,10 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  SafeAreaView,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '@/constants/colors';
@@ -25,21 +26,27 @@ export default function BookingListScreen() {
   const [bookings, setBookings] = useState<BookingWithRoute[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadBookings = async () => {
+  const loadBookings = useCallback(async () => {
     if (!session) return;
-    const { data } = await supabase
+    setError(null);
+    const { data, error: fetchError } = await supabase
       .from('bookings')
       .select('*, route:routes(*, route_stops(*))')
       .eq('sender_id', session.user.id)
       .order('created_at', { ascending: false });
-    setBookings((data as BookingWithRoute[]) ?? []);
-  };
+    if (fetchError) {
+      setError(fetchError.message);
+    } else {
+      setBookings((data as BookingWithRoute[]) ?? []);
+    }
+  }, [session]);
 
   useFocusEffect(
     useCallback(() => {
       loadBookings().finally(() => setIsLoading(false));
-    }, [session])
+    }, [loadBookings]),
   );
 
   const onRefresh = async () => {
@@ -56,6 +63,13 @@ export default function BookingListScreen() {
       {isLoading ? (
         <View style={styles.list}>
           {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Could not load bookings.</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={onRefresh}>
+            <Text style={styles.retryText}>Try again</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -89,4 +103,23 @@ const styles = StyleSheet.create({
   header: { padding: Spacing.base, paddingBottom: Spacing.sm },
   title: { fontSize: FontSize['2xl'], fontWeight: '800', color: Colors.text.primary },
   list: { padding: Spacing.base, flexGrow: 1 },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing['2xl'],
+  },
+  errorText: {
+    fontSize: FontSize.base,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  retryBtn: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+  },
+  retryText: { color: Colors.white, fontWeight: '600', fontSize: FontSize.base },
 });

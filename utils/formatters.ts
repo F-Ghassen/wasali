@@ -33,3 +33,9 @@ export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return text.slice(0, maxLength - 3) + '...';
 }
+
+export function countryCodeToFlagEmoji(code: string): string {
+  return code.toUpperCase().split('')
+    .map((c) => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65))
+    .join('');
+}

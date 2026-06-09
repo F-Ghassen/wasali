@@ -53,14 +53,16 @@ export function useBookingSteps({
     if (collectionStops.length === 1 && !fs.collectionStopId) {
       handleSelectCollectionStop(collectionStops[0]);
     }
-  }, [collectionStops.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionStops]);
 
   // Auto-select single dropoff stop
   useEffect(() => {
     if (dropoffStops.length === 1 && !fs.dropoffStopId) {
       handleSelectDropoffStop(dropoffStops[0]);
     }
-  }, [dropoffStops.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropoffStops]);
 
   // Lock senderAddressCity to collectionStopCity
   useEffect(() => {
@@ -85,7 +87,8 @@ export function useBookingSteps({
         collectionServicePrice: stopServices[0].price_eur,
       });
     }
-  }, [fs.collectionStopId, stopServices.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fs.collectionStopId, stopServices]);
 
   // Auto-select single delivery service
   useEffect(() => {
@@ -96,7 +99,8 @@ export function useBookingSteps({
         deliveryServicePrice: deliveryServices[0].price_eur,
       });
     }
-  }, [deliveryServices.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryServices]);
 
   function handleSelectCollectionStop(stop: FetchedStop) {
     const prevStopId = fs.collectionStopId;

@@ -179,6 +179,7 @@ export function useBookingForm(
   routeId: string | null,
   profileName?: string,
   profilePhone?: string,
+  maxPackageWeightKg?: number | null,
 ) {
   const [state, dispatch] = useReducer(reducer, makeInitial(profileName, profilePhone));
   const [hasDraft, setHasDraft] = React.useState(false);
@@ -263,7 +264,9 @@ export function useBookingForm(
         || (state.recipientAddressStreet.trim().length > 0
           && state.recipientAddressCity.trim().length > 0)),
 
-    4: parseFloat(state.weight) > 0 && state.packageTypes.length > 0,
+    4: parseFloat(state.weight) > 0
+      && state.packageTypes.length > 0
+      && (maxPackageWeightKg == null || parseFloat(state.weight) <= maxPackageWeightKg),
 
     5: true,
   };

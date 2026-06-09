@@ -38,6 +38,7 @@ export interface FetchedRoute {
   departure_date: string;
   estimated_arrival_date: string | null;
   available_weight_kg: number;
+  max_single_package_kg: number | null;
   price_per_kg_eur: number;
   promotion_percentage: number | null;
   promotion_active: boolean;
@@ -88,7 +89,7 @@ export function useRouteData(routeId: string | null): {
       .select(`
         id,
         departure_date, estimated_arrival_date,
-        available_weight_kg, price_per_kg_eur,
+        available_weight_kg, max_single_package_kg, price_per_kg_eur,
         promotion_percentage, promotion_active,
         driver:profiles!driver_id(
           id, full_name, phone, phone_verified, rating, completed_trips

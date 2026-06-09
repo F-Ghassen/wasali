@@ -140,6 +140,22 @@ export default function TabsLayout() {
           title: 'Bookings',
           tabBarIcon: ({ color }) => <Package size={iconSize} color={color} strokeWidth={2} />,
         }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            // Reset the booking stack to the root (index) when tab is pressed
+            const state = navigation.getState();
+            const bookingRouteIndex = state.routes.findIndex((r) => r.name === 'booking');
+            if (bookingRouteIndex !== -1) {
+              const bookingRoute = state.routes[bookingRouteIndex];
+              if (bookingRoute.state && bookingRoute.state.routes.length > 1) {
+                // If we're nested deeper than the index, go back to index
+                navigation.navigate('booking', {
+                  screen: 'index',
+                });
+              }
+            }
+          },
+        })}
       />
       <Tabs.Screen
         name="p2p/index"
@@ -169,6 +185,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen name="requests" options={{ href: null }} />
       {/* Hidden screens — part of tabs layout for nav bar, not shown as tab items */}
+      <Tabs.Screen name="routes/[id]"           options={{ href: null }} />
       <Tabs.Screen name="routes/results"        options={{ href: null }} />
       <Tabs.Screen name="p2p/send"              options={{ href: null }} />
       <Tabs.Screen name="p2p/carry"             options={{ href: null }} />

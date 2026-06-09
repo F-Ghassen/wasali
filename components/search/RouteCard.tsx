@@ -1,22 +1,29 @@
-import React, { useMemo } from "react";
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-} from "react-native";
-import { ShieldCheck, Ban } from "lucide-react-native";
-import { Colors } from "@/constants/colors";
-import { BorderRadius, Spacing } from "@/constants/spacing";
-import { FontSize } from "@/constants/typography";
-import { formatDateShort } from "@/utils/formatters";
-import { useCitiesStore } from "@/stores/citiesStore";
-import type { RouteWithStops } from "@/types/models";
+  ImageBackground,
+  ViewStyle,
+} from 'react-native';
+import {
+  MapPin,
+  Clock,
+  Package,
+  BadgeCheck,
+  TrendingUp,
+  ChevronRight,
+} from 'lucide-react-native';
+import { Colors } from '@/constants/colors';
+import { BorderRadius, Spacing } from '@/constants/spacing';
+import { FontSize } from '@/constants/typography';
+import { formatDateShort } from '@/utils/formatters';
+import { useCitiesStore } from '@/stores/citiesStore';
+import type { RouteWithStops } from '@/types/models';
 
-// Extended type — real DB fields + optional UI extras
-// Can accept either RouteWithStops or RouteResult
-export type RouteCardRoute = Omit<Partial<RouteWithStops>, "driver"> & {
+export type RouteCardRoute = Omit<Partial<RouteWithStops>, 'driver'> & {
   id: string;
   origin_country?: string;
   destination_country?: string;
@@ -33,7 +40,6 @@ export type RouteCardRoute = Omit<Partial<RouteWithStops>, "driver"> & {
   origin_city_id?: string | null;
   destination_city_id?: string | null;
   estimated_arrival_date?: string | null;
-  // driver joined from Supabase query - accepts both RouteResultDriver and Profile shapes
   driver?: {
     id?: string;
     full_name?: string | null;
@@ -51,24 +57,13 @@ interface RouteCardProps {
 }
 
 function initials(name: string | null | undefined): string {
-  if (!name) return "?";
+  if (!name) return '?';
   return name
-    .split(" ")
+    .split(' ')
     .map((w) => w[0])
-    .join("")
+    .join('')
     .slice(0, 2)
     .toUpperCase();
-}
-
-function serviceTypeLabel(type: string): string {
-  const map: Record<string, string> = {
-    sender_dropoff: "Drop-off",
-    driver_pickup: "Driver pickup",
-    recipient_collects: "Self-collect",
-    driver_delivery: "Home delivery",
-    local_post: "Post",
-  };
-  return map[type] ?? type;
 }
 
 function effectivePrice(route: RouteCardRoute): number {
@@ -80,34 +75,18 @@ function effectivePrice(route: RouteCardRoute): number {
 export function RouteCard({ route, onPress, serviceTags }: RouteCardProps) {
   const cities = useCitiesStore((s) => s.cities);
 
-  // Helper to get city name by ID
   const getCityName = (cityId: string) => {
-    return cities.find((c) => c.id === cityId)?.name || "";
+    return cities.find((c) => c.id === cityId)?.name || '';
   };
 
-  // Look up city names from store using city IDs
   const originCityName = useMemo(() => {
-    if (route.origin_city_id) {
-      return getCityName(route.origin_city_id);
-    }
-    return "";
+    return route.origin_city_id ? getCityName(route.origin_city_id) : '';
   }, [route.origin_city_id, cities]);
 
   const destinationCityName = useMemo(() => {
-    if (route.destination_city_id) {
-      return getCityName(route.destination_city_id);
-    }
-    return "";
+    return route.destination_city_id ? getCityName(route.destination_city_id) : '';
   }, [route.destination_city_id, cities]);
 
-  const pickupStops = (route.route_stops ?? []).filter(
-    (s) => s.is_pickup_available && s.city_id !== route.origin_city_id,
-  );
-  const dropoffStops = (route.route_stops ?? []).filter(
-    (s) => s.is_dropoff_available && s.city_id !== route.destination_city_id,
-  );
-
-  // Capacity
   const total = route.total_weight_kg ?? route.available_weight_kg;
   const filled = total - route.available_weight_kg;
   const fillPct = total > 0 ? Math.min((filled / total) * 100, 100) : 0;
@@ -117,396 +96,466 @@ export function RouteCard({ route, onPress, serviceTags }: RouteCardProps) {
 
   const driverRating = route.driver?.rating ?? 0;
   const driverTripCount = route.driver?.completed_trips ?? 0;
-  const driverIsNew = driverRating === 0;
   const driverVerified = route.driver?.phone_verified ?? route.driver_verified;
-  const vehicleType = (route as any).vehicle_type as string | null | undefined;
+
+  // Format dates
+  const departureDate = formatDateShort(route.departure_date);
+  const arrivalDate = route.estimated_arrival_date
+    ? formatDateShort(route.estimated_arrival_date)
+    : null;
+
+  // Day difference
+  const depDate = new Date(route.departure_date);
+  const arrDate = route.estimated_arrival_date ? new Date(route.estimated_arrival_date) : null;
+  const daysDiff = arrDate
+    ? Math.ceil((arrDate.getTime() - depDate.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  const daysLabel = daysDiff === 0 ? 'Same day' : daysDiff === 1 ? '1 day' : `${daysDiff} days`;
 
   return (
-    <TouchableOpacity style={c.card} onPress={onPress} activeOpacity={0.85}>
-      {/* ── Driver row ───────────────────────────────────── */}
-      <View style={c.driverRow}>
-        <View style={c.avatar}>
-          <Text style={c.avatarText}>{initials(route.driver?.full_name)}</Text>
+    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.9}>
+      {/* ── Header: Driver + Price ────────────────────────────────────────────── */}
+      <View style={s.header}>
+        {/* Driver Info */}
+        <View style={s.driverSection}>
+          {/* Avatar */}
+          <View style={s.avatarContainer}>
+            <Text style={s.avatarText}>{initials(route.driver?.full_name)}</Text>
+          </View>
+
+          {/* Driver Details */}
+          <View style={s.driverMeta}>
+            <View style={s.driverNameRow}>
+              <Text style={s.driverName}>{route.driver?.full_name ?? 'Driver'}</Text>
+              {driverVerified && (
+                <BadgeCheck size={14} color={Colors.secondary} strokeWidth={2.5} />
+              )}
+            </View>
+
+            {driverRating > 0 ? (
+              <View style={s.driverStats}>
+                <Text style={s.driverStat}>⭐ {driverRating.toFixed(1)}</Text>
+                <Text style={s.driverDot}>·</Text>
+                <Text style={s.driverStat}>{driverTripCount} trips</Text>
+              </View>
+            ) : (
+              <Text style={s.driverNew}>New driver</Text>
+            )}
+          </View>
         </View>
 
-        <View style={c.driverInfo}>
-          <View style={c.driverNameRow}>
-            <Text style={c.driverName}>
-              {route.driver?.full_name ?? "Driver"}
-            </Text>
-            {driverVerified && (
-              <ShieldCheck
-                size={14}
-                color={Colors.secondary}
-                strokeWidth={2.5}
-              />
-            )}
-            {vehicleType && (
-              <View style={c.vehiclePill}>
-                <Text style={c.vehicleText}>{vehicleType}</Text>
+        {/* Price Badge */}
+        <View style={s.priceDisplay}>
+          {hasPromo && (
+            <Text style={s.originalPrice}>€{route.price_per_kg_eur.toFixed(2)}</Text>
+          )}
+          <Text style={s.mainPrice}>
+            €{(discountedPrice ?? route.price_per_kg_eur).toFixed(2)}
+          </Text>
+          <Text style={s.priceUnit}>/kg</Text>
+
+          {hasPromo && (
+            <View style={s.promoBadge}>
+              <Text style={s.promoText}>−{route.promotion_percentage}%</Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* ── Route Summary: From → To ──────────────────────────────────────────── */}
+      <View style={s.routeSection}>
+        <View style={s.routeEndpoint}>
+          <View style={s.locationDot} />
+          <View style={s.endpointText}>
+            <Text style={s.city}>{originCityName}</Text>
+            <View style={s.dateRow}>
+              <Clock size={12} color={Colors.text.tertiary} strokeWidth={2} />
+              <Text style={s.date}>{departureDate}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Route Line */}
+        <View style={s.routeLine}>
+          <View style={s.routeLineInner} />
+          {daysDiff !== null && (
+            <View style={s.daysBadge}>
+              <Text style={s.daysText}>{daysLabel}</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={s.routeEndpoint}>
+          <View style={[s.locationDot, s.locationDotEnd]} />
+          <View style={s.endpointText}>
+            <Text style={s.city}>{destinationCityName}</Text>
+            {arrivalDate && (
+              <View style={s.dateRow}>
+                <Clock size={12} color={Colors.text.tertiary} strokeWidth={2} />
+                <Text style={s.date}>{arrivalDate}</Text>
               </View>
             )}
           </View>
-          <Text style={c.driverMeta}>
-            ⭐ {driverRating.toFixed(1)} · {driverTripCount} trip
-            {driverTripCount !== 1 ? "s" : ""}
+        </View>
+      </View>
+
+      {/* ── Capacity Bar with Label ───────────────────────────────────────────── */}
+      <View style={s.capacitySection}>
+        <View style={s.capacityHeader}>
+          <View style={s.capacityLabel}>
+            <Package size={14} color={Colors.text.secondary} strokeWidth={2} />
+            <Text style={s.capacityText}>Capacity</Text>
+          </View>
+          <Text style={s.capacityValue}>
+            {route.available_weight_kg}
+            <Text style={s.capacityMax}> / {total} kg</Text>
           </Text>
         </View>
 
-        {hasPromo && (
-          <View style={c.promoBadge}>
-            <Text style={c.promoText}>−{route.promotion_percentage}%</Text>
-          </View>
-        )}
-      </View>
-
-      {/* ── Stop pills ──────────────────────────────────── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={c.pillsRow}
-      >
-        <View style={c.pillGroup}>
-          <View style={[c.pill, c.pickupPill]}>
-            <Text style={[c.pillCity, c.pickupText]}>{originCityName}</Text>
-            <Text style={[c.pillDate, c.pickupText]}>
-              {formatDateShort(route.departure_date)}
-            </Text>
-          </View>
-          {pickupStops.map((s) => (
-            <View key={s.id} style={[c.pill, c.pickupPill]}>
-              <Text style={[c.pillCity, c.pickupText]}>
-                {getCityName(s.city_id)}
-              </Text>
-              {s.arrival_date && (
-                <Text style={[c.pillDate, c.pickupText]}>
-                  {formatDateShort(s.arrival_date)}
-                </Text>
-              )}
-            </View>
-          ))}
+        {/* Progress Bar */}
+        <View style={s.barBg}>
+          <View
+            style={[
+              s.barFill,
+              { width: `${Math.max(fillPct, 5)}%` as any }, // Min 5% visible
+            ]}
+          />
         </View>
 
-        <Text style={c.pillArrow}>→</Text>
-
-        <View style={c.pillGroup}>
-          {dropoffStops.map((s) => (
-            <View key={s.id} style={[c.pill, c.dropoffPill]}>
-              <Text style={[c.pillCity, c.dropoffText]}>
-                {getCityName(s.city_id)}
-              </Text>
-              {s.arrival_date && (
-                <Text style={[c.pillDate, c.dropoffText]}>
-                  {formatDateShort(s.arrival_date)}
-                </Text>
-              )}
-            </View>
-          ))}
-          <View style={[c.pill, c.dropoffPill]}>
-            <Text style={[c.pillCity, c.dropoffText]}>
-              {destinationCityName}
-            </Text>
-            {route.estimated_arrival_date && (
-              <Text style={[c.pillDate, c.dropoffText]}>
-                {formatDateShort(route.estimated_arrival_date)}
-              </Text>
-            )}
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* ── Capacity bar ────────────────────────────────── */}
-      <View style={c.capacityRow}>
-        <View style={c.bar}>
-          <View style={[c.barFill, { width: `${fillPct}%` as any }]} />
-        </View>
-        <Text style={c.capacityLabel}>
-          {filled > 0 ? `${filled}` : "0"}/{total} kg ·{" "}
-          <Text style={c.kgLeft}>{route.available_weight_kg} kg left</Text>
+        {/* Status Text */}
+        <Text style={s.capacityStatus}>
+          {route.available_weight_kg > 0
+            ? `${Math.round(fillPct)}% filled`
+            : 'Full'}
         </Text>
       </View>
 
-      {/* ── Min booking ──────────────────────────────────── */}
-      {route.min_booking_kg != null && (
-        <View style={c.minKgBadge}>
-          <Text style={c.minKgText}>
-            📦 Minimum booking: {route.min_booking_kg} kg
-          </Text>
-        </View>
-      )}
-
-      {/* ── Forbidden items ──────────────────────────────── */}
-      {!!route.forbidden_items?.length && (
-        <View style={c.forbiddenRow}>
-          <Ban size={12} color={Colors.error} strokeWidth={2.5} />
-          <Text style={c.forbiddenLabel}>Not accepted:</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={c.forbiddenScroll}
-          >
-            {route.forbidden_items.map((item) => (
-              <View key={item} style={c.forbiddenPill}>
-                <Text style={c.forbiddenPillText}>{item}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* ── Service tags ─────────────────────────────────── */}
-      {!!serviceTags?.length && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={c.serviceTagsRow}
-        >
-          {serviceTags.map((tag, i) => (
-            <View key={i} style={c.serviceTag}>
-              <Text style={c.serviceTagText}>
-                {serviceTypeLabel(tag.type)}
-                {tag.price_eur === 0 ? " · Free" : ` · +€${tag.price_eur}`}
-              </Text>
+      {/* ── Service Tags ──────────────────────────────────────────────────────── */}
+      {serviceTags && serviceTags.length > 0 && (
+        <View style={s.serviceTags}>
+          {serviceTags.map((tag, idx) => (
+            <View key={idx} style={s.serviceTag}>
+              <Text style={s.serviceTagText}>{tag.type}</Text>
             </View>
           ))}
-        </ScrollView>
+        </View>
       )}
 
-      {/* ── Price + CTA ─────────────────────────────────── */}
-      <View style={c.footer}>
-        <View style={c.priceBlock}>
-          <View style={c.priceRow}>
-            {hasPromo && (
-              <Text style={c.originalPrice}>
-                €{route.price_per_kg_eur.toFixed(2)}
-              </Text>
-            )}
-            <Text style={c.price}>
-              from €{(discountedPrice ?? route.price_per_kg_eur).toFixed(2)}
-              <Text style={c.perKg}>/kg</Text>
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={c.bookBtn}
-          onPress={onPress}
-          activeOpacity={0.85}
-        >
-          <Text style={c.bookBtnText}>Book slot →</Text>
-        </TouchableOpacity>
-      </View>
+      {/* ── CTA Button ────────────────────────────────────────────────────────── */}
+      <TouchableOpacity style={s.cta} onPress={onPress} activeOpacity={0.8}>
+        <Text style={s.ctaText}>Book this slot →</Text>
+        <ChevronRight size={18} color={Colors.white} strokeWidth={2.5} />
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
-// ─── Pill colours ─────────────────────────────────────────────────────────────
-const PICKUP_BG = "rgba(255,192,67,0.14)";
-const PICKUP_TEXT = "#9A6700";
-const DROPOFF_BG = "rgba(5,148,79,0.10)";
-const DROPOFF_TEXT = "#037840";
-
-const c = StyleSheet.create({
+const s = StyleSheet.create({
+  // ── Main Card ──────────────────────────────────────────────────────────────
   card: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
+    padding: Spacing.lg,
     marginBottom: Spacing.md,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
+    marginHorizontal: Spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.04)',
   },
 
-  // Driver
-  driverRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  // ── Header: Driver + Price ─────────────────────────────────────────────────
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+
+  driverSection: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.sm,
-    marginBottom: Spacing.md,
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+
+  avatarContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.background.secondary,
-    alignItems: "center",
-    justifyContent: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: Colors.secondary,
   },
+
   avatarText: {
-    fontSize: FontSize.sm,
-    fontWeight: "800",
-    color: Colors.text.primary,
+    fontSize: 14,
+    fontWeight: '800',
+    color: Colors.secondary,
   },
-  driverInfo: { flex: 1 },
-  driverNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  driverName: {
-    fontSize: FontSize.sm,
-    fontWeight: "700",
-    color: Colors.text.primary,
-  },
+
   driverMeta: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+
+  driverNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: 3,
+  },
+
+  driverName: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+
+  driverStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  driverStat: {
     fontSize: FontSize.xs,
     color: Colors.text.secondary,
-    marginTop: 2,
+    fontWeight: '500',
   },
+
+  driverDot: {
+    fontSize: FontSize.xs,
+    color: Colors.text.tertiary,
+  },
+
   driverNew: {
     fontSize: FontSize.xs,
     color: Colors.secondary,
-    fontWeight: "600",
-    marginTop: 2,
+    fontWeight: '600',
   },
+
+  // Price Display
+  priceDisplay: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+
+  mainPrice: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+
+  priceUnit: {
+    fontSize: FontSize.xs,
+    color: Colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  originalPrice: {
+    fontSize: 11,
+    color: Colors.text.tertiary,
+    textDecorationLine: 'line-through',
+  },
+
   promoBadge: {
     backgroundColor: Colors.error,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
+    paddingVertical: 2,
+    marginTop: 4,
   },
-  promoText: { fontSize: 11, fontWeight: "800", color: Colors.white },
 
-  // Vehicle
-  vehiclePill: {
-    backgroundColor: Colors.background.secondary,
+  promoText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Colors.white,
+  },
+
+  // ── Route Section ──────────────────────────────────────────────────────────
+  routeSection: {
+    marginBottom: Spacing.lg,
+  },
+
+  routeEndpoint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+  },
+
+  locationDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: Colors.secondary,
+    marginTop: 4,
+  },
+
+  locationDotEnd: {
+    backgroundColor: Colors.primary,
+  },
+
+  endpointText: {
+    flex: 1,
+    gap: 4,
+  },
+
+  city: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  date: {
+    fontSize: FontSize.xs,
+    color: Colors.text.tertiary,
+  },
+
+  routeLine: {
+    width: 2,
+    marginLeft: 5,
+    marginVertical: Spacing.sm,
+    alignItems: 'center',
+    minHeight: 40,
+    position: 'relative',
+  },
+
+  routeLineInner: {
+    flex: 1,
+    width: 2,
+    backgroundColor: Colors.primary,
+    opacity: 0.3,
+  },
+
+  daysBadge: {
+    backgroundColor: Colors.primary,
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
+    position: 'absolute',
   },
-  vehicleText: {
+
+  daysText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: Colors.text.secondary,
+    fontWeight: '700',
+    color: Colors.white,
   },
 
-  // Pills
-  pillsRow: { gap: Spacing.sm, alignItems: "center", marginBottom: Spacing.md },
-  pillGroup: { flexDirection: "row", gap: Spacing.xs },
-  pill: {
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    alignItems: "center",
-  },
-  pickupPill: { backgroundColor: PICKUP_BG },
-  dropoffPill: { backgroundColor: DROPOFF_BG },
-  pillCity: { fontSize: 11, fontWeight: "700" },
-  pillDate: { fontSize: 10, marginTop: 1 },
-  pickupText: { color: PICKUP_TEXT },
-  dropoffText: { color: DROPOFF_TEXT },
-  pillArrow: {
-    fontSize: FontSize.base,
-    color: Colors.text.tertiary,
-    marginHorizontal: Spacing.xs,
+  // ── Capacity Section ───────────────────────────────────────────────────────
+  capacitySection: {
+    backgroundColor: 'rgba(99,102,241,0.04)',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
   },
 
-  // Capacity
-  capacityRow: { gap: Spacing.xs, marginBottom: Spacing.md },
-  bar: {
-    height: 4,
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  barFill: {
-    height: "100%",
-    backgroundColor: Colors.text.primary,
-    borderRadius: 2,
-  },
-  capacityLabel: { fontSize: FontSize.xs, color: Colors.text.secondary },
-  kgLeft: { fontWeight: "700", color: Colors.text.primary },
-
-  // Min booking
-  minKgBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(39,110,241,0.09)",
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: "rgba(39,110,241,0.25)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 5,
+  capacityHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.sm,
   },
-  minKgText: {
-    fontSize: FontSize.xs,
-    fontWeight: "700",
-    color: Colors.secondary,
+
+  capacityLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
 
-  // Forbidden items
-  forbiddenRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  capacityText: {
+    fontSize: FontSize.sm,
+    fontWeight: '600',
+    color: Colors.text.secondary,
+  },
+
+  capacityValue: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
+    color: Colors.text.primary,
+  },
+
+  capacityMax: {
+    fontWeight: '500',
+    color: Colors.text.secondary,
+  },
+
+  barBg: {
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
+  },
+
+  barFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.full,
+  },
+
+  capacityStatus: {
+    fontSize: FontSize.xs,
+    color: Colors.text.secondary,
+    fontWeight: '500',
+  },
+
+  // ── Service Tags Section ──────────────────────────────────────────────────
+  serviceTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.xs,
     marginBottom: Spacing.md,
-    flexWrap: "nowrap",
   },
-  forbiddenLabel: {
-    fontSize: FontSize.xs,
-    fontWeight: "600",
-    color: Colors.error,
-    flexShrink: 0,
-  },
-  forbiddenScroll: { gap: Spacing.xs, flexDirection: "row" },
-  forbiddenPill: {
-    backgroundColor: "rgba(225,25,0,0.07)",
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 3,
-  },
-  forbiddenPillText: { fontSize: 11, fontWeight: "600", color: Colors.error },
 
-  // Service tags
-  serviceTagsRow: { gap: Spacing.xs, marginBottom: Spacing.sm },
   serviceTag: {
-    backgroundColor: Colors.background.secondary,
+    backgroundColor: 'rgba(99,102,241,0.1)',
     borderRadius: BorderRadius.full,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: Colors.border.light,
-  },
-  serviceTagText: {
-    fontSize: 11,
-    fontWeight: "500",
-    color: Colors.text.secondary,
+    borderColor: 'rgba(99,102,241,0.2)',
   },
 
-  // Footer
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  serviceTagText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.primary,
   },
-  priceBlock: { gap: 4 },
-  priceRow: { flexDirection: "row", alignItems: "baseline", gap: Spacing.xs },
-  originalPrice: {
-    fontSize: FontSize.sm,
-    color: Colors.text.tertiary,
-    textDecorationLine: "line-through",
-  },
-  price: {
-    fontSize: FontSize.lg,
-    fontWeight: "800",
-    color: Colors.text.primary,
-  },
-  perKg: {
-    fontSize: FontSize.xs,
-    fontWeight: "400",
-    color: Colors.text.secondary,
-  },
-  bookBtn: {
+
+  // ── CTA Button ─────────────────────────────────────────────────────────────
+  cta: {
     backgroundColor: Colors.primary,
     borderRadius: BorderRadius.lg,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  bookBtnText: {
+
+  ctaText: {
+    fontSize: FontSize.base,
+    fontWeight: '700',
     color: Colors.white,
-    fontSize: FontSize.sm,
-    fontWeight: "700",
   },
 });

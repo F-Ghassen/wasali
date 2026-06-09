@@ -5,8 +5,15 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { formatDate, formatPrice } from '@/utils/formatters';
 import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
+import {
+  getOriginCity,
+  getDestinationCity,
+  getOriginFlag,
+  getDestinationFlag,
+} from '@/app/(tabs)/booking/bookingDetail/utils/routeCities';
 import type { BookingWithRoute } from '@/types/models';
 import type { BookingStatus } from '@/constants/bookingStatus';
+import type { BookingWithDriver } from '@/app/(tabs)/booking/bookingDetail/types/index';
 
 interface BookingCardProps {
   booking: BookingWithRoute;
@@ -14,17 +21,21 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking, onPress }: BookingCardProps) {
-  const route = booking.route;
+  const b = booking as unknown as BookingWithDriver;
+  const origin = `${getOriginFlag(b)} ${getOriginCity(b)}`;
+  const dest = `${getDestinationCity(b)} ${getDestinationFlag(b)}`;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.route}>
-            {(booking.route as any)?.origin_city ?? '—'} → {(booking.route as any)?.destination_city ?? '—'}
-          </Text>
+        <View style={styles.routeBlock}>
+          <Text style={styles.route}>{`${origin}  →  ${dest}`}</Text>
           <Text style={styles.date}>
-            {route?.departure_date ? formatDate(route.departure_date) : '—'}
+            {'Dep: '}
+            {booking.route?.departure_date ? formatDate(booking.route.departure_date) : '—'}
+            {booking.route?.estimated_arrival_date
+              ? `  ·  Arr: ${formatDate(booking.route.estimated_arrival_date)}`
+              : ''}
           </Text>
         </View>
         <StatusBadge status={booking.status as BookingStatus} />
@@ -63,6 +74,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  routeBlock: { flex: 1, marginRight: Spacing.sm },
   route: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
   date: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 2 },
   divider: { height: 1, backgroundColor: Colors.border.light, marginVertical: Spacing.md },

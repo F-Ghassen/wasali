@@ -41,7 +41,7 @@ export default function BookingListScreen() {
     const to = from + PAGE_SIZE - 1;
     const { data, error: fetchError } = await supabase
       .from('bookings')
-      .select('*, route:routes(*, route_stops(*))')
+      .select('*, route:routes(*, route_stops(*, city:cities(id, name, flag_emoji, country_code)))')
       .eq('sender_id', session.user.id)
       .order('created_at', { ascending: false })
       .range(from, to);

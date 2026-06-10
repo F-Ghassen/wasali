@@ -44,21 +44,21 @@ const SECTIONS: Section[] = [
     title: '📦 Sender Tabs',
     color: Colors.primary,
     routes: [
-      { label: 'Home — Browse Routes', path: '/(tabs)' },
-      { label: 'My Bookings', path: '/(tabs)/booking/bookingList' },
-      { label: 'Shipping Requests', path: '/(tabs)/requests' },
-      { label: 'P2P — Send Docs', path: '/(tabs)/p2p/index' },
-      { label: 'Profile', path: '/(tabs)/profile' },
+      { label: 'Home — Browse Routes', path: '/(sender)' },
+      { label: 'My Bookings', path: '/(sender)/booking/bookingList' },
+      { label: 'Shipping Requests', path: '/(sender)/requests' },
+      { label: 'P2P — Send Docs', path: '/(sender)/p2p/index' },
+      { label: 'Profile', path: '/(sender)/profile' },
     ],
   },
   {
     title: '🚗 Driver Tabs',
     color: '#7C3AED',
     routes: [
-      { label: 'Dashboard', path: '/(driver-tabs)' },
-      { label: 'My Routes', path: '/(driver-tabs)/routes' },
-      { label: 'Bookings (Driver)', path: '/(driver-tabs)/bookings' },
-      { label: 'Profile (Driver)', path: '/(driver-tabs)/profile' },
+      { label: 'Dashboard', path: '/(driver)' },
+      { label: 'My Routes', path: '/(driver)/routes' },
+      { label: 'Bookings (Driver)', path: '/(driver)/bookings' },
+      { label: 'Profile (Driver)', path: '/(driver)/profile' },
     ],
   },
   {
@@ -74,15 +74,15 @@ const SECTIONS: Section[] = [
     title: '📋 Booking Flow',
     color: Colors.success,
     routes: [
-      { label: 'Create Booking', path: '/(tabs)/booking', note: 'step-based wizard' },
+      { label: 'Create Booking', path: '/(sender)/booking', note: 'step-based wizard' },
     ],
   },
   {
     title: '🔍 Detail Screens',
     color: '#D97706',
     routes: [
-      { label: 'Booking Detail (Sender)', path: '/(tabs)/booking/bookingDetail/[id]', note: 'replace [id] with UUID' },
-      { label: 'Route Results', path: '/(tabs)/routes/results', note: 'needs search params' },
+      { label: 'Booking Detail (Sender)', path: '/(sender)/booking/bookingDetail/[id]', note: 'replace [id] with UUID' },
+      { label: 'Route Results', path: '/(sender)/routes/results', note: 'needs search params' },
     ],
   },
   {
@@ -97,10 +97,10 @@ const SECTIONS: Section[] = [
     title: '🤝 P2P Screens',
     color: '#0EA5E9',
     routes: [
-      { label: 'P2P Hub', path: '/(tabs)/p2p/index' },
-      { label: 'P2P — Send', path: '/(tabs)/p2p/send' },
-      { label: 'P2P — Carry', path: '/(tabs)/p2p/carry' },
-      { label: 'P2P — Leaderboard', path: '/(tabs)/p2p/leaderboard' },
+      { label: 'P2P Hub', path: '/(sender)/p2p/index' },
+      { label: 'P2P — Send', path: '/(sender)/p2p/send' },
+      { label: 'P2P — Carry', path: '/(sender)/p2p/carry' },
+      { label: 'P2P — Leaderboard', path: '/(sender)/p2p/leaderboard' },
     ],
   },
   {
@@ -137,7 +137,7 @@ function SessionBanner() {
     setLoggingIn(email);
     try {
       await signIn(email, password);
-      router.replace(role === 'driver' ? '/(driver-tabs)' as any : '/(tabs)');
+      router.replace(role === 'driver' ? '/(driver)' as any : '/(sender)');
     } finally {
       setLoggingIn(null);
     }

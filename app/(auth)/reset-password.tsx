@@ -53,7 +53,7 @@ export default function ResetPasswordScreen() {
       showToast('Password updated successfully', 'success');
       if (updateData.user) await loadProfile(updateData.user.id);
       const { profile } = useAuthStore.getState();
-      router.replace(profile?.role === 'driver' ? '/(driver-tabs)' as any : '/(tabs)');
+      router.replace(profile?.role === 'driver' ? '/(driver)' as any : '/(sender)');
     } catch (error) {
       const msg = (error as { message?: string }).message ?? '';
       if (msg.includes('expired') || msg.includes('invalid')) {

@@ -24,7 +24,7 @@ const StripeProvider = isStripeReady
   : null;
 
 function roleRoute(role?: string) {
-  return (role === 'driver' ? '/(driver-tabs)' : '/(tabs)') as any;
+  return (role === 'driver' ? '/(driver)' : '/(sender)') as any;
 }
 
 export default function RootLayout() {

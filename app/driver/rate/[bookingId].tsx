@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { RateScreen } from '@/app/rate/components/RateScreen';
+import { RateScreen } from '@/components/rating/RateScreen';
 
 export default function RateSenderScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();

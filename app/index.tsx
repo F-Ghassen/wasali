@@ -6,5 +6,5 @@ export default function Index() {
   if (!isInitialized) return null;
   if (!session) return <Redirect href="/(auth)/welcome" />;
   if (!profile) return <Redirect href="/(auth)/welcome" />;
-  return <Redirect href={profile.role === 'driver' ? '/(driver-tabs)' as any : '/(tabs)'} />;
+  return <Redirect href={profile.role === 'driver' ? '/(driver)' as any : '/(sender)'} />;
 }

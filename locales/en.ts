@@ -334,7 +334,7 @@ export default {
       ],
     },
     whereFrom: {
-      title: "Where are your packages coming from?",
+      title: "Shipping Routes by Country",
       subtitle:
         "Choose your departure country to find available shipping routes",
       seeAll: "See all available routes →",

@@ -4,13 +4,14 @@ import type { RouteWithStops, RouteStatus, RouteTemplate } from '@/types/models'
 import { notifyRouteAlerts } from '@/app/route-alert/services/routeNotificationService';
 import type { TablesUpdate } from '@/types/database';
 import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 type RouteFilter = 'active' | 'completed' | 'cancelled' | 'all';
 
 interface StopInput {
   city_id: string;
   stop_order: number;
-  stop_type: 'collection' | 'dropoff';
+  stop_type: typeof STOP_TYPE.COLLECTION | typeof STOP_TYPE.DROPOFF;
   arrival_date?: string | null;
   location_name?: string | null;
   meeting_point_url?: string | null;
@@ -54,15 +55,21 @@ interface CreateRouteInput {
   payment_types?: PaymentTypeInput[];
 }
 
+const ROUTE_PAGE_SIZE = 10;
+
 interface DriverRouteState {
   routes: RouteWithStops[];
   templates: RouteTemplate[];
   isLoading: boolean;
   error: string | null;
+  hasMore: boolean;
+  page: number;
 }
 
 interface DriverRouteActions {
-  fetchRoutes: (driverId: string, filter?: RouteFilter) => Promise<void>;
+  fetchRoutes: (driverId: string, filter?: RouteFilter, pageNum?: number, replace?: boolean) => Promise<void>;
+  /** Fetch a single route by ID and upsert it into the store (no replace). */
+  fetchRouteById: (routeId: string) => Promise<void>;
   createRoute: (driverId: string, data: CreateRouteInput) => Promise<string>;
   publishRoute: (id: string) => Promise<void>;
   updateRoute: (id: string, updates: Partial<CreateRouteInput>) => Promise<void>;
@@ -80,17 +87,23 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
   templates: [],
   isLoading: false,
   error: null,
+  hasMore: true,
+  page: 0,
 
   clearError: () => set({ error: null }),
 
-  fetchRoutes: async (driverId, filter = 'all') => {
+  fetchRoutes: async (driverId, filter = 'all', pageNum = 0, replace = true) => {
     set({ isLoading: true, error: null });
     try {
+      const from = pageNum * ROUTE_PAGE_SIZE;
+      const to = from + ROUTE_PAGE_SIZE - 1;
+
       let query = supabase
         .from('routes')
         .select('*, route_stops(*), route_services(*), route_payment_methods(*)')
         .eq('driver_id', driverId)
-        .order('departure_date', { ascending: true });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
@@ -98,9 +111,48 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
 
       const { data, error } = await query;
       if (error) throw error;
-      set({ routes: (data ?? []) as RouteWithStops[] });
+      const incoming = (data ?? []) as RouteWithStops[];
+      set({
+        routes: replace ? incoming : [...get().routes, ...incoming],
+        hasMore: incoming.length === ROUTE_PAGE_SIZE,
+        page: pageNum,
+      });
     } catch (err) {
-      set({ error: (err as Error).message });
+      const msg = (err as Error).message;
+      if (__DEV__) {
+        console.error('[driverRouteStore.fetchRoutes]', msg);
+      }
+      set({ error: msg });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  fetchRouteById: async (routeId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .select('*, route_stops(*), route_services(*), route_payment_methods(*)')
+        .eq('id', routeId)
+        .single();
+      if (error) throw error;
+      const incoming = data as RouteWithStops;
+      // Upsert: replace existing entry if present, otherwise append.
+      set((state) => {
+        const exists = state.routes.some((r) => r.id === routeId);
+        return {
+          routes: exists
+            ? state.routes.map((r) => (r.id === routeId ? incoming : r))
+            : [...state.routes, incoming],
+        };
+      });
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (__DEV__) {
+        console.error('[driverRouteStore.fetchRouteById]', msg);
+      }
+      set({ error: msg });
     } finally {
       set({ isLoading: false });
     }
@@ -143,8 +195,8 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           arrival_date: stop.arrival_date ?? null,
           location_name: stop.location_name ?? null,
           meeting_point_url: stop.meeting_point_url ?? null,
-          is_pickup_available: stop.stop_type === 'collection',
-          is_dropoff_available: stop.stop_type === 'dropoff',
+          is_pickup_available: stop.stop_type === STOP_TYPE.COLLECTION,
+          is_dropoff_available: stop.stop_type === STOP_TYPE.DROPOFF,
         }));
         const { error: stopsError } = await supabase.from('route_stops').insert(stopsInsert);
         if (stopsError) throw stopsError;
@@ -186,8 +238,8 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
 
       if (data.save_as_template && data.template_name) {
         // Extract origin and destination city IDs from stops
-        const collectionStop = data.stops?.find((s) => s.stop_type === 'collection');
-        const dropoffStop = data.stops?.find((s) => s.stop_type === 'dropoff');
+        const collectionStop = data.stops?.find((s) => s.stop_type === STOP_TYPE.COLLECTION);
+        const dropoffStop = data.stops?.find((s) => s.stop_type === STOP_TYPE.DROPOFF);
 
         const templateInsert = {
           driver_id: driverId,
@@ -202,7 +254,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         await (supabase as any).from('route_templates').insert(templateInsert);
       }
 
-      await get().fetchRoutes(driverId);
+      await get().fetchRoutes(driverId, 'all', 0, true);
       return routeId;
     } catch (err) {
       set({ error: (err as Error).message });

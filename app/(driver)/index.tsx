@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,11 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { format } from 'date-fns';
-import { ChevronRight, MapPin, Package } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { ChevronRight, Package } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
+import { localTodayString } from '@/utils/formatters';
 import { Spacing, BorderRadius } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useAuthStore } from '@/stores/authStore';
@@ -22,27 +23,33 @@ import { StatCard } from '@/components/driver/stats/StatCard';
 import { EarningsSummary } from '@/components/driver/earnings/EarningsSummary';
 import { RevenueChart } from '@/components/driver/earnings/RevenueChart';
 import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
+import { DriverRouteCard } from '@/components/driver/routes/DriverRouteCard';
 import type { BookingStatus } from '@/constants/bookingStatus';
 
 export default function DriverDashboardScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { profile } = useAuthStore();
-  const { routes, fetchRoutes, isLoading: routesLoading } = useDriverRouteStore();
-  const { bookings, stats, fetchBookings, getMonthlyRevenue, isLoading: bookingsLoading } = useDriverBookingStore();
+  const { routes, fetchRoutes, isLoading: routesLoading, error: routesError } = useDriverRouteStore();
+  const { bookings, stats, fetchBookings, getMonthlyRevenue, isLoading: bookingsLoading, isInitialized: bookingsInitialized } = useDriverBookingStore();
 
   const isRefreshing = routesLoading || bookingsLoading;
 
-  const load = () => {
+  const load = useCallback(() => {
     if (!profile) return;
     fetchRoutes(profile.id, 'active');
     fetchBookings(profile.id, 'all');
-  };
+  }, [profile?.id]);
 
+  // Fire on mount + whenever the screen comes back into focus (e.g. after
+  // role switch via DevRoleSwitcher, or returning from route creation).
+  useFocusEffect(load);
+
+  // Also fire whenever profile.id first becomes available after login.
   useEffect(() => { load(); }, [profile?.id]);
 
   const upcomingRoutes = routes
-    .filter((r) => r.status === 'active' && r.departure_date >= new Date().toISOString().split('T')[0])
+    .filter((r) => r.status === 'active' && r.departure_date >= localTodayString())
     .slice(0, 3);
 
   const pendingBookings = bookings.filter((b) => b.status === 'pending').slice(0, 5);
@@ -64,6 +71,13 @@ export default function DriverDashboardScreen() {
           </View>
         </View>
 
+        {/* Route fetch error — surfaces silent failures instead of showing 0 */}
+        {routesError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>⚠️ {routesError}</Text>
+          </View>
+        ) : null}
+
         {/* Earnings summary */}
         <EarningsSummary
           totalEarnings={stats.totalEarnings}
@@ -73,11 +87,10 @@ export default function DriverDashboardScreen() {
         {/* Monthly revenue chart */}
         <RevenueChart data={getMonthlyRevenue()} />
 
-        {/* Stats row */}
         <View style={styles.statsRow}>
           <StatCard icon="🗓️" label={t('dashboard.upcomingTrips')} value={upcomingRoutes.length} />
-          <StatCard icon="📦" label={t('dashboard.pending')} value={stats.pending} accent={Colors.warning} />
-          <StatCard icon="🚚" label={t('dashboard.inTransit')} value={stats.inTransit} accent={Colors.secondary} />
+          <StatCard icon="📦" label={t('dashboard.pending')} value={!bookingsInitialized ? '—' : stats.pending} accent={Colors.warning} />
+          <StatCard icon="🚚" label={t('dashboard.inTransit')} value={!bookingsInitialized ? '—' : stats.inTransit} accent={Colors.secondary} />
         </View>
 
         {/* Pending bookings */}
@@ -143,24 +156,11 @@ export default function DriverDashboardScreen() {
             </View>
           ) : (
             upcomingRoutes.map((route) => (
-              <TouchableOpacity
+              <DriverRouteCard
                 key={route.id}
-                style={styles.routeCard}
+                route={route}
                 onPress={() => router.push({ pathname: '/driver/routes/[id]' as any, params: { id: route.id } })}
-              >
-                <View style={styles.routeRow}>
-                  <MapPin size={18} color={Colors.text.secondary} />
-                  <View style={styles.routeInfo}>
-                    <Text style={styles.routeTitle}>
-                      Route Details
-                    </Text>
-                    <Text style={styles.routeMeta}>
-                      {format(new Date(route.departure_date), 'MMM d, yyyy')} · {route.available_weight_kg}kg available
-                    </Text>
-                  </View>
-                  <ChevronRight size={16} color={Colors.text.tertiary} />
-                </View>
-              </TouchableOpacity>
+              />
             ))
           )}
         </View>
@@ -190,16 +190,15 @@ const styles = StyleSheet.create({
   bookingInfo: { flex: 1 },
   bookingName: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
   bookingMeta: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 2 },
-  routeCard: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
-    marginBottom: Spacing.sm,
+  errorBanner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  routeInfo: { flex: 1 },
-  routeTitle: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
-  routeMeta: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: 2 },
+  errorText: { fontSize: FontSize.sm, color: '#DC2626' },
   emptyCard: {
     backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.lg,

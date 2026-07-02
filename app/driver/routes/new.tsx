@@ -40,10 +40,12 @@ import { DateInput, URLInput, CityPickerInput } from "@/components/shared/ui/for
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/stores/authStore";
 import { useDriverRouteStore } from "@/stores/driverRouteStore";
+import { localTodayString } from "@/utils/formatters";
 import { useUIStore } from "@/stores/uiStore";
 import { useCitiesStore } from "@/stores/citiesStore";
 import { supabase } from "@/lib/supabase";
 import { RouteSummaryCard } from "@/components/driver/routes";
+import { STOP_TYPE } from "@/constants/stopTypes";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -614,10 +616,10 @@ export default function NewRouteScreen() {
   const applyPreviousRoute = (route: (typeof routes)[number]) => {
     const stops = route.route_stops ?? [];
     const collStops = stops
-      .filter((s) => s.stop_type === "collection")
+      .filter((s) => s.stop_type === STOP_TYPE.COLLECTION)
       .sort((a, b) => a.stop_order - b.stop_order);
     const dropStops = stops
-      .filter((s) => s.stop_type === "dropoff")
+      .filter((s) => s.stop_type === STOP_TYPE.DROPOFF)
       .sort((a, b) => a.stop_order - b.stop_order);
 
     setCollectionStops(
@@ -941,7 +943,7 @@ export default function NewRouteScreen() {
         .map((s, i) => ({
           city_id: s.city_id,
           stop_order: i + 1,
-          stop_type: "collection" as const,
+          stop_type: STOP_TYPE.COLLECTION,
           arrival_date: s.collection_date || null,
           location_name: s.location_name || null,
           meeting_point_url: s.meeting_point_url || null,
@@ -954,7 +956,7 @@ export default function NewRouteScreen() {
         .map((s, i) => ({
           city_id: s.city_id,
           stop_order: collStops.length + i + 1,
-          stop_type: "dropoff" as const,
+          stop_type: STOP_TYPE.DROPOFF,
           arrival_date: s.estimated_arrival_date || null,
           location_name: s.location_name || null,
           meeting_point_url: s.meeting_point_url || null,
@@ -966,7 +968,7 @@ export default function NewRouteScreen() {
         promoEnabled && promoDiscountPct ? parseInt(promoDiscountPct) : null;
 
       const departure_date =
-        collStops[0]?.arrival_date || new Date().toISOString().split("T")[0];
+        collStops[0]?.arrival_date || localTodayString();
 
       const routeId = await createRoute(profile.id, {
         departure_date,
@@ -1153,10 +1155,10 @@ export default function NewRouteScreen() {
                 >
                   {routes.slice(0, 6).map((route) => {
                     const collStop = route.route_stops?.find(
-                      (s) => s.stop_type === "collection",
+                      (s) => s.stop_type === STOP_TYPE.COLLECTION,
                     );
                     const dropStop = route.route_stops?.find(
-                      (s) => s.stop_type === "dropoff",
+                      (s) => s.stop_type === STOP_TYPE.DROPOFF,
                     );
                     const collCity = collStop?.city_id
                       ? getCityName(collStop.city_id)

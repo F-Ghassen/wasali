@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus } from 'lucide-react-native';
@@ -26,9 +27,10 @@ export default function DriverRoutesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { profile } = useAuthStore();
-  const { routes, fetchRoutes, isLoading } = useDriverRouteStore();
+  const { routes, fetchRoutes, isLoading, hasMore, page } = useDriverRouteStore();
   const { bookings, fetchBookings } = useDriverBookingStore();
   const [filter, setFilter] = useState<FilterOption>('all');
+  const loadingMore = useRef(false);
 
   const FILTERS: { key: FilterOption; label: string }[] = [
     { key: 'all', label: t('driverRoutes.filters.all') },
@@ -39,8 +41,15 @@ export default function DriverRoutesScreen() {
 
   const load = () => {
     if (!profile) return;
-    fetchRoutes(profile.id, filter);
+    fetchRoutes(profile.id, filter, 0, true);
     fetchBookings(profile.id);
+  };
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore.current || !profile) return;
+    loadingMore.current = true;
+    await fetchRoutes(profile.id, filter, page + 1, false);
+    loadingMore.current = false;
   };
 
   useEffect(() => { load(); }, [profile?.id, filter]);
@@ -88,7 +97,14 @@ export default function DriverRoutesScreen() {
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={load} />}
+        refreshControl={<RefreshControl refreshing={isLoading && page === 0} onRefresh={load} />}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          isLoading && page > 0 ? (
+            <ActivityIndicator size="small" color={Colors.text.tertiary} style={styles.footer} />
+          ) : null
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
@@ -137,4 +153,5 @@ const styles = StyleSheet.create({
   chipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.secondary },
   chipTextActive: { color: Colors.white },
   list: { paddingHorizontal: Spacing.base, paddingBottom: Spacing['3xl'] },
+  footer: { paddingVertical: Spacing.xl },
 });

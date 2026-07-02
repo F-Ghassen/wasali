@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
   TouchableOpacity,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -60,14 +61,27 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { profile } = useAuthStore();
-  const { notifications, unreadCount, isLoading, markRead, markAllRead, fetchNotifications, subscribeRealtime } = useNotificationStore();
+  const { notifications, unreadCount, isLoading, hasMore, page, markRead, markAllRead, fetchNotifications, subscribeRealtime } = useNotificationStore();
+  const loadingMore = useRef(false);
 
   useEffect(() => {
     if (!profile) return;
-    fetchNotifications(profile.id);
+    fetchNotifications(profile.id, 0, true);
     const unsubscribe = subscribeRealtime(profile.id);
     return unsubscribe;
   }, [profile?.id, fetchNotifications, subscribeRealtime]);
+
+  const onRefresh = useCallback(async () => {
+    if (!profile) return;
+    await fetchNotifications(profile.id, 0, true);
+  }, [profile?.id, fetchNotifications]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || loadingMore.current || !profile) return;
+    loadingMore.current = true;
+    await fetchNotifications(profile.id, page + 1, false);
+    loadingMore.current = false;
+  }, [hasMore, page, profile?.id, fetchNotifications]);
 
   const handleNotificationPress = (item: AppNotification) => {
     if (!item.read) markRead(item.id);
@@ -99,7 +113,7 @@ export default function NotificationsScreen() {
         )}
       </View>
 
-      {notifications.length === 0 ? (
+      {notifications.length === 0 && !isLoading ? (
         <View style={styles.empty}>
           <Bell size={40} color={Colors.text.tertiary} />
           <Text style={styles.emptyText}>No notifications yet</Text>
@@ -112,6 +126,16 @@ export default function NotificationsScreen() {
             <NotificationRow item={item} role={profile?.role as 'sender' | 'driver' | undefined} onPress={handleNotificationPress} />
           )}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={isLoading && page === 0} onRefresh={onRefresh} />}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            isLoading && page > 0 ? (
+              <View style={styles.footer}>
+                <ActivityIndicator size="small" color={Colors.text.tertiary} />
+              </View>
+            ) : null
+          }
         />
       )}
     </SafeAreaView>
@@ -178,4 +202,5 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   emptyText: { fontSize: FontSize.base, color: Colors.text.tertiary },
+  footer: { paddingVertical: Spacing.xl, alignItems: 'center' },
 });

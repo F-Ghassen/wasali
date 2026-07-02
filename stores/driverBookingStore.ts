@@ -12,11 +12,17 @@ interface DriverBookingStats {
   totalEarnings: number;
 }
 
+const BOOKING_PAGE_SIZE = 15;
+
 interface DriverBookingState {
   bookings: BookingWithSender[];
   stats: DriverBookingStats;
   isLoading: boolean;
+  /** True once the first fetchBookings call for the current session has resolved. */
+  isInitialized: boolean;
   error: string | null;
+  hasMore: boolean;
+  page: number;
 }
 
 export interface RouteStats {
@@ -31,7 +37,7 @@ export interface MonthlyRevenue {
 }
 
 interface DriverBookingActions {
-  fetchBookings: (driverId: string, filter?: BookingFilter) => Promise<void>;
+  fetchBookings: (driverId: string, filter?: BookingFilter, pageNum?: number, replace?: boolean) => Promise<void>;
   confirmBooking: (id: string) => Promise<void>;
   rejectBooking: (id: string) => Promise<void>;
   markInTransit: (id: string) => Promise<void>;
@@ -42,6 +48,8 @@ interface DriverBookingActions {
   clearError: () => void;
   getRouteStats: (routeId: string) => RouteStats;
   getMonthlyRevenue: () => MonthlyRevenue[];
+  /** Call on sign-out so the next login starts with a clean slate. */
+  reset: () => void;
 }
 
 const emptyStats: DriverBookingStats = {
@@ -56,9 +64,14 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
   bookings: [],
   stats: emptyStats,
   isLoading: false,
+  isInitialized: false,
   error: null,
+  hasMore: true,
+  page: 0,
 
   clearError: () => set({ error: null }),
+
+  reset: () => set({ bookings: [], stats: emptyStats, isInitialized: false, isLoading: false, error: null, page: 0, hasMore: true }),
 
   computeStats: () => {
     const { bookings } = get();
@@ -78,7 +91,7 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
     set({ stats });
   },
 
-  fetchBookings: async (driverId, filter = 'all') => {
+  fetchBookings: async (driverId, filter = 'all', pageNum = 0, replace = true) => {
     set({ isLoading: true, error: null });
     try {
       // First get all route IDs for this driver
@@ -90,15 +103,19 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
 
       const routeIds = (routes ?? []).map((r) => r.id);
       if (routeIds.length === 0) {
-        set({ bookings: [], stats: emptyStats });
+        set({ bookings: [], stats: emptyStats, hasMore: false, page: 0, isInitialized: true });
         return;
       }
+
+      const from = pageNum * BOOKING_PAGE_SIZE;
+      const to = from + BOOKING_PAGE_SIZE - 1;
 
       let query = supabase
         .from('bookings')
         .select('*, sender:profiles!sender_id(id, full_name, phone, avatar_url), route:routes!route_id(id, departure_date, estimated_arrival_date)')
         .in('route_id', routeIds)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
@@ -107,7 +124,13 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
       const { data, error } = await query;
       if (error) throw error;
 
-      set({ bookings: (data ?? []) as BookingWithSender[] });
+      const incoming = (data ?? []) as BookingWithSender[];
+      set({
+        bookings: replace ? incoming : [...get().bookings, ...incoming],
+        hasMore: incoming.length === BOOKING_PAGE_SIZE,
+        page: pageNum,
+        isInitialized: true,
+      });
       get().computeStats();
     } catch (err) {
       set({ error: (err as Error).message });

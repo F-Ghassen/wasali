@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -24,8 +25,9 @@ export default function DriverBookingsScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { profile } = useAuthStore();
-  const { bookings, fetchBookings, confirmBooking, rejectBooking, isLoading } = useDriverBookingStore();
+  const { bookings, fetchBookings, confirmBooking, rejectBooking, isLoading, hasMore, page } = useDriverBookingStore();
   const [filter, setFilter] = useState<FilterOption>('all');
+  const loadingMore = useRef(false);
 
   const FILTERS: { key: FilterOption; label: string }[] = [
     { key: 'all', label: t('driverBookings.filters.all') },
@@ -36,7 +38,14 @@ export default function DriverBookingsScreen() {
   ];
 
   const load = () => {
-    if (profile) fetchBookings(profile.id, filter === 'all' ? 'all' : filter);
+    if (profile) fetchBookings(profile.id, filter === 'all' ? 'all' : filter, 0, true);
+  };
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore.current || !profile) return;
+    loadingMore.current = true;
+    await fetchBookings(profile.id, filter === 'all' ? 'all' : filter, page + 1, false);
+    loadingMore.current = false;
   };
 
   useEffect(() => { load(); }, [profile?.id, filter, fetchBookings]);
@@ -76,7 +85,14 @@ export default function DriverBookingsScreen() {
         )}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={load} />}
+        refreshControl={<RefreshControl refreshing={isLoading && page === 0} onRefresh={load} />}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          isLoading && page > 0 ? (
+            <ActivityIndicator size="small" color={Colors.text.tertiary} style={styles.footer} />
+          ) : null
+        }
         ListEmptyComponent={
           !isLoading ? (
             <EmptyState
@@ -115,4 +131,5 @@ const styles = StyleSheet.create({
   chipText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.secondary },
   chipTextActive: { color: Colors.white },
   list: { paddingHorizontal: Spacing.base, paddingBottom: Spacing['3xl'] },
+  footer: { paddingVertical: Spacing.xl },
 });

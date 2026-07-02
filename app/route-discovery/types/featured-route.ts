@@ -1,4 +1,5 @@
-export type StopType = 'collection' | 'dropoff';
+import type { StopType } from '@/constants/stopTypes';
+export type { StopType };
 
 export type FeaturedRouteStop = {
   city_id: string;

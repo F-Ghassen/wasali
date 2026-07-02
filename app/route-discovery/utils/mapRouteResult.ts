@@ -1,5 +1,6 @@
 import type { RouteResult } from '@/hooks/useRouteResults';
-import type { FeaturedRoute, FeaturedRouteStop, StopType } from '@/app/route-discovery/types/featured-route';
+import type { FeaturedRoute, FeaturedRouteStop } from '@/app/route-discovery/types/featured-route';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 type CityLookup = (id: string) => { name: string; country: string; flagEmoji: string } | undefined;
 
@@ -24,7 +25,7 @@ export function mapRouteResultToFeaturedRoute(
       cityName:    city?.name      ?? 'Unknown',
       country:     city?.country   ?? '',
       flagEmoji:   city?.flagEmoji ?? '🌍',
-      stopType:    (stop.stop_type === 'dropoff' ? 'dropoff' : 'collection') as StopType,
+      stopType:    stop.stop_type === STOP_TYPE.DROPOFF ? STOP_TYPE.DROPOFF : STOP_TYPE.COLLECTION,
       stopOrder:   stop.stop_order,
       arrivalDate: stop.arrival_date ?? '',
     };

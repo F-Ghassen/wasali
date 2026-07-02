@@ -34,6 +34,21 @@ export function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 3) + '...';
 }
 
+/**
+ * Returns today's date as a local-time ISO date string (YYYY-MM-DD).
+ *
+ * Using `new Date().toISOString()` is incorrect because it returns the UTC
+ * date, which can differ from the local date by ±1 day near midnight. This
+ * helper uses the device's local calendar instead.
+ */
+export function localTodayString(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function countryCodeToFlagEmoji(code: string): string {
   return code.toUpperCase().split('')
     .map((c) => String.fromCodePoint(0x1F1E6 + c.charCodeAt(0) - 65))

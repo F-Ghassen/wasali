@@ -16,6 +16,7 @@ import {
   TEST_ROUTE,
   type TestUser,
 } from '../helpers';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 // ─── Skip if no local Supabase ─────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ describe.skipIf(SKIP)('Route lifecycle (integration)', () => {
         city: 'Berlin',
         country: 'DE',
         stop_order: 1,
-        stop_type: 'collection',
+        stop_type: STOP_TYPE.COLLECTION,
         is_pickup_available: true,
         is_dropoff_available: false,
       },
@@ -80,7 +81,7 @@ describe.skipIf(SKIP)('Route lifecycle (integration)', () => {
         city: 'Tunis',
         country: 'TN',
         stop_order: 2,
-        stop_type: 'dropoff',
+        stop_type: STOP_TYPE.DROPOFF,
         is_pickup_available: false,
         is_dropoff_available: true,
       },

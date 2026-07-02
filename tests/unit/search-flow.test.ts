@@ -13,6 +13,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useSearchStore } from '@/stores/searchStore';
 import type { RouteResult } from '@/hooks/useRouteResults';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 // ─── Inline pure helpers (mirrors useRouteResults.ts) ─────────────────────────
 
@@ -25,6 +26,8 @@ interface FilterState {
   destCityOverride?: string;
 }
 
+// mirrors FilterState export from useRouteResults (kept in sync manually)
+
 function effectivePrice(route: RouteResult): number {
   return route.promotion_active && route.promotion_percentage
     ? route.price_per_kg_eur * (1 - route.promotion_percentage / 100)
@@ -33,14 +36,14 @@ function effectivePrice(route: RouteResult): number {
 
 function splitTiers(
   routes: RouteResult[],
-  originCityName: string,
-  destCityName: string,
+  originCityId: string,
+  destCityId: string,
 ): { tier1: RouteResult[]; tier2: RouteResult[] } {
   const tier1 = routes.filter(
-    (r) => r.origin_city_id === originCityName && r.destination_city_id === destCityName,
+    (r) => r.origin_city_id === originCityId && r.destination_city_id === destCityId,
   );
   const tier2 = routes.filter(
-    (r) => !(r.origin_city_id === originCityName && r.destination_city_id === destCityName),
+    (r) => !(r.origin_city_id === originCityId && r.destination_city_id === destCityId),
   );
   return { tier1, tier2 };
 }
@@ -69,6 +72,7 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
     .filter(
       (r) => !filters.destCityOverride || r.destination_city_id === filters.destCityOverride,
     );
+  // mirrors applyFilters in useRouteResults.ts (kept in sync manually)
 }
 
 // ─── Fixture factory ───────────────────────────────────────────────────────────
@@ -77,9 +81,7 @@ function makeRoute(overrides: Partial<RouteResult> = {}): RouteResult {
   return {
     id: 'route-1',
     origin_city_id: 'berlin-id',
-    origin_country: 'DE',
     destination_city_id: 'tunis-id',
-    destination_country: 'TN',
     departure_date: '2026-07-01',
     estimated_arrival_date: '2026-07-05',
     available_weight_kg: 30,
@@ -291,12 +293,12 @@ describe('applyFilters', () => {
   });
 
   it('originCityOverride filters to matching origin', () => {
-    const result = applyFilters([berlin, hamburg], { originCityOverride: 'Berlin' });
+    const result = applyFilters([berlin, hamburg], { originCityOverride: 'berlin-id' });
     expect(result.map((r) => r.id)).toEqual(['berlin']);
   });
 
   it('destCityOverride filters to matching destination', () => {
-    const result = applyFilters([berlin, sfax], { destCityOverride: 'Tunis' });
+    const result = applyFilters([berlin, sfax], { destCityOverride: 'tunis-id' });
     expect(result.map((r) => r.id)).toEqual(['berlin']);
   });
 

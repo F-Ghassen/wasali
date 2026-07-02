@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Alert,
   SafeAreaView,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { format } from 'date-fns';
@@ -22,6 +23,7 @@ import { useDriverRouteStore } from '@/stores/driverRouteStore';
 import { useDriverBookingStore } from '@/stores/driverBookingStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCitiesStore } from '@/stores/citiesStore';
+import { STOP_TYPE } from '@/constants/stopTypes';
 import { Button } from '@/components/shared/ui/primitives/Button';
 import { DriverBookingCard } from '@/components/notifications/DriverBookingCard';
 import type { RouteWithStops } from '@/types/models';
@@ -38,8 +40,8 @@ export default function DriverRouteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
-  const { routes, fetchRoutes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
-  const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered, getRouteStats } = useDriverBookingStore();
+  const { routes, fetchRouteById, cancelRoute, markRouteFull, isLoading } = useDriverRouteStore();
+  const { bookings, fetchBookings, confirmBooking, rejectBooking, getRouteStats } = useDriverBookingStore();
   const { showToast } = useUIStore();
   const cities = useCitiesStore((s) => s.cities);
 
@@ -51,9 +53,11 @@ export default function DriverRouteDetailScreen() {
   const hasActiveBookings = routeBookings.some((b) => ['confirmed', 'in_transit'].includes(b.status));
 
   const load = () => {
-    if (!profile) return;
-    fetchRoutes(profile.id);
-    fetchBookings(profile.id);
+    if (!id) return;
+    // Fetch this specific route by ID — avoids replacing the whole store list
+    // and works even when navigating directly (deep-link, dashboard card, etc.).
+    fetchRouteById(id);
+    if (profile) fetchBookings(profile.id);
   };
 
   useEffect(() => { load(); }, [id, profile?.id]);
@@ -102,6 +106,7 @@ export default function DriverRouteDetailScreen() {
     ]);
   };
 
+  // While the fetch is in flight, show a spinner — never "not found" prematurely.
   if (!route) {
     return (
       <SafeAreaView style={styles.container}>
@@ -113,7 +118,10 @@ export default function DriverRouteDetailScreen() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.centered}>
-          <Text style={styles.notFoundText}>{t('routeDetail.notFound')}</Text>
+          {isLoading
+            ? <ActivityIndicator size="large" color={Colors.primary} />
+            : <Text style={styles.notFoundText}>{t('routeDetail.notFound')}</Text>
+          }
         </View>
       </SafeAreaView>
     );
@@ -209,11 +217,11 @@ export default function DriverRouteDetailScreen() {
         </View>
 
         {/* Collection stops */}
-        {route.route_stops?.filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type).length > 0 && (
+        {route.route_stops?.filter((s) => (s as any).stop_type === STOP_TYPE.COLLECTION || !(s as any).stop_type).length > 0 && (
           <View>
             <Text style={styles.sectionTitle}>{t('routeDetail.sections.collectionStops')}</Text>
             {route.route_stops
-              .filter((s) => (s as any).stop_type === 'collection' || !(s as any).stop_type)
+              .filter((s) => (s as any).stop_type === STOP_TYPE.COLLECTION || !(s as any).stop_type)
               .map((stop, idx) => (
                 <View key={stop.id ?? idx} style={styles.stopRow}>
                   <MapPin size={14} color={Colors.text.tertiary} />
@@ -240,11 +248,11 @@ export default function DriverRouteDetailScreen() {
         )}
 
         {/* Drop-off stops */}
-        {route.route_stops?.filter((s) => (s as any).stop_type === 'dropoff').length > 0 && (
+        {route.route_stops?.filter((s) => (s as any).stop_type === STOP_TYPE.DROPOFF).length > 0 && (
           <View>
             <Text style={styles.sectionTitle}>{t('routeDetail.sections.dropoffStops')}</Text>
             {route.route_stops
-              .filter((s) => (s as any).stop_type === 'dropoff')
+              .filter((s) => (s as any).stop_type === STOP_TYPE.DROPOFF)
               .map((stop, idx) => (
                 <View key={stop.id ?? idx} style={styles.stopRow}>
                   <MapPin size={14} color={Colors.text.tertiary} />

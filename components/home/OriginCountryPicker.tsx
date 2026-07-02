@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
 import { ArrowRight, Lock, Package } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
+import { STOP_TYPE } from '@/constants/stopTypes';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { supabase } from '@/lib/supabase';
@@ -77,7 +78,7 @@ export default function OriginCountryPicker() {
       if (data) {
         data.forEach((route: any) => {
           // Get origin city from pickup stop
-          const pickupStop = route.route_stops?.find((s: any) => s.stop_type === 'collection');
+          const pickupStop = route.route_stops?.find((s: any) => s.stop_type === STOP_TYPE.COLLECTION);
           if (pickupStop?.city_id) {
             const city = cities.find((c) => c.id === pickupStop.city_id);
             if (city) {

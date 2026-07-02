@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import type { FeaturedRoute, FeaturedRouteStop, StopType } from '@/app/route-discovery/types/featured-route';
+import type { FeaturedRoute, FeaturedRouteStop } from '@/app/route-discovery/types/featured-route';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 const ROUTE_SELECT = `
   id,
@@ -46,7 +47,7 @@ function mapRows(rows: any[], cityMap: Map<string, { name: string; country: stri
         cityName:  city?.name     ?? 'Unknown',
         country:   city?.country  ?? '',
         flagEmoji: city?.flagEmoji ?? '🌍',
-        stopType:  (stop.stop_type === 'dropoff' ? 'dropoff' : 'collection') as StopType,
+        stopType:  stop.stop_type === STOP_TYPE.DROPOFF ? STOP_TYPE.DROPOFF : STOP_TYPE.COLLECTION,
         stopOrder: stop.stop_order,
         arrivalDate: stop.arrival_date,
       };

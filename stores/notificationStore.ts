@@ -15,10 +15,14 @@ interface NotificationState {
   notifications: AppNotification[];
   unreadCount: number;
   isLoading: boolean;
+  hasMore: boolean;
+  page: number;
 }
 
+const NOTIFICATION_PAGE_SIZE = 20;
+
 interface NotificationActions {
-  fetchNotifications: (userId: string) => Promise<void>;
+  fetchNotifications: (userId: string, page?: number, replace?: boolean) => Promise<void>;
   markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
   subscribeRealtime: (userId: string) => () => void;
@@ -28,21 +32,30 @@ export const useNotificationStore = create<NotificationState & NotificationActio
   notifications: [],
   unreadCount: 0,
   isLoading: false,
+  hasMore: true,
+  page: 0,
 
-  fetchNotifications: async (userId) => {
+  fetchNotifications: async (userId, pageNum = 0, replace = true) => {
     set({ isLoading: true });
     try {
+      const from = pageNum * NOTIFICATION_PAGE_SIZE;
+      const to = from + NOTIFICATION_PAGE_SIZE - 1;
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(from, to);
       if (error) throw error;
-      const notifications = (data ?? []) as AppNotification[];
+      const incoming = (data ?? []) as AppNotification[];
+      const notifications = replace
+        ? incoming
+        : [...get().notifications, ...incoming];
       set({
         notifications,
         unreadCount: notifications.filter((n) => !n.read).length,
+        hasMore: incoming.length === NOTIFICATION_PAGE_SIZE,
+        page: pageNum,
       });
     } finally {
       set({ isLoading: false });

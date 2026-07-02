@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { useCitiesStore } from '@/stores/citiesStore';
+import { STOP_TYPE } from '@/constants/stopTypes';
 
 const PAGE_SIZE = 100;
 
@@ -10,6 +11,8 @@ export type SortKey = 'earliest' | 'cheapest' | 'top_rated';
 export interface FilterState {
   minCapacityKg?: number;
   maxPriceEur?: number;
+  originCityOverride?: string;
+  destCityOverride?: string;
 }
 
 export interface RouteResultDriver {
@@ -33,6 +36,10 @@ export interface RouteResult {
   status: string;
   promotion_percentage: number | null;
   promotion_active: boolean;
+  /** Derived from the collection stop's city_id — used by originCityOverride filter */
+  origin_city_id: string | null;
+  /** Derived from the dropoff stop's city_id — used by destCityOverride filter */
+  destination_city_id: string | null;
   route_stops: {
     id: string;
     city_id: string;
@@ -70,17 +77,13 @@ function splitTiers(
     return { tier1: routes, tier2: [] };
   }
 
-  const tier1 = routes.filter((r) => {
-    const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
-    const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
-    return pickupStop?.city_id === originCityId && dropoffStop?.city_id === destCityId;
-  });
+  const tier1 = routes.filter(
+    (r) => r.origin_city_id === originCityId && r.destination_city_id === destCityId,
+  );
 
-  const tier2 = routes.filter((r) => {
-    const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
-    const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
-    return !(pickupStop?.city_id === originCityId && dropoffStop?.city_id === destCityId);
-  });
+  const tier2 = routes.filter(
+    (r) => !(r.origin_city_id === originCityId && r.destination_city_id === destCityId),
+  );
 
   return { tier1, tier2 };
 }
@@ -102,6 +105,12 @@ function applyFilters(routes: RouteResult[], filters: FilterState): RouteResult[
     .filter((r) => r.available_weight_kg >= (filters.minCapacityKg ?? 0))
     .filter(
       (r) => filters.maxPriceEur == null || effectivePrice(r) <= filters.maxPriceEur,
+    )
+    .filter(
+      (r) => !filters.originCityOverride || r.origin_city_id === filters.originCityOverride,
+    )
+    .filter(
+      (r) => !filters.destCityOverride || r.destination_city_id === filters.destCityOverride,
     );
 }
 
@@ -162,7 +171,7 @@ export function useRouteResults(params: UseRouteResultsParams) {
 
         if (originCityId || originCountry) {
           filtered = filtered.filter((r) => {
-            const pickupStop = r.route_stops?.find((s) => s.stop_type === 'collection');
+            const pickupStop = r.route_stops?.find((s) => s.stop_type === STOP_TYPE.COLLECTION);
             if (!pickupStop?.city_id) return false;
 
             if (originCityId) {
@@ -177,15 +186,26 @@ export function useRouteResults(params: UseRouteResultsParams) {
 
         if (destCityId) {
           filtered = filtered.filter((r) => {
-            const dropoffStop = r.route_stops?.find((s) => s.stop_type === 'dropoff');
+            const dropoffStop = r.route_stops?.find((s) => s.stop_type === STOP_TYPE.DROPOFF);
             return dropoffStop?.city_id === destCityId;
           });
         }
 
-        // Apply pagination
-        const data = filtered.slice(start, end);
+        // Derive origin/destination city IDs from stops for use by client-side filters
+        const withCityIds = filtered.map((r) => {
+          const pickupStop = r.route_stops?.find((s) => s.stop_type === STOP_TYPE.COLLECTION);
+          const dropoffStop = r.route_stops?.find((s) => s.stop_type === STOP_TYPE.DROPOFF);
+          return {
+            ...r,
+            origin_city_id: pickupStop?.city_id ?? null,
+            destination_city_id: dropoffStop?.city_id ?? null,
+          };
+        });
 
-        const fetched = (data ?? []) as RouteResult[];
+        // Apply pagination
+        const data = withCityIds.slice(start, end);
+
+        const fetched = data as RouteResult[];
         setAllRoutes((prev) => (reset ? fetched : [...prev, ...fetched]));
         setHasMore(fetched.length === PAGE_SIZE);
         setPage(pageIndex);
@@ -215,7 +235,9 @@ export function useRouteResults(params: UseRouteResultsParams) {
 
   const activeFilterCount =
     (filters.minCapacityKg != null && filters.minCapacityKg > 0 ? 1 : 0) +
-    (filters.maxPriceEur != null ? 1 : 0);
+    (filters.maxPriceEur != null ? 1 : 0) +
+    (filters.originCityOverride != null ? 1 : 0) +
+    (filters.destCityOverride != null ? 1 : 0);
 
   return {
     tier1,

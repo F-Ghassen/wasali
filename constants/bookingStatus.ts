@@ -6,7 +6,7 @@ export type BookingStatus =
   | 'disputed'
   | 'cancelled';
 
-export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+export type PaymentStatus = 'unpaid' | 'paid' | 'captured' | 'refunded' | 'failed';
 
 export interface StatusConfig {
   label: string;

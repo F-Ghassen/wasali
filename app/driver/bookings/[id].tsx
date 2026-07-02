@@ -10,7 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Phone, ScanLine } from 'lucide-react-native';
+import { ArrowLeft, Phone, ScanLine, CheckCircle2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
@@ -22,6 +22,9 @@ import { Button } from '@/components/shared/ui/primitives/Button';
 import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
 import { QrScannerModal } from '@/components/shared/ui/modals/QrScannerModal';
 import type { BookingStatus } from '@/constants/bookingStatus';
+import { formatDate } from '@/utils/formatters';
+
+const MANUAL_PAYMENT_TYPES = new Set(['cash_on_collection', 'cash_on_delivery']);
 
 export default function DriverBookingDetailScreen() {
   const router = useRouter();
@@ -35,6 +38,7 @@ export default function DriverBookingDetailScreen() {
     rejectBooking,
     markInTransit,
     markDelivered,
+    markPaid,
     isLoading,
   } = useDriverBookingStore();
   const { showToast } = useUIStore();
@@ -46,6 +50,16 @@ export default function DriverBookingDetailScreen() {
 
   const booking = bookings.find((b) => b.id === id);
   const sender = booking?.sender as { full_name?: string; phone?: string } | undefined;
+  const isManualPayment = booking
+    ? MANUAL_PAYMENT_TYPES.has(booking.payment_type ?? '')
+    : false;
+  const isPaymentPending =
+    isManualPayment && booking?.payment_status === 'unpaid';
+  const showPaymentSection =
+    isManualPayment &&
+    (booking?.status === 'confirmed' ||
+      booking?.status === 'in_transit' ||
+      booking?.status === 'delivered');
 
   const handleAction = (label: string, action: () => Promise<void>, message: string) => {
     Alert.alert(label, message, [
@@ -226,6 +240,43 @@ export default function DriverBookingDetailScreen() {
             />
           )}
         </View>
+
+        {/* ── Manual payment tracking ─────────────────────────── */}
+        {showPaymentSection && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>PAYMENT</Text>
+            {isPaymentPending ? (
+              <>
+                <Text style={styles.paymentHint}>
+                  {booking.payment_type === 'cash_on_collection'
+                    ? 'Collect cash from sender at pickup'
+                    : 'Collect cash from recipient at delivery'}
+                </Text>
+                <Button
+                  label="Mark as Paid"
+                  variant="outline"
+                  size="md"
+                  isLoading={isLoading}
+                  onPress={() =>
+                    handleAction(
+                      'Mark as Paid',
+                      () => markPaid(id),
+                      'Confirm you have received the cash or bank transfer for this booking?',
+                    )
+                  }
+                />
+              </>
+            ) : (
+              <View style={styles.paidRow}>
+                <CheckCircle2 size={18} color={Colors.success} strokeWidth={2} />
+                <Text style={styles.paidText}>
+                  {'Cash received'}
+                  {booking.paid_at ? ` · ${formatDate(booking.paid_at)}` : ''}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       <QrScannerModal
@@ -290,4 +341,20 @@ const styles = StyleSheet.create({
   scanBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   notFoundText: { fontSize: FontSize.base, color: Colors.text.secondary },
+  paymentHint: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    marginBottom: Spacing.sm,
+  },
+  paidRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  paidText: {
+    fontSize: FontSize.base,
+    fontWeight: '600',
+    color: Colors.success,
+  },
 });

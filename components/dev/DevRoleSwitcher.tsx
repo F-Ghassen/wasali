@@ -28,7 +28,7 @@ export function DevRoleSwitcher() {
   const roleColor = isDriver ? DRIVER_COLOR : SENDER_COLOR;
   const targetRole: 'sender' | 'driver' = isDriver ? 'sender' : 'driver';
   const targetLabel = isDriver ? 'Switch to Sender' : 'Switch to Driver';
-  const targetPath = isDriver ? '/(tabs)' : ('/(driver-tabs)' as any);
+  const targetPath = isDriver ? '/(sender)' : ('/(driver)' as any);
 
   const handleSwitch = async () => {
     setSwitching(true);

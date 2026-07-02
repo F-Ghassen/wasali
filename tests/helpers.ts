@@ -144,5 +144,5 @@ export const TEST_BOOKING_DRAFT = {
   driver_notes: null as string | null,
   price_eur: 40 as number,
   status: 'pending' as string,
-  payment_status: 'pending' as string,
+  payment_status: 'unpaid' as string,
 };

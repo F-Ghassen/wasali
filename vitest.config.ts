@@ -8,5 +8,6 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts'],
     globals: true,
+    globalSetup: ['./tests/globalSetup.ts'],
   },
 });

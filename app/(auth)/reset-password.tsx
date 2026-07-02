@@ -43,7 +43,7 @@ export default function ResetPasswordScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<ResetData>({ resolver: zodResolver(schema) });
+  } = useForm<ResetData>({ resolver: zodResolver(schema), defaultValues: { password: '', confirmPassword: '' } });
 
   const onSubmit = async (data: ResetData) => {
     setIsLoading(true);

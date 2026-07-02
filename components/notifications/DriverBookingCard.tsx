@@ -28,6 +28,10 @@ export function DriverBookingCard({
     | undefined;
   const isPending = booking.status === "pending";
   const isDelivered = booking.status === "delivered";
+  const isManualPayment =
+    booking.payment_type === "cash_on_collection" ||
+    booking.payment_type === "cash_on_delivery";
+  const isPaymentUnpaid = booking.payment_status === "unpaid";
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -67,6 +71,19 @@ export function DriverBookingCard({
             €{booking.price_eur}
           </Text>
         </View>
+        {isManualPayment && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Payment</Text>
+            <Text
+              style={[
+                styles.detailValue,
+                isPaymentUnpaid ? styles.unpaid : styles.paid,
+              ]}
+            >
+              {isPaymentUnpaid ? "⏳ Unpaid" : "✓ Paid"}
+            </Text>
+          </View>
+        )}
       </View>
 
       {isPending && onConfirm && onReject ? (
@@ -182,4 +199,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   footerHint: { fontSize: FontSize.xs, color: Colors.text.tertiary },
+  unpaid: { color: Colors.warning, fontWeight: "600" },
+  paid:   { color: Colors.success, fontWeight: "600" },
 });

@@ -38,7 +38,7 @@ export default function DriverRouteDetailScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { profile } = useAuthStore();
-  const { routes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
+  const { routes, fetchRoutes, cancelRoute, markRouteFull, completeRoute, isLoading } = useDriverRouteStore();
   const { bookings, fetchBookings, confirmBooking, rejectBooking, markInTransit, markDelivered, getRouteStats } = useDriverBookingStore();
   const { showToast } = useUIStore();
   const cities = useCitiesStore((s) => s.cities);
@@ -51,10 +51,12 @@ export default function DriverRouteDetailScreen() {
   const hasActiveBookings = routeBookings.some((b) => ['confirmed', 'in_transit'].includes(b.status));
 
   const load = () => {
-    if (profile) fetchBookings(profile.id);
+    if (!profile) return;
+    fetchRoutes(profile.id);
+    fetchBookings(profile.id);
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [id, profile?.id]);
 
   const handleCancel = () => {
     if (hasActiveBookings) {

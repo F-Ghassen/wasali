@@ -28,6 +28,7 @@ export default function SignUpScreen() {
 
   const { control, handleSubmit, formState: { errors } } = useForm<SignUpData>({
     resolver: zodResolver(signUpSchema),
+    defaultValues: { fullName: '', email: '', password: '' },
   });
 
   const onSubmit = async (data: SignUpData) => {

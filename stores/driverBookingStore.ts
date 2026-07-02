@@ -36,6 +36,8 @@ interface DriverBookingActions {
   rejectBooking: (id: string) => Promise<void>;
   markInTransit: (id: string) => Promise<void>;
   markDelivered: (id: string) => Promise<void>;
+  /** Mark a manual-payment booking (cash_on_collection / cash_on_delivery) as paid. */
+  markPaid: (id: string) => Promise<void>;
   computeStats: () => void;
   clearError: () => void;
   getRouteStats: (routeId: string) => RouteStats;
@@ -94,7 +96,7 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
 
       let query = supabase
         .from('bookings')
-        .select('*, sender:profiles!sender_id(id, full_name, phone, avatar_url), route:routes!route_id(id, origin_city, destination_city, departure_date)')
+        .select('*, sender:profiles!sender_id(id, full_name, phone, avatar_url), route:routes!route_id(id, departure_date, estimated_arrival_date)')
         .in('route_id', routeIds)
         .order('created_at', { ascending: false });
 
@@ -169,7 +171,52 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
   },
 
   markDelivered: async (id) => {
-    await updateBookingStatus(id, 'delivered', set, get);
+    // Invoke capture-payment edge function — it authorizes the Stripe capture
+    // and sets status='delivered' atomically on the server side.
+    set({ isLoading: true, error: null });
+    try {
+      const { error } = await supabase.functions.invoke('capture-payment', {
+        body: { bookingId: id },
+      });
+      if (error) throw error;
+
+      set({
+        bookings: get().bookings.map((b) =>
+          b.id === id ? { ...b, status: 'delivered' } : b
+        ),
+      });
+      get().computeStats();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  markPaid: async (id) => {
+    // Only for manual payment types (cash_on_collection / cash_on_delivery).
+    // Guard: callers must verify booking.payment_type before invoking.
+    set({ isLoading: true, error: null });
+    try {
+      const now = new Date().toISOString();
+      const { error } = await supabase
+        .from('bookings')
+        .update({ payment_status: 'paid', paid_at: now, updated_at: now })
+        .eq('id', id);
+      if (error) throw error;
+
+      set({
+        bookings: get().bookings.map((b) =>
+          b.id === id ? { ...b, payment_status: 'paid', paid_at: now } : b
+        ),
+      });
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   getRouteStats: (routeId) => {

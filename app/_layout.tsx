@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { useCitiesStore } from '@/stores/citiesStore';
-import { supabase } from '@/lib/supabase';
 import { ToastContainer } from '@/components/shared/ui/primitives/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
@@ -28,7 +27,7 @@ function roleRoute(role?: string) {
 }
 
 export default function RootLayout() {
-  const { setSession, loadProfile, setInitialized, isInitialized, profile, session } = useAuthStore();
+  const { initSession, subscribeToAuthChanges, isInitialized, profile, session } = useAuthStore();
   const { fetchCities } = useCitiesStore();
   const router = useRouter();
   const [i18nReady, setI18nReady] = useState(false);
@@ -46,32 +45,16 @@ export default function RootLayout() {
     }
   }, [i18nReady]);
 
-  // Session bootstrap — always call setInitialized so the spinner never hangs
+  // Session bootstrap — initSession handles timeout + setInitialized internally
   useEffect(() => {
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 5000)
-    );
+    initSession();
 
-    Promise.race([supabase.auth.getSession(), timeout])
-      .then(async ({ data: { session: s } }) => {
-        setSession(s);
-        if (s?.user) {
-          await loadProfile(s.user.id);
-        }
-      })
-      .catch(() => {})
-      .finally(() => { setInitialized(); });
-
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
-      setSession(s);
+    const unsubscribe = subscribeToAuthChanges((event) => {
       if (event === 'SIGNED_OUT') { hasRedirected.current = false; router.replace('/(auth)/welcome'); return; }
       if (event === 'PASSWORD_RECOVERY') { router.replace('/(auth)/reset-password'); return; }
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s?.user) {
-        await loadProfile(s.user.id);
-      }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return unsubscribe;
   }, []);
 
   // Role-based redirect: fires once per sign-in session.

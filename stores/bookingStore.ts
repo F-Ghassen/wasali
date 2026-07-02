@@ -32,10 +32,19 @@ interface BookingState {
   lastBooking: LastBooking | null;
 }
 
+export interface DisputeInput {
+  bookingId: string;
+  senderId: string;
+  reason: string;
+  description: string;
+}
+
 interface BookingActions {
   setRoute: (route: RouteWithStops) => void;
   submitBooking: (payload: Record<string, unknown>) => Promise<string>;
   setLastBooking: (booking: LastBooking) => void;
+  /** File a dispute for a delivered booking. Throws on failure. */
+  submitDispute: (input: DisputeInput) => Promise<void>;
   reset: () => void;
 }
 
@@ -74,6 +83,17 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
   },
 
   setLastBooking: (booking) => set({ lastBooking: booking }),
+
+  submitDispute: async ({ bookingId, senderId, reason, description }) => {
+    const { error } = await supabase.from('disputes').insert({
+      booking_id: bookingId,
+      sender_id: senderId,
+      reason,
+      description,
+      status: 'open',
+    });
+    if (error) throw error;
+  },
 
   reset: () => set({
     selectedRoute: null,

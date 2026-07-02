@@ -14,8 +14,8 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/shared/ui/primitives/Button';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
+import { useBookingStore } from '@/stores/bookingStore';
 
 const DISPUTE_REASONS = [
   'Package not delivered',
@@ -29,6 +29,7 @@ export default function RaiseDisputeScreen() {
   const router = useRouter();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const { session } = useAuthStore();
+  const { submitDispute } = useBookingStore();
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -40,18 +41,11 @@ export default function RaiseDisputeScreen() {
 
     setIsLoading(true);
     try {
-      await supabase.from('disputes').insert({
-        booking_id: bookingId,
-        sender_id: session.user.id,
-        reason,
-        description,
-        status: 'open',
-      });
-
+      await submitDispute({ bookingId, senderId: session.user.id, reason, description });
       Alert.alert('Dispute Filed', 'Our team will review your dispute within 48 hours.', [
         { text: 'OK', onPress: () => router.push('/(sender)/booking') },
       ]);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to file dispute. Please try again.');
     } finally {
       setIsLoading(false);

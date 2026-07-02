@@ -6,6 +6,14 @@ import { supabase } from '@/lib/supabase';
 import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
 import type { Profile, UserRole } from '@/types/models';
 
+export interface SavedAddressInput {
+  label: string;
+  street: string;
+  city: string;
+  country: string;
+  postalCode?: string | null;
+}
+
 interface AuthState {
   session: Session | null;
   profile: Profile | null;
@@ -27,6 +35,16 @@ interface AuthActions {
   loadProfile: (userId: string) => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  /** Update the authenticated user's password. Throws on failure. */
+  updatePassword: (newPassword: string) => Promise<{ userId: string }>;
+  /** Persist a new saved address for the current user. Throws on failure. */
+  saveAddress: (address: SavedAddressInput) => Promise<void>;
+  /** Bootstrap session from storage. Resolves when done (max 5 s). */
+  initSession: () => Promise<void>;
+  /** Subscribe to Supabase auth state changes. Returns the unsubscribe fn. */
+  subscribeToAuthChanges: (
+    onEvent: (event: string, userId: string | null) => void
+  ) => () => void;
 }
 
 export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
@@ -165,5 +183,52 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
       redirectTo: 'wasali://auth/reset-password',
     });
     if (error) throw error;
+  },
+
+  updatePassword: async (newPassword) => {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    return { userId: data.user.id };
+  },
+
+  saveAddress: async (address) => {
+    const { session } = get();
+    if (!session) throw new Error('Not authenticated');
+    const { error } = await supabase.from('saved_addresses').insert({
+      user_id: session.user.id,
+      label: address.label,
+      street: address.street,
+      city: address.city,
+      country: address.country,
+      postal_code: address.postalCode ?? null,
+      is_default: false,
+    });
+    if (error) throw error;
+  },
+
+  initSession: async () => {
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 5000)
+    );
+    const { setSession, loadProfile, setInitialized } = get();
+    await Promise.race([supabase.auth.getSession(), timeout])
+      .then(async ({ data: { session: s } }) => {
+        setSession(s);
+        if (s?.user) await loadProfile(s.user.id);
+      })
+      .catch(() => {})
+      .finally(() => { setInitialized(); });
+  },
+
+  subscribeToAuthChanges: (onEvent) => {
+    const { setSession, loadProfile } = get();
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
+      setSession(s);
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s?.user) {
+        await loadProfile(s.user.id);
+      }
+      onEvent(event, s?.user?.id ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
   },
 }));

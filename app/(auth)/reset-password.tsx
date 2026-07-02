@@ -11,7 +11,6 @@ import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -36,7 +35,7 @@ type ResetData = z.infer<typeof schema>;
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const { showToast } = useUIStore();
-  const { loadProfile } = useAuthStore();
+  const { updatePassword, loadProfile } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const {
@@ -48,10 +47,9 @@ export default function ResetPasswordScreen() {
   const onSubmit = async (data: ResetData) => {
     setIsLoading(true);
     try {
-      const { data: updateData, error } = await supabase.auth.updateUser({ password: data.password });
-      if (error) throw error;
+      const { userId } = await updatePassword(data.password);
       showToast('Password updated successfully', 'success');
-      if (updateData.user) await loadProfile(updateData.user.id);
+      await loadProfile(userId);
       const { profile } = useAuthStore.getState();
       router.replace(profile?.role === 'driver' ? '/(driver)' as any : '/(sender)');
     } catch (error) {

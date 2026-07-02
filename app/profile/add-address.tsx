@@ -18,31 +18,26 @@ import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/shared/ui/primitives/Button';
 import { Input } from '@/components/shared/ui/primitives/Input';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/authStore';
 import { savedAddressSchema, type SavedAddressData } from '@/utils/validators';
 
 export default function AddAddressScreen() {
   const router = useRouter();
-  const { session } = useAuthStore();
+  const { saveAddress } = useAuthStore();
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<SavedAddressData>({
     resolver: zodResolver(savedAddressSchema),
   });
 
   const onSave = async (data: SavedAddressData) => {
-    if (!session) return;
     try {
-      const { error } = await supabase.from('saved_addresses').insert({
-        user_id: session.user.id,
+      await saveAddress({
         label: data.label,
         street: data.street,
         city: data.city,
         country: data.country,
-        postal_code: data.postalCode ?? null,
-        is_default: false,
+        postalCode: data.postalCode,
       });
-      if (error) throw error;
       router.back();
     } catch {
       Alert.alert('Error', 'Failed to save address. Please try again.');

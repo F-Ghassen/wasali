@@ -4,235 +4,21 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  SectionList,
-  TextInput,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, addDays, isBefore, subMonths, addMonths, isToday, isSameDay } from 'date-fns';
-import { Search } from 'lucide-react-native';
+import { format } from 'date-fns';
+import { Search, X } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useSearchStore } from '@/stores/searchStore';
-import { useCities, type CityRow } from '@/hooks/useCities';
-
-// ─── City Picker ──────────────────────────────────────────────────────────────
-
-type CitySection = {
-  country: string;
-  flag: string;
-  data: CityRow[];
-  comingSoon?: boolean;
-};
-
-function CityPicker({
-  visible,
-  title,
-  citiesByCountry,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  title: string;
-  citiesByCountry: Record<string, CityRow[]>;
-  onSelect: (city: CityRow) => void;
-  onClose: () => void;
-}) {
-  const [query, setQuery] = useState('');
-
-  const sections: CitySection[] = Object.entries(citiesByCountry).map(
-    ([country, cities]) => ({
-      country,
-      flag: cities[0]?.flag_emoji ?? '',
-      data: query
-        ? cities.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()))
-        : cities,
-      comingSoon: cities.every((c) => c.coming_soon),
-    }),
-  );
-
-  const handleSelect = (city: CityRow) => {
-    if (city.coming_soon) return;
-    onSelect(city);
-    onClose();
-    setQuery('');
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={pickerS.root}>
-        <View style={pickerS.header}>
-          <Text style={pickerS.title}>{title}</Text>
-          <TouchableOpacity onPress={onClose} style={pickerS.closeBtn}>
-            <Text style={pickerS.closeText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={pickerS.searchWrap}>
-          <TextInput
-            style={pickerS.search}
-            placeholder="Search city…"
-            placeholderTextColor={Colors.text.tertiary}
-            value={query}
-            onChangeText={setQuery}
-            autoFocus
-            returnKeyType="search"
-          />
-        </View>
-
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          stickySectionHeadersEnabled
-          renderSectionHeader={({ section }) => (
-            <View style={pickerS.sectionHeader}>
-              <Text style={pickerS.sectionFlag}>{section.flag}</Text>
-              <Text style={pickerS.sectionName}>{section.country}</Text>
-              {section.comingSoon && (
-                <View style={pickerS.badge}>
-                  <Text style={pickerS.badgeText}>Coming soon</Text>
-                </View>
-              )}
-            </View>
-          )}
-          renderItem={({ item }) =>
-            item.coming_soon ? null : (
-              <TouchableOpacity
-                style={pickerS.item}
-                onPress={() => handleSelect(item)}
-                activeOpacity={0.7}
-              >
-                <Text style={pickerS.cityName}>{item.name}</Text>
-                <Text style={pickerS.chevron}>›</Text>
-              </TouchableOpacity>
-            )
-          }
-        />
-      </SafeAreaView>
-    </Modal>
-  );
-}
-
-// ─── Date Picker ──────────────────────────────────────────────────────────────
-
-const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-function buildCalendarWeeks(month: Date): (Date | null)[][] {
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-
-  const weeks: (Date | null)[][] = [];
-  let day = gridStart;
-  while (day <= gridEnd) {
-    const week: (Date | null)[] = [];
-    for (let i = 0; i < 7; i++) {
-      week.push(isSameMonth(day, month) ? new Date(day) : null);
-      day = addDays(day, 1);
-    }
-    weeks.push(week);
-  }
-  return weeks;
-}
-
-function DatePickerModal({
-  visible,
-  selected,
-  onSelect,
-  onClose,
-}: {
-  visible: boolean;
-  selected: Date | null;
-  onSelect: (d: Date) => void;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const today = new Date();
-  const [viewMonth, setViewMonth] = useState(startOfMonth(today));
-
-  const weeks = buildCalendarWeeks(viewMonth);
-  const canGoPrev = !isBefore(subMonths(viewMonth, 1), startOfMonth(today));
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <SafeAreaView style={dateS.root}>
-        <View style={dateS.header}>
-          <Text style={dateS.title}>{t('home.departBeforeTitle')}</Text>
-          <TouchableOpacity onPress={onClose} style={dateS.closeBtn}>
-            <Text style={dateS.closeText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={dateS.monthNav}>
-          <TouchableOpacity
-            style={[dateS.navBtn, !canGoPrev && dateS.navBtnDisabled]}
-            onPress={() => canGoPrev && setViewMonth((m) => subMonths(m, 1))}
-            activeOpacity={0.7}
-          >
-            <Text style={[dateS.navArrow, !canGoPrev && dateS.navArrowDisabled]}>‹</Text>
-          </TouchableOpacity>
-
-          <Text style={dateS.monthLabel}>{format(viewMonth, 'MMMM yyyy')}</Text>
-
-          <TouchableOpacity
-            style={dateS.navBtn}
-            onPress={() => setViewMonth((m) => addMonths(m, 1))}
-            activeOpacity={0.7}
-          >
-            <Text style={dateS.navArrow}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={dateS.dowRow}>
-          {DOW_LABELS.map((d) => (
-            <Text key={d} style={dateS.dowLabel}>{d}</Text>
-          ))}
-        </View>
-
-        <View style={dateS.grid}>
-          {weeks.map((week, wi) => (
-            <View key={wi} style={dateS.week}>
-              {week.map((d, di) => {
-                if (!d) return <View key={di} style={dateS.cell} />;
-                const isPast = isBefore(d, today) && !isToday(d);
-                const isSelected = !!selected && isSameDay(d, selected);
-                const todayCell = isToday(d);
-                return (
-                  <TouchableOpacity
-                    key={d.toISOString()}
-                    style={[
-                      dateS.cell,
-                      isSelected && dateS.cellSelected,
-                      todayCell && !isSelected && dateS.cellToday,
-                    ]}
-                    onPress={() => { if (!isPast) { onSelect(d); onClose(); } }}
-                    activeOpacity={isPast ? 1 : 0.75}
-                    disabled={isPast}
-                  >
-                    <Text
-                      style={[
-                        dateS.cellNum,
-                        isPast && dateS.cellNumPast,
-                        isSelected && dateS.cellTextSelected,
-                        todayCell && !isSelected && dateS.cellNumToday,
-                      ]}
-                    >
-                      {format(d, 'd')}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-      </SafeAreaView>
-    </Modal>
-  );
-}
+import { useCities } from '@/hooks/useCities';
+import { CityPickerModal } from './CityPickerModal';
+import { InlineDatePicker } from './InlineDatePicker';
 
 // ─── Search Form ──────────────────────────────────────────────────────────────
 
@@ -251,13 +37,23 @@ export default function SearchForm() {
   const [showFrom, setShowFrom] = useState(false);
   const [showTo, setShowTo] = useState(false);
   const [showDate, setShowDate] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+
+  // Seed the store with today on first mount so the date chip shows "Today"
+  // and the results page filters from today by default.
+  useEffect(() => {
+    if (!departFromDate) {
+      setDepartFromDate(format(new Date(), 'yyyy-MM-dd'));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (departFromDate) {
       try {
         setSelectedDate(new Date(departFromDate));
-      } catch {}
+      } catch { /* invalid date string — keep previous */ }
+    } else {
+      setSelectedDate(null);
     }
   }, [departFromDate]);
 
@@ -275,9 +71,10 @@ export default function SearchForm() {
     } as any);
   };
 
-  const handleDateSelect = (d: Date) => {
+  const handleDateSelect = (d: Date | null) => {
     setSelectedDate(d);
-    setDepartFromDate(format(d, 'yyyy-MM-dd'));
+    setDepartFromDate(d ? format(d, 'yyyy-MM-dd') : null);
+    if (d) setShowDate(false);
   };
 
   const dateLabel = selectedDate ? format(selectedDate, 'EEE, MMM d') : null;
@@ -353,26 +150,33 @@ export default function SearchForm() {
       </View>
 
       {/* ── Modals ──────────────────────────────────────────────── */}
-      <CityPicker
+      <CityPickerModal
         visible={showFrom}
         title={t('home.fromSelectCity')}
         citiesByCountry={citiesByCountry}
         onSelect={(c) => setFromCity(c.id, c.name, c.country)}
         onClose={() => setShowFrom(false)}
       />
-      <CityPicker
+      <CityPickerModal
         visible={showTo}
         title={t('home.toSelectCity')}
         citiesByCountry={citiesByCountry}
         onSelect={(c) => setToCity(c.id, c.name, c.country)}
         onClose={() => setShowTo(false)}
       />
-      <DatePickerModal
-        visible={showDate}
-        selected={selectedDate}
-        onSelect={handleDateSelect}
-        onClose={() => setShowDate(false)}
-      />
+      <Modal visible={showDate} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowDate(false)}>
+        <SafeAreaView style={s.dateModalRoot}>
+          <View style={s.dateModalHeader}>
+            <Text style={s.dateModalTitle}>{t('home.departBeforeTitle')}</Text>
+            <TouchableOpacity onPress={() => setShowDate(false)} style={s.dateModalCloseBtn}>
+              <X size={20} color={Colors.text.secondary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView contentContainerStyle={s.dateModalBody}>
+            <InlineDatePicker selected={selectedDate} onSelect={handleDateSelect} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </>
   );
 }
@@ -439,11 +243,8 @@ const s = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.3,
   },
-});
-
-const pickerS = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background.primary },
-  header: {
+  dateModalRoot: { flex: 1, backgroundColor: Colors.background.primary },
+  dateModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -452,118 +253,7 @@ const pickerS = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
   },
-  title: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
-  closeBtn: { padding: Spacing.sm },
-  closeText: { fontSize: FontSize.lg, color: Colors.text.secondary },
-  searchWrap: { padding: Spacing.base, paddingBottom: 0 },
-  search: {
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    fontSize: FontSize.base,
-    color: Colors.text.primary,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.background.secondary,
-  },
-  sectionFlag: { fontSize: 16 },
-  sectionName: {
-    flex: 1,
-    fontSize: FontSize.xs,
-    fontWeight: '700',
-    color: Colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  badge: {
-    backgroundColor: Colors.background.tertiary,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
-  },
-  badgeText: { fontSize: 10, fontWeight: '600', color: Colors.text.tertiary },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  cityName: { fontSize: FontSize.base, fontWeight: '500', color: Colors.text.primary },
-  chevron: { fontSize: 18, color: Colors.text.tertiary },
-});
-
-const dateS = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background.primary },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-  },
-  title: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
-  closeBtn: { padding: Spacing.sm },
-  closeText: { fontSize: FontSize.lg, color: Colors.text.secondary },
-
-  monthNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-  },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: BorderRadius.md,
-    backgroundColor: Colors.background.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navBtnDisabled: { opacity: 0.3 },
-  navArrow: { fontSize: 22, color: Colors.text.primary, lineHeight: 26 },
-  navArrowDisabled: { color: Colors.text.tertiary },
-  monthLabel: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
-
-  dowRow: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.base,
-    marginBottom: Spacing.xs,
-  },
-  dowLabel: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  grid: { paddingHorizontal: Spacing.base, paddingBottom: Spacing.xl, gap: 4 },
-  week: { flexDirection: 'row', gap: 4 },
-  cell: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: BorderRadius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellSelected: { backgroundColor: Colors.primary },
-  cellToday: { borderWidth: 1.5, borderColor: Colors.primary },
-  cellNum: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
-  cellNumPast: { color: Colors.text.tertiary },
-  cellNumToday: { fontWeight: '800' },
-  cellTextSelected: { color: Colors.white },
+  dateModalTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.text.primary },
+  dateModalCloseBtn: { padding: Spacing.sm },
+  dateModalBody: { padding: Spacing.base },
 });

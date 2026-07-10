@@ -8,17 +8,15 @@ interface SearchState {
   toCityId: string;
   toCityName: string;
   toCountry: string;
-  departFromDate: string; // ISO date string, e.g. "2026-03-19"
+  departFromDate: string | null; // ISO date string (e.g. "2026-03-19") or null for "any date"
 }
 
 interface SearchActions {
   setFromCity: (id: string, name: string, country: string) => void;
   setToCity: (id: string, name: string, country: string) => void;
-  setDepartFromDate: (date: string) => void;
+  setDepartFromDate: (date: string | null) => void;
   reset: () => void;
 }
-
-const todayIso = format(new Date(), 'yyyy-MM-dd');
 
 const initialState: SearchState = {
   fromCityId: '',
@@ -27,7 +25,7 @@ const initialState: SearchState = {
   toCityId: '',
   toCityName: '',
   toCountry: '',
-  departFromDate: todayIso,
+  departFromDate: null,
 };
 
 export const useSearchStore = create<SearchState & SearchActions>((set) => ({
@@ -41,5 +39,5 @@ export const useSearchStore = create<SearchState & SearchActions>((set) => ({
 
   setDepartFromDate: (date) => set({ departFromDate: date }),
 
-  reset: () => set({ ...initialState, departFromDate: format(new Date(), 'yyyy-MM-dd') }),
+  reset: () => set({ ...initialState }),
 }));

@@ -196,6 +196,61 @@ Key patterns:
 
 ---
 
+## Route Search — Tiering Model
+
+Implemented in `hooks/useRouteResults.ts`. Tested in `tests/unit/search-flow.test.ts` and `tests/integration/search-routes.test.ts`.
+
+### Overview
+
+Searching **Berlin → Tunis** shows two sections:
+
+| Section | Label | Contents |
+|---|---|---|
+| **tier1** | *(unlabelled, shown first)* | Routes that have a **Berlin collection stop** AND a **Tunis dropoff stop** |
+| **tier2** | "Other routes in region" | Germany → Tunisia routes with a different origin or destination city (Hamburg → Sfax, Munich → Sousse, Frankfurt → Tunis, etc.) |
+
+### Pipeline
+
+```
+DB query
+  └─ .eq('status', 'active')
+  └─ .gt('available_weight_kg', 0)
+  └─ .or('departure_date.gte.FLOOR, departure_date.is.null')
+       ↓
+In-memory filter  (country-level — keeps both tier1 and tier2 candidates)
+  └─ origin:  any collection stop whose city.country === 'Germany'
+  └─ dest:    any dropoff stop whose city.country === 'Tunisia'
+       ↓
+splitTiers()  (city-level split)
+  └─ tier1:  route has collection stop city_id === BERLIN
+             AND dropoff stop city_id === TUNIS
+  └─ tier2:  everything else that passed the country filter
+       ↓
+applyFilters()  (capacity / price overrides)
+sortRoutes()    (earliest / cheapest / top_rated)
+```
+
+### Key rules
+
+- **Multi-stop routes** — `some()` is used, not `find()`, so a route that collects in Frankfurt *and* Berlin is correctly placed in tier1 when searching Berlin.
+- **Date floor** — when no date is selected, the floor defaults to today. Routes with `departure_date IS NULL` are always included (treated as upcoming).
+- **Country-only search** — when `originCityId` is absent (user tapped a country card instead of a city), the origin constraint is skipped and all routes going to the destination country land in tier1.
+- **No destination** — when `destCityId` is absent, all results go to tier1 with no tier2.
+
+### `searchStore` fields
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `fromCityId` | `string` | `''` | Selected origin city UUID |
+| `fromCityName` | `string` | `''` | Display name |
+| `fromCountry` | `string` | `''` | Country (for country-level searches) |
+| `toCityId` | `string` | `''` | Selected destination city UUID |
+| `toCityName` | `string` | `''` | Display name |
+| `toCountry` | `string` | `''` | Country |
+| `departFromDate` | `string \| null` | `null` | ISO date floor, or `null` = any date |
+
+---
+
 ## Database Schema
 
 ### Entity Relationship

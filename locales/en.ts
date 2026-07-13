@@ -327,7 +327,7 @@ export default {
             "System tracks, notifies, and delivers",
         },
         {
-          title: "You help",
+          title: "You rate",
           description:
             "Rate drivers and share your feedback",
         },

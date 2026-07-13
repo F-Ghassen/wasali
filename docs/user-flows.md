@@ -612,6 +612,16 @@ The `.maestro/` directory contains automated E2E flows that mirror the user jour
 
 See `tests/README.md` for setup and run instructions.
 
+## E2E Test Flows (Playwright — web)
+
+The `tests/e2e/` directory contains browser-driven E2E specs for the Expo web build, complementing Maestro's native-only coverage.
+
+| Spec file | Mirrors user journey |
+|-----------|---------------------|
+| `home.spec.ts` | Welcome screen renders core CTAs (title, "Get Started") |
+
+Run with `npm run test:e2e` (auto-starts `expo start --web` if not already running) or `npm run test:e2e:ui` for the interactive runner. Config: `playwright.config.ts`.
+
 ---
 
 ## 6. Sender — Booking Wizard (6-step)

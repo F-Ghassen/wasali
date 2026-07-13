@@ -154,7 +154,30 @@ maestro test \
 
 ---
 
-## 6. Cleanup
+## 6. Playwright E2E tests (web)
+
+Playwright drives the Expo **web** build in a real browser — it complements
+Maestro, which only covers the native (iOS/Android) app.
+
+### Run
+
+```bash
+# Runs headless; auto-starts `expo start --web` if not already running
+npm run test:e2e
+
+# Interactive UI runner
+npm run test:e2e:ui
+```
+
+Config: `playwright.config.ts` (project root). Specs live in `tests/e2e/`.
+
+| File | What it tests |
+|------|--------------|
+| `home.spec.ts` | Welcome screen renders (title, "Get Started" CTA) |
+
+---
+
+## 7. Cleanup
 
 To remove all test data from the local database:
 

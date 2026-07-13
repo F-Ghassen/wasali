@@ -4,6 +4,18 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature — Route expiration (2026-07-13)
+
+- **048_route_expiry.sql** — Adds an `expired` route status (CHECK extended to
+  `draft/active/full/expired/cancelled/completed`). Extends
+  `enforce_route_transition()` (m046) to permit `active→expired` and `full→expired`
+  (expired is terminal). Enables `pg_cron` and schedules `expire-routes` (nightly
+  02:15 UTC) to flip past-departure `active`/`full` routes to `expired`; also
+  backfills existing past routes. Expired routes drop out of sender search (which
+  filters `status='active'`) and show as "Expired" in the driver's history.
+  Existing bookings are unaffected. Trip ID (`WSL-XXXXXX` from the route UUID) is
+  a display-only reference — no column.
+
 ## Phase 1 — Cash-loop hardening (2026-07-13)
 
 - **046_rls_hardening.sql** — Adds `enforce_booking_transition()` and

@@ -6,7 +6,7 @@ import type { TablesUpdate } from '@/types/database';
 import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
 import { STOP_TYPE } from '@/constants/stopTypes';
 
-type RouteFilter = 'active' | 'completed' | 'cancelled' | 'all';
+type RouteFilter = 'active' | 'completed' | 'expired' | 'cancelled' | 'all';
 
 interface StopInput {
   city_id: string;

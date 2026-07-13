@@ -56,6 +56,6 @@ export type BookingWithSender = Booking & {
 };
 
 // BookingStatus and PaymentStatus are re-exported from constants/bookingStatus
-export type RouteStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'completed';
+export type RouteStatus = 'draft' | 'active' | 'full' | 'expired' | 'cancelled' | 'completed';
 export type RequestStatus = 'open' | 'offer_accepted' | 'expired' | 'cancelled';
 export type OfferStatus = 'pending' | 'accepted' | 'declined' | 'withdrawn';

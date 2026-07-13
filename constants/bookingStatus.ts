@@ -77,11 +77,12 @@ export const LEGAL_BOOKING_TRANSITIONS: Record<BookingStatus, readonly BookingSt
   cancelled: [],
 };
 
-/** Legal route status transitions. Mirrors enforce_route_transition() (m046). */
+/** Legal route status transitions. Mirrors enforce_route_transition() (m046 + m048). */
 export const LEGAL_ROUTE_TRANSITIONS: Record<RouteStatus, readonly RouteStatus[]> = {
   draft: ['active', 'cancelled'],
-  active: ['full', 'completed', 'cancelled'],
-  full: ['active', 'completed', 'cancelled'],
+  active: ['full', 'completed', 'cancelled', 'expired'],
+  full: ['active', 'completed', 'cancelled', 'expired'],
+  expired: [],
   completed: [],
   cancelled: [],
 };

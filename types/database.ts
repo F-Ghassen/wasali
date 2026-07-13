@@ -23,7 +23,10 @@ export type Database = {
           created_at: string
           declared_value_eur: number | null
           delivery_service_id: string | null
+          driver_commission_eur: number
+          driver_commission_rate_pct: number
           driver_notes: string | null
+          driver_payout_eur: number
           dropoff_address: string | null
           dropoff_stop_id: string | null
           dropoff_type: string
@@ -52,6 +55,9 @@ export type Database = {
           sender_name: string | null
           sender_phone: string | null
           sender_whatsapp: boolean
+          service_fee_eur: number
+          service_fee_rate_pct: number
+          shipping_eur: number | null
           status: string
           stripe_payment_intent_id: string | null
           total_price: number | null
@@ -65,7 +71,10 @@ export type Database = {
           created_at?: string
           declared_value_eur?: number | null
           delivery_service_id?: string | null
+          driver_commission_eur?: number
+          driver_commission_rate_pct?: number
           driver_notes?: string | null
+          driver_payout_eur?: number
           dropoff_address?: string | null
           dropoff_stop_id?: string | null
           dropoff_type: string
@@ -94,6 +103,9 @@ export type Database = {
           sender_name?: string | null
           sender_phone?: string | null
           sender_whatsapp?: boolean
+          service_fee_eur?: number
+          service_fee_rate_pct?: number
+          shipping_eur?: number | null
           status?: string
           stripe_payment_intent_id?: string | null
           total_price?: number | null
@@ -107,7 +119,10 @@ export type Database = {
           created_at?: string
           declared_value_eur?: number | null
           delivery_service_id?: string | null
+          driver_commission_eur?: number
+          driver_commission_rate_pct?: number
           driver_notes?: string | null
+          driver_payout_eur?: number
           dropoff_address?: string | null
           dropoff_stop_id?: string | null
           dropoff_type?: string
@@ -136,6 +151,9 @@ export type Database = {
           sender_name?: string | null
           sender_phone?: string | null
           sender_whatsapp?: boolean
+          service_fee_eur?: number
+          service_fee_rate_pct?: number
+          shipping_eur?: number | null
           status?: string
           stripe_payment_intent_id?: string | null
           total_price?: number | null
@@ -317,6 +335,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_config: {
+        Row: {
+          driver_commission_rate_pct: number
+          id: number
+          service_fee_rate_pct: number
+          updated_at: string
+        }
+        Insert: {
+          driver_commission_rate_pct?: number
+          id?: number
+          service_fee_rate_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          driver_commission_rate_pct?: number
+          id?: number
+          service_fee_rate_pct?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1020,6 +1059,10 @@ export type Database = {
     }
     Functions: {
       decrement_route_capacity: {
+        Args: { p_route_id: string; p_weight_kg: number }
+        Returns: number
+      }
+      increment_route_capacity: {
         Args: { p_route_id: string; p_weight_kg: number }
         Returns: number
       }

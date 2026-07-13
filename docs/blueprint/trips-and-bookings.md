@@ -271,9 +271,9 @@ One util `splitBookingMoney({ shipping, serviceFeeRatePct, driverCommissionRateP
 
 ## 6. Phasing
 
-**Phase 0 — Reconcile & document (no behavior change, highest value):** migrations 042/043/047, docs + ADRs, `notify-booking-event` city-join fix, driver route-detail header fix. Makes the state machine and money model unambiguous. Ship first.
+**Phase 0 — Reconcile & document (no behavior change, highest value): ✅ SHIPPED (2026-07-13).** migrations 042/043/047, docs + ADRs, `notify-booking-event` city-join fix, driver route-detail header fix. Makes the state machine and money model unambiguous.
 
-**Phase 1 — Harden the cash loop (launch-critical):** 044 (money model, both rates = 0), 045 (capacity restore), 046 (RLS + transition triggers), store guards, `bookingSubmitSchema` (cash-only payment), `utils/money.ts`, card/PayPal rendered disabled "Coming soon", cancellation-restores-capacity, cash-only `markPaid` guard, sender route deep-link fallback. **This is the complete shippable launch — cash only.**
+**Phase 1 — Harden the cash loop (launch-critical): ✅ SHIPPED (2026-07-13).** 044 (money model, both rates = 0), 045 (capacity restore), 046 (RLS + transition triggers), store guards, `bookingSubmitSchema` (cash-only payment), `utils/money.ts`, card/PayPal disabled "Coming soon" (gate pre-existed; escrow copy corrected), cancellation-restores-capacity + auto-reopen full routes, cash-only `markPaid` guard, sender route deep-link fallback. **This is the complete shippable launch — cash only.**
 
 **Phase 2 (post-launch) — Card escrow:** wire `create-payment-intent` into submit, refund-on-cancel, capture-on-delivery, flip card/PayPal from "Coming soon" to enabled. Optionally switch on the service-fee and/or driver-commission rates in `platform_config` (no migration needed).
 

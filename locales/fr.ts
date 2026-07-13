@@ -430,10 +430,10 @@ export default {
       paypal: "PayPal",
       cash: "Espèces au conducteur",
     },
-    confirmPay: "Confirmer & payer →",
-    reviewPay: "Vérifier & payer →",
+    confirmPay: "Confirmer la réservation →",
+    reviewPay: "Vérifier la réservation →",
     escrow:
-      "Protection séquestre — Paiement libéré uniquement à la livraison confirmée",
+      "Vous payez le conducteur directement en espèces — Wasali ne détient jamais votre paiement",
     error: {
       title: "Réservation échouée",
       fallback: "Une erreur est survenue. Veuillez réessayer.",

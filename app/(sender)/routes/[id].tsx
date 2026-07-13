@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,10 +27,29 @@ import { RouteDriverSection } from '@/components/routes/RouteDriverSection';
 export default function RouteDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { selectedRoute } = useBookingStore();
+  const { selectedRoute, loadRouteById, isLoading } = useBookingStore();
   const cities = useCitiesStore((s) => s.cities);
 
-  // The route should be set in bookingStore from search results
+  // Cold deep-link fallback: search results normally populate selectedRoute,
+  // but on a direct link / cold start it's null — fetch it by id.
+  useEffect(() => {
+    if (id && (!selectedRoute || selectedRoute.id !== id)) {
+      loadRouteById(id);
+    }
+  }, [id, selectedRoute, loadRouteById]);
+
+  // Still fetching the route for a deep-link — show a spinner, not "not found".
+  if (id && !selectedRoute && isLoading) {
+    return (
+      <SafeAreaView style={s.container}>
+        <View style={s.errorContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // The route should be set in bookingStore from search results (or fetched above)
   if (!selectedRoute || !id) {
     return (
       <SafeAreaView style={s.container}>

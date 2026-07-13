@@ -144,23 +144,64 @@ export const dropoffStopSchema = z.object({
   meeting_point_url: z.string().url().optional().or(z.literal('')),
 });
 
-export const wizardStep4Schema = z.object({
-  available_weight_kg: z.number().min(1, 'Minimum 1 kg').max(200, 'Maximum 200 kg'),
-  price_per_kg_eur: z.number().min(0.5, 'Minimum €0.50/kg').max(100, 'Maximum €100/kg'),
-  notes: z.string().max(500).optional(),
-  promo_enabled: z.boolean(),
-  promo_discount_pct: z.number().min(1).max(99).optional(),
-  promo_expires_at: z.string().optional(),
-  promo_label: z.string().max(30).optional(),
-  payment_methods: z.array(z.string()).min(1, 'At least one payment method required'),
-  save_as_template: z.boolean(),
-  template_name: z.string().max(60).optional(),
+export const wizardStep4Schema = z
+  .object({
+    available_weight_kg: z.number().min(1, 'Minimum 1 kg').max(200, 'Maximum 200 kg'),
+    min_weight_kg: z.number().min(0).max(200).optional(),
+    max_single_package_kg: z.number().min(0).max(200).optional(),
+    price_per_kg_eur: z.number().min(0.5, 'Minimum €0.50/kg').max(100, 'Maximum €100/kg'),
+    notes: z.string().max(500).optional(),
+    promo_enabled: z.boolean(),
+    promo_discount_pct: z.number().min(1).max(99).optional(),
+    promo_expires_at: z.string().optional(),
+    promo_label: z.string().max(30).optional(),
+    payment_methods: z.array(z.string()).min(1, 'At least one payment method required'),
+    save_as_template: z.boolean(),
+    template_name: z.string().max(60).optional(),
+  })
+  .refine((v) => v.min_weight_kg == null || v.min_weight_kg <= v.available_weight_kg, {
+    message: 'Minimum weight cannot exceed available capacity',
+    path: ['min_weight_kg'],
+  })
+  .refine((v) => v.max_single_package_kg == null || v.max_single_package_kg <= v.available_weight_kg, {
+    message: 'Max single package cannot exceed available capacity',
+    path: ['max_single_package_kg'],
+  });
+
+/**
+ * Sender booking submit — single schema parsed at submit time, consolidating the
+ * ad-hoc per-step checks. Cross-field rules that depend on the route (capacity,
+ * prohibited items, accepted payment methods) are validated in the store against
+ * the fetched route, not here. See the blueprint §3b.
+ *
+ * Launch: only cash payment types are accepted; card/PayPal is "Coming soon".
+ */
+export const CASH_PAYMENT_TYPES = ['cash_on_collection', 'cash_on_delivery'] as const;
+
+export const bookingSubmitSchema = z.object({
+  route_id: z.string().min(1),
+  collection_stop_id: z.string().min(1, 'Select a collection point'),
+  dropoff_stop_id: z.string().min(1, 'Select a drop-off point'),
+  collection_service_id: z.string().min(1, 'Select a collection option'),
+  delivery_service_id: z.string().min(1, 'Select a delivery option'),
+  sender_name: z.string().min(1, 'Sender name is required'),
+  sender_phone: z.string().min(5, 'Valid phone required'),
+  recipient_name: z.string().min(1, 'Recipient name is required'),
+  recipient_phone: z.string().min(5, 'Valid phone required'),
+  package_weight_kg: z.number().min(0.1, 'Weight must be at least 0.1 kg').max(200, 'Maximum 200 kg'),
+  package_category: z.string().min(1, 'Select a package type'),
+  // Launch: cash only. Card/PayPal rejected until the future card phase.
+  payment_type: z.enum(CASH_PAYMENT_TYPES, {
+    message: 'Card and PayPal are coming soon — please choose a cash option',
+  }),
+  total_price: z.number().min(0.01),
 });
 
 export type WizardStep1Values = z.infer<typeof wizardStep1Schema>;
 export type CollectionStop = z.infer<typeof collectionStopSchema>;
 export type DropoffStop = z.infer<typeof dropoffStopSchema>;
 export type WizardStep4Values = z.infer<typeof wizardStep4Schema>;
+export type BookingSubmitValues = z.infer<typeof bookingSubmitSchema>;
 
 export type SignUpData = z.infer<typeof signUpSchema>;
 export type LoginData = z.infer<typeof loginSchema>;

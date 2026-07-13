@@ -4,6 +4,22 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Phase 1 — Cash-loop hardening (2026-07-13)
+
+- **046_rls_hardening.sql** — Adds `enforce_booking_transition()` and
+  `enforce_route_transition()` BEFORE UPDATE triggers that reject illegal status
+  jumps at the DB level (mirrors `LEGAL_*_TRANSITIONS` in constants/bookingStatus.ts).
+  Also enforces cash-only manual mark-paid, and adds a sender `confirmed → cancelled`
+  policy (pre-in_transit self-cancel). See ADR 0001/0004.
+- **045_capacity_restore_fn.sql** — Adds `increment_route_capacity(uuid, numeric)`,
+  the guarded inverse of m013's decrement, capped at `total_weight_kg`. Used when a
+  confirmed booking is cancelled so capacity returns to the pool (previously leaked).
+- **044_money_model.sql** — Adds booking money columns (`shipping_eur`,
+  `service_fee_eur`, `driver_commission_eur`, `driver_payout_eur`, and the two
+  snapshotted rate columns) plus a `platform_config` table. Both the sender
+  service-fee and driver-commission rates default to 0% at launch, so numbers are
+  unchanged; either lever can be enabled later via config, no migration. See ADR 0003.
+
 ## Phase 0 — Reconciliation (2026-07-13)
 
 - **047_verify_ratings_unique.sql** — Corrects the ratings uniqueness constraint. Drops the

@@ -427,9 +427,9 @@ export default {
       paypal: "PayPal",
       cash: "Cash to driver",
     },
-    confirmPay: "Confirm & pay →",
-    reviewPay: "Review & pay →",
-    escrow: "Escrow protection — Payment released only on confirmed delivery",
+    confirmPay: "Confirm booking →",
+    reviewPay: "Review booking →",
+    escrow: "You pay the driver directly in cash — Wasali never holds your payment",
     error: {
       title: "Booking failed",
       fallback: "Something went wrong. Please try again.",

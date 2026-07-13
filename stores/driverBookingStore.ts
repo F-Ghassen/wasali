@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { BookingWithSender } from '@/types/models';
+import { isCashPaymentType } from '@/constants/bookingStatus';
 
 type BookingFilter = 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'cancelled' | 'all';
 
@@ -171,6 +172,23 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
         throw new Error('Not enough capacity on this route. Booking reverted to pending.');
       }
 
+      // 4. Auto-mark the route full if it can no longer accept the smallest
+      //    bookable package (available < min_weight_kg, or <= 0).
+      const { data: route } = await supabase
+        .from('routes')
+        .select('status, available_weight_kg, min_weight_kg')
+        .eq('id', booking.route_id)
+        .single();
+      if (route && route.status === 'active') {
+        const floor = route.min_weight_kg ?? 0;
+        if (route.available_weight_kg <= 0 || route.available_weight_kg < floor) {
+          await supabase
+            .from('routes')
+            .update({ status: 'full', updated_at: new Date().toISOString() })
+            .eq('id', booking.route_id);
+        }
+      }
+
       set({
         bookings: get().bookings.map((b) =>
           b.id === id ? { ...b, status: 'confirmed' } : b
@@ -186,7 +204,57 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
   },
 
   rejectBooking: async (id) => {
-    await updateBookingStatus(id, 'cancelled', set, get);
+    // Cancelling a *confirmed* booking must return its weight to the route pool
+    // (confirm decremented it). Cancelling a *pending* booking never decremented,
+    // so no restore. If the route was 'full', restoring capacity reopens it.
+    set({ isLoading: true, error: null });
+    try {
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('status, route_id, package_weight_kg')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+
+      const wasConfirmed = booking.status === 'confirmed';
+
+      const { error: statusError } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (statusError) throw statusError;
+
+      if (wasConfirmed) {
+        // Restore capacity, then reopen the route if it had been marked full.
+        await supabase.rpc('increment_route_capacity', {
+          p_route_id: booking.route_id,
+          p_weight_kg: booking.package_weight_kg ?? 0,
+        });
+        const { data: route } = await supabase
+          .from('routes')
+          .select('status')
+          .eq('id', booking.route_id)
+          .single();
+        if (route?.status === 'full') {
+          await supabase
+            .from('routes')
+            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .eq('id', booking.route_id);
+        }
+      }
+
+      set({
+        bookings: get().bookings.map((b) =>
+          b.id === id ? { ...b, status: 'cancelled' } : b
+        ),
+      });
+      get().computeStats();
+    } catch (err) {
+      set({ error: (err as Error).message });
+      throw err;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   markInTransit: async (id) => {
@@ -218,10 +286,20 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
   },
 
   markPaid: async (id) => {
-    // Only for manual payment types (cash_on_collection / cash_on_delivery).
-    // Guard: callers must verify booking.payment_type before invoking.
+    // Cash-only: recording receipt of cash handed directly to the driver.
+    // Guarded here (fail fast) and at the DB (enforce_booking_transition, m046).
     set({ isLoading: true, error: null });
     try {
+      const { data: booking, error: fetchError } = await supabase
+        .from('bookings')
+        .select('payment_type')
+        .eq('id', id)
+        .single();
+      if (fetchError) throw fetchError;
+      if (!isCashPaymentType(booking.payment_type)) {
+        throw new Error('Only cash bookings can be marked paid manually.');
+      }
+
       const now = new Date().toISOString();
       const { error } = await supabase
         .from('bookings')

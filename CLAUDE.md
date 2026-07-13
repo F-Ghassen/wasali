@@ -140,6 +140,7 @@ components/
 
 - Maintain Infrastructure in `terraform/TERRAFORM.md` and
 - Documented Infrastructure in `docs/infrastructure.md`
+- Scheduled/`pg_cron` jobs: register every job in `docs/cron-jobs.md` (source of truth) and change jobs only via a migration — keep the doc in sync in the same commit
 
 # Architecture Principles (STRICT)
 

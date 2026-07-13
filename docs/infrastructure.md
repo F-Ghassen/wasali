@@ -57,6 +57,7 @@ Wasali is a serverless-first stack. There are no VMs or containers to manage. Al
 | Storage | S3-compatible, 50 MiB max file size |
 | Realtime | WebSocket subscriptions for notifications |
 | Edge Functions | 5 Deno functions (see below) |
+| Scheduled jobs | `pg_cron` in-database — see [docs/cron-jobs.md](cron-jobs.md) |
 
 **Edge Functions:**
 

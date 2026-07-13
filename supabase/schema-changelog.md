@@ -14,7 +14,8 @@ the Phase 0 reconciliation set.
   backfills existing past routes. Expired routes drop out of sender search (which
   filters `status='active'`) and show as "Expired" in the driver's history.
   Existing bookings are unaffected. Trip ID (`WSL-XXXXXX` from the route UUID) is
-  a display-only reference — no column.
+  a display-only reference — no column. **The `expire-routes` cron job is
+  registered in `docs/cron-jobs.md`** (the scheduled-jobs source of truth).
 
 ## Phase 1 — Cash-loop hardening (2026-07-13)
 

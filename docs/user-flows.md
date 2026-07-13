@@ -1,8 +1,15 @@
 # Wasali — User Flows
 
-_Last updated: 2026-03-22_
+_Last updated: 2026-07-13_
+
+> **Authoritative source for the core trips & bookings loop:**
+> `docs/blueprint/trips-and-bookings.md`. Where this document and the blueprint
+> disagree, the blueprint wins.
 
 **Recent updates:**
+- Corrected stale route-group names (`(tabs)`/`(driver-tabs)` → `(sender)`/`(driver)`),
+  removed the non-existent `/booking/confirmation` route, and reconciled the payment model
+  to **cash-only at launch (no escrow)** per ADR 0004 (2026-07-13).
 - WhereAreYouFrom component redesigned with modern styling and improved UX (2026-03-22)
 
 ---
@@ -13,8 +20,8 @@ Wasali has two user roles. Each role has its own tab bar and flow set.
 
 | Role | Entry point | Core action |
 |---|---|---|
-| **Sender** | `/(tabs)/index` | Find a driver, book a shipment |
-| **Driver** | `/(driver-tabs)/index` | Create a route, manage bookings |
+| **Sender** | `/(sender)/index` | Find a driver, book a shipment |
+| **Driver** | `/(driver)/index` | Create a route, manage bookings |
 
 Role is set at sign-up and stored in `profiles.role`. The root `index.tsx` reads the profile and redirects accordingly.
 
@@ -32,14 +39,14 @@ Role is set at sign-up and stored in `profiles.role`. The root `index.tsx` reads
     ▼
 Supabase signUp()
   ├── email already exists?
-  │     ├── __DEV__  →  auto signIn()  →  SIGNED_IN  →  /(tabs)/index
+  │     ├── __DEV__  →  auto signIn()  →  SIGNED_IN  →  /(sender)/index
   │     └── prod     →  toast "account already exists"  →  (auth)/login
   └── new email  →  confirmation email sent (Resend SMTP)
         ▼
 (auth)/verify-otp
   enter 6-digit code  OR  click email link
         ▼
-SIGNED_IN event  →  loadProfile()  →  /(tabs)/index ✓
+SIGNED_IN event  →  loadProfile()  →  /(sender)/index ✓
 ```
 
 ### Sign Up (Driver)
@@ -52,7 +59,7 @@ SIGNED_IN event  →  loadProfile()  →  /(tabs)/index ✓
     ▼
 handle_new_user trigger sets profiles.role = 'driver'
     ▼
-SIGNED_IN  →  loadProfile()  →  /(driver-tabs)/index ✓
+SIGNED_IN  →  loadProfile()  →  /(driver)/index ✓
 ```
 
 ### Login
@@ -77,7 +84,7 @@ resetPasswordForEmail()  →  reset link in inbox
 User clicks link  →  (auth)/reset-password
   new password
     ▼
-updateUser()  →  /(tabs)/index ✓
+updateUser()  →  /(sender)/index ✓
 ```
 
 ---
@@ -87,12 +94,12 @@ updateUser()  →  /(tabs)/index ✓
 ### Tab Bar
 
 ```
-/(tabs)/
-  ├── 🔍 Search     →  /(tabs)/index
-  ├── 📦 Bookings   →  /(tabs)/bookings
-  ├── 📋 Requests   →  /(tabs)/requests
-  ├── ↔️  P2P        →  /(tabs)/p2p
-  └── 👤 Profile    →  /(tabs)/profile
+/(sender)/
+  ├── 🔍 Search     →  /(sender)/index
+  ├── 📦 Bookings   →  /(sender)/bookings
+  ├── 📋 Requests   →  /(sender)/requests
+  ├── ↔️  P2P        →  /(sender)/p2p
+  └── 👤 Profile    →  /(sender)/profile
 ```
 
 ---
@@ -101,7 +108,7 @@ updateUser()  →  /(tabs)/index ✓
 
 **Home screen:**
 ```
-/(tabs)/index  [Search Routes]
+/(sender)/index  [Search Routes]
   DESTINATIONS badge + section header (modern typography)
 
   ▼ WhereAreYouFrom Component ▼
@@ -129,7 +136,7 @@ updateUser()  →  /(tabs)/index ✓
   DatePicker — single departure date, defaults to today
   tap Search → router.push('/routes/results', { origin_city_id, destination_city_id, depart_from_date })
     ▼
-/(tabs)/routes/results  [Route List]
+/(sender)/routes/results  [Route List]
   useRouteResults() — two-tier Supabase query (exact city match + country match)
   Tier 1: exact city→city routes (shown first)
   Tier 2: "Other routes in region" (same country pair, different city)
@@ -138,7 +145,7 @@ updateUser()  →  /(tabs)/index ✓
   RouteCard shows: cities, dates, price/kg (strikethrough if promo active), driver rating/trip count
   tap a card
     ▼
-/(tabs)/booking/index  [Book Shipment — 6-step accordion]
+/(sender)/booking/index  [Book Shipment — 6-step accordion]
 ```
 
 **Booking wizard steps (6-step accordion):**
@@ -189,27 +196,14 @@ Step 5 — Payment
   + delivery service price
   = total
     ▼
-[Confirm & Pay]
-  booking insert → bookingStore.lastBooking set → navigate to /booking/confirmation
+[Confirm booking]  (cash only at launch — no payment taken here)
+  booking insert → navigate to /(sender)/booking/bookingDetail/[id]
 ```
 
-**Booking confirmation screen:**
-
-```
-/(tabs)/booking/confirmation
-  ├── Animated check icon (spring)
-  ├── Booking reference: WSL-XXXXXX
-  ├── Summary card (route, dates, weight, recipient, payment, total, driver)
-  ├── "What happens next" timeline
-  │     Confirmed → In transit → Delivered → Rate & complete  (all pending)
-  ├── [Message driver on WhatsApp]
-  │     Pre-fills message: full booking summary + deep link
-  │     wasali://driver/bookings/{id}  →  driver app booking detail
-  ├── [Print shipping label]
-  │     Opens ShipmentLabelModal (same as tracking page)
-  │     Shows label preview with QR code; Print / Save PDF action
-  └── [View my bookings]  /  [← Back to search]
-```
+**Booking confirmation:** there is no dedicated `/booking/confirmation` route. Submitting the
+wizard navigates to the booking detail screen (`/(sender)/booking/bookingDetail/[id]`), which
+shows a "Booking submitted!" celebration overlay for freshly-created bookings, the QR code (shown
+while `pending`), Print Label, and Message Driver. See the blueprint for the canonical loop.
 
 ---
 
@@ -217,21 +211,26 @@ Step 5 — Payment
 
 ```
 pending           ← driver receives push notification
-    │  driver confirms
+    │  driver confirms (route capacity decremented)
     ▼
 confirmed
-    │  driver collects package
+    │  driver collects package (QR-verified)
+    │  [cash-on-collection] sender hands cash to driver → driver taps "Mark as Paid"
     ▼
 in_transit
     │  driver marks delivered
+    │  [cash-on-delivery] recipient hands cash to driver → driver taps "Mark as Paid"
     ▼
 delivered
-    │  [Rate your driver] button shown
-    ▼
-rated  →  escrow released  →  Stripe Connect payout to driver
+    │  both parties rate each other (ratings table; not a booking status)
 ```
 
-Tracking screen `/(tabs)/tracking/[bookingId]`:
+> **Payment (launch):** cash only, handed **directly to the driver** — the platform never holds
+> funds and there is no escrow. "Mark as Paid" is a bookkeeping flag. Card/PayPal is shown as
+> "Coming soon" (disabled). See ADR 0004. `cancelled` and `disputed` are branches off the active
+> states; `rated` is **not** a status. See the blueprint state machine (§2b).
+
+Tracking screen `/(sender)/tracking/[bookingId]`:
 - Vertical timeline (done ✓ / active ● / pending ○)
 - Booking summary (route, dates, weight, total paid)
 - Green escrow banner ("Funds held securely")
@@ -239,7 +238,7 @@ Tracking screen `/(tabs)/tracking/[bookingId]`:
 
 Dispute path:
 ```
-/(tabs)/tracking/[bookingId]  →  [Open dispute]
+/(sender)/tracking/[bookingId]  →  [Open dispute]
     ▼
 /post-delivery/dispute/[bookingId]
   describe issue, attach evidence photos
@@ -252,7 +251,7 @@ disputes row created  →  admin review
 ### 2.3 Shipping Requests (Sender Posts, Drivers Bid)
 
 ```
-/(tabs)/requests  →  [New Request]
+/(sender)/requests  →  [New Request]
     ▼
 /shipping-requests/new
   origin city, destination city
@@ -277,15 +276,15 @@ Offer accepted  →  booking created
 ### 2.4 P2P Document Network
 
 ```
-/(tabs)/p2p  [Hub]
-  ├── [Send a document]  →  /(tabs)/p2p/send
-  ├── [Carry a document] →  /(tabs)/p2p/carry
-  └── 🏆 Leaderboard     →  /(tabs)/p2p/leaderboard
+/(sender)/p2p  [Hub]
+  ├── [Send a document]  →  /(sender)/p2p/send
+  ├── [Carry a document] →  /(sender)/p2p/carry
+  └── 🏆 Leaderboard     →  /(sender)/p2p/leaderboard
 ```
 
 **Send a document:**
 ```
-/(tabs)/p2p/send
+/(sender)/p2p/send
   from city (EU)  +  to city (TN)
   earliest / latest date window
   document type: Passport/ID | Letter | Contract | Medical | Other
@@ -302,7 +301,7 @@ p2p_requests row created  →  visible to all travellers on corridor
 
 **Carry a document:**
 ```
-/(tabs)/p2p/carry  [Open requests]
+/(sender)/p2p/carry  [Open requests]
   filter: All | 🇪🇺→🇹🇳 | 🔥 Urgent first
   tap [Offer to carry] on a card
     ▼
@@ -320,7 +319,7 @@ Delivery confirmed  →  points credited to carrier
 
 **Leaderboard:**
 ```
-/(tabs)/p2p/leaderboard
+/(sender)/p2p/leaderboard
   Gold / Silver / Bronze podium (top 3 avatars)
   Ranked list — own row highlighted
   Points redeemable: gifts, discounts, partner rewards
@@ -331,7 +330,7 @@ Delivery confirmed  →  points credited to carrier
 ### 2.5 Profile Management
 
 ```
-/(tabs)/profile
+/(sender)/profile
   ├── [Edit Profile]      →  /profile/edit
   │     name, avatar (image picker → Supabase Storage avatars/)
   │
@@ -355,11 +354,11 @@ Delivery confirmed  →  points credited to carrier
 ### Tab Bar
 
 ```
-/(driver-tabs)/
-  ├── 🏠 Dashboard  →  /(driver-tabs)/index
-  ├── 🗺  Routes     →  /(driver-tabs)/routes
-  ├── 📦 Bookings   →  /(driver-tabs)/bookings
-  └── 👤 Profile    →  /(driver-tabs)/profile
+/(driver)/
+  ├── 🏠 Dashboard  →  /(driver)/index
+  ├── 🗺  Routes     →  /(driver)/routes
+  ├── 📦 Bookings   →  /(driver)/bookings
+  └── 👤 Profile    →  /(driver)/profile
 ```
 
 ---
@@ -367,7 +366,7 @@ Delivery confirmed  →  points credited to carrier
 ### 3.1 Create a Route (5-step wizard)
 
 ```
-/(driver-tabs)/routes  →  [+ New Route]
+/(driver)/routes  →  [+ New Route]
     ▼
 /driver/routes/new  [Route Wizard]
 ```
@@ -465,7 +464,7 @@ Prohibited items (red chips)
 ### 3.2 Manage Routes
 
 ```
-/(driver-tabs)/routes
+/(driver)/routes
   list of my routes (DriverRouteCard)
   each card: cities, date, capacity bar, bookings count, status badge
   ├── tap card  →  /driver/routes/[id]
@@ -480,7 +479,7 @@ Prohibited items (red chips)
 ### 3.3 Manage Bookings
 
 ```
-/(driver-tabs)/bookings
+/(driver)/bookings
   list of bookings on my routes (DriverBookingCard)
   filter: Pending | Confirmed | In Transit | Delivered
     ▼
@@ -493,7 +492,7 @@ Prohibited items (red chips)
       └── status: delivered →  awaiting sender rating → escrow release
 ```
 
-**Driver Dashboard** `/(driver-tabs)/index`:
+**Driver Dashboard** `/(driver)/index`:
 - Stat cards: active routes, pending bookings, confirmed bookings
 - Earnings summary (this month, total)
 - Quick actions: New Route, View Bookings
@@ -503,7 +502,7 @@ Prohibited items (red chips)
 ### 3.4 Route Templates
 
 ```
-/(driver-tabs)/routes  →  [Templates]
+/(driver)/routes  →  [Templates]
   list of saved templates
   tap to apply  →  /driver/routes/new
     wizard pre-filled with template values
@@ -615,7 +614,7 @@ _Updated: 2026-03-19 — covers the new 6-step wizard (migration 018)._
 
 ### Entry point
 
-Sender taps **"Book slot →"** on a `RouteCard`. The app navigates to `/(tabs)/booking` with the route in `bookingStore.selectedRoute`.
+Sender taps **"Book slot →"** on a `RouteCard`. The app navigates to `/(sender)/booking` with the route in `bookingStore.selectedRoute`.
 
 ### Step 0 — Itinerary
 
@@ -671,7 +670,7 @@ _Unchanged — see `components/booking/PackageStep.tsx`._
 4. If `updateMyProfile` → `UPDATE profiles`
 5. `decrement_route_capacity(routeId, weightKg)` RPC
 6. Clear AsyncStorage draft key `booking_draft_{routeId}`
-7. Navigate to `/(tabs)/booking/confirmation?bookingId={id}`
+7. Navigate to `/(sender)/booking/confirmation?bookingId={id}`
 
 ### Draft persistence
 

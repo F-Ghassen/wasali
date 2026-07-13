@@ -60,10 +60,13 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Fetch route to get driver_id
+    // Fetch route (driver + its stops' cities). Routes have no origin/destination
+    // columns — origin = the collection stop's city, destination = the dropoff
+    // stop's city (route_stops -> cities). Selecting the dropped origin_city/
+    // destination_city columns previously yielded "undefined → undefined".
     const { data: route, error: routeError } = await supabase
       .from('routes')
-      .select('driver_id, origin_city, destination_city')
+      .select('driver_id, route_stops(stop_type, stop_order, cities(name))')
       .eq('id', record.route_id)
       .single();
 
@@ -84,7 +87,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Profile not found' }), { status: 200 });
     }
 
-    const routeSummary = `${route.origin_city_id} → ${route.destination_city_id}`;
+    const routeSummary = buildRouteSummary(route.route_stops);
 
     // Insert in-app notification
     await supabase.from('notifications').insert({
@@ -141,6 +144,32 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
   }
 });
+
+interface RouteStopCity {
+  stop_type: string;
+  stop_order: number;
+  cities: { name: string } | { name: string }[] | null;
+}
+
+// Origin = earliest collection stop's city; destination = latest dropoff stop's city.
+// Returns a "Origin → Destination" label, gracefully degrading if stops are missing.
+function buildRouteSummary(stops: RouteStopCity[] | null): string {
+  const cityName = (stop: RouteStopCity | undefined): string | null => {
+    if (!stop || !stop.cities) return null;
+    const c = Array.isArray(stop.cities) ? stop.cities[0] : stop.cities;
+    return c?.name ?? null;
+  };
+
+  const byOrder = (a: RouteStopCity, b: RouteStopCity) => a.stop_order - b.stop_order;
+  const collections = (stops ?? []).filter((s) => s.stop_type === 'collection').sort(byOrder);
+  const dropoffs = (stops ?? []).filter((s) => s.stop_type === 'dropoff').sort(byOrder);
+
+  const origin = cityName(collections[0]);
+  const destination = cityName(dropoffs[dropoffs.length - 1]);
+
+  if (origin && destination) return `${origin} → ${destination}`;
+  return origin ?? destination ?? 'Your shipment';
+}
 
 function buildEmailHtml({
   recipientName,

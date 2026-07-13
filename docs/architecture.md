@@ -1,8 +1,19 @@
 # Wasali — Architecture
 
-_Last updated: 2026-03-23_
+_Last updated: 2026-07-13_
+
+> **Core trips & bookings design is authoritative in** `docs/blueprint/trips-and-bookings.md`
+> (+ ADRs in `docs/adr/`). The schema diagram below predates several migrations — notably,
+> `routes` has **no** `origin_city`/`destination_city`/`origin_country`/`destination_country`
+> columns (dropped in migrations 023–025; origin/destination derive from `route_stops → cities`),
+> `promo_discount_pct` is deprecated in favor of `promotion_percentage`/`promotion_active`
+> (ADR 0002), and the payment model is **cash-only at launch with no escrow** (ADR 0004), not the
+> Stripe escrow flow described here. Trust `types/database.ts` and `supabase/schema-changelog.md`
+> for the current schema.
 
 **Recent updates:**
+- Corrected stale route-group names; added pointers to the trips & bookings blueprint and ADRs;
+  flagged the pre-migration schema diagram and cash-only payment model (2026-07-13)
 - `FeaturedRoutes` refactored (SoC): types → `types/featured-route.ts`; API → `services/featuredRoutesService.ts`; state/animation → `hooks/useFeaturedRoutes.ts`; card UI → `components/featured/FeaturedRouteCard.tsx`; modal UI → `components/featured/RouteDetailsModal.tsx`; orchestrator `FeaturedRoutes.tsx` reduced to ~60 lines (2026-03-23)
 - `DriverRouteCard` refactored: derived state extracted to `hooks/useDriverRouteCard.ts`; city names resolved via `citiesStore`; `as any` casts removed (2026-03-23)
 - WhereAreYouFrom component redesigned with modern Uber-inspired styling (2026-03-22)
@@ -62,7 +73,7 @@ tests/
 │  ┌────────────┐   ┌───────────────┐   ┌─────────┐   ┌─────────────┐ │
 │  │  Screens   │◀─▶│ Zustand Stores│◀─▶│   lib/  │   │   utils/    │ │
 │  │  app/      │   │  authStore    │   │supabase │   │ validators  │ │
-│  │  (tabs)/   │   │  bookingStore │   │ stripe  │   │ formatters  │ │
+│  │  (sender)/   │   │  bookingStore │   │ stripe  │   │ formatters  │ │
 │  │  (driver-  │   │  driverRoute  │   │notifications│ │ imageUpload │ │
 │  │   tabs)/   │   │  searchStore  │   └────┬────┘   └─────────────┘ │
 │  │  driver/   │   │  requestStore │        │                         │
@@ -126,7 +137,7 @@ app/
 │   ├── forgot-password.tsx     ← sends reset email
 │   └── reset-password.tsx      ← new password after reset link
 │
-├── (tabs)/                     ← sender tab bar (persistent nav)
+├── (sender)/                     ← sender tab bar (persistent nav)
 │   ├── index.tsx               ← Search Routes home
 │   ├── bookings.tsx            ← sender's bookings list
 │   ├── requests.tsx            ← shipping requests I posted
@@ -140,7 +151,7 @@ app/
 │       ├── carry.tsx           ← browse & offer to carry
 │       └── leaderboard.tsx     ← points leaderboard
 │
-├── (driver-tabs)/              ← driver tab bar (persistent nav)
+├── (driver)/              ← driver tab bar (persistent nav)
 │   ├── index.tsx               ← driver dashboard
 │   ├── routes.tsx              ← my routes list
 │   ├── bookings.tsx            ← bookings on my routes
@@ -170,8 +181,8 @@ app/
 session?  →  NO   →  (auth)/welcome
            →  YES  →  loadProfile()
                          │
-                         ├── role === 'driver'  →  /(driver-tabs)/index
-                         └── role === 'sender'  →  /(tabs)/index
+                         ├── role === 'driver'  →  /(driver)/index
+                         └── role === 'sender'  →  /(sender)/index
 ```
 
 ---
@@ -504,7 +515,7 @@ _Added: 2026-03-19_
 ### Component tree
 
 ```
-app/(tabs)/booking/index.tsx          ← wizard shell
+app/(sender)/booking/index.tsx          ← wizard shell
   ├─ hooks/useRouteData.ts            ← parallel fetch: route + stops + services + payment methods
   ├─ hooks/useBookingForm.ts          ← useReducer + AsyncStorage draft, stepValidity, totalPrice
   ├─ hooks/useSavedRecipients.ts      ← fetch/upsert recipients
@@ -521,7 +532,7 @@ app/(tabs)/booking/index.tsx          ← wizard shell
   ├─ components/ui/ServiceOption.tsx    ← reusable radio card for route service
   └─ components/ui/PaymentOption.tsx    ← reusable radio card for payment method
 
-app/(tabs)/booking/confirmation.tsx
+app/(sender)/booking/confirmation.tsx
   └─ bookingStore.lastBooking           ← data source (no re-fetch)
 ```
 
@@ -640,7 +651,7 @@ This mapping lives in both `ServiceOption.tsx` (`SERVICE_LABEL`) and `booking/in
 
 ## Confirmation Screen
 
-`app/(tabs)/booking/confirmation.tsx` — shown after successful booking submit.
+`app/(sender)/booking/confirmation.tsx` — shown after successful booking submit.
 
 ### Data source
 
@@ -655,7 +666,7 @@ This mapping lives in both `ServiceOption.tsx` (`SERVICE_LABEL`) and `booking/in
 | Tracking timeline | Static 4-step preview (Confirmed → In transit → Delivered → Rate & complete) — all pending style |
 | Print shipping label | Opens `ShipmentLabelModal` (same component as tracking page) with QR code + Print/PDF action |
 | Message driver on WhatsApp | Pre-filled message with full booking summary + `wasali://driver/bookings/{id}` deep link; opens WhatsApp |
-| View my bookings | Navigates to `/(tabs)/bookings` |
+| View my bookings | Navigates to `/(sender)/bookings` |
 
 ### WhatsApp deep link format
 

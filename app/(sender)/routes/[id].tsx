@@ -18,6 +18,7 @@ import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
 import { useCitiesStore } from '@/stores/citiesStore';
 import { STOP_TYPE } from '@/constants/stopTypes';
+import { tripId } from '@/utils/reference';
 import { RoutePromoSection } from '@/components/routes/RoutePromoSection';
 import { RouteTimelineSection } from '@/components/routes/RouteTimelineSection';
 import { RouteCapacitySection } from '@/components/routes/RouteCapacitySection';
@@ -131,6 +132,7 @@ export default function RouteDetailScreen() {
       <ScrollView style={s.content} showsVerticalScrollIndicator={false}>
         {/* Route Summary */}
         <View style={s.summaryCard}>
+          <Text style={s.tripId}>Trip ID: {tripId(selectedRoute.id)}</Text>
           <View style={s.routeRow}>
             <View style={s.cityBlock}>
               <Text style={s.cityLabel}>FROM</Text>
@@ -256,6 +258,14 @@ const s = StyleSheet.create({
     marginBottom: Spacing.lg,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
+  },
+
+  tripId: {
+    fontSize: FontSize.xs,
+    color: Colors.text.tertiary,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.sm,
   },
 
   routeRow: {

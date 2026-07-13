@@ -15,6 +15,7 @@ interface DriverRouteCardProps {
 
 export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRouteCardProps) {
   const {
+    tripId,
     originCityName,
     destinationCityName,
     departureDateLabel,
@@ -49,6 +50,9 @@ export function DriverRouteCard({ route, bookingCount = 0, onPress }: DriverRout
         <Text style={styles.dot}>·</Text>
         <Text style={styles.metaText}>{bookingCount} booking{bookingCount !== 1 ? 's' : ''}</Text>
       </View>
+
+      {/* Trip ID */}
+      <Text style={styles.tripId}>{tripId}</Text>
 
       {/* Promo badge */}
       {promoActive && (
@@ -102,6 +106,7 @@ const styles = StyleSheet.create({
   meta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   metaText: { fontSize: FontSize.sm, color: Colors.text.secondary },
   dot: { fontSize: FontSize.sm, color: Colors.text.tertiary },
+  tripId: { fontSize: FontSize.xs, color: Colors.text.tertiary, fontWeight: '600', letterSpacing: 0.5, marginTop: 4 },
   capacityRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

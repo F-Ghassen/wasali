@@ -517,19 +517,25 @@ Templates store: origin/destination, capacity, price, payment methods, logistics
 
 ```
 draft ──▶ active ──▶ full
-  │          │
-  │          └──▶ cancelled
-  │          └──▶ completed
+  │          │  ▲       │
+  │          │  └───────┘  (reopen when a confirmed booking cancels)
+  │          ├──▶ cancelled
+  │          ├──▶ completed
+  │          └──▶ expired    (auto, departure date passed)
   └──▶ cancelled
+   full ──▶ completed / cancelled / expired
 ```
 
 | Status | Trigger |
 |---|---|
 | `draft` | Route created by wizard (before publish) |
 | `active` | Driver publishes route (visible to senders) |
-| `full` | Driver marks capacity exhausted |
+| `full` | Capacity exhausted (auto on confirm, or driver-marked) |
+| `expired` | **Auto** — departure date passed; nightly `pg_cron` job `expire-routes` (m048). Hidden from sender search, shown as "Expired" in driver history. |
 | `cancelled` | Driver cancels route |
 | `completed` | Driver marks trip done |
+
+**Trip ID:** every route shows a human-readable `WSL-XXXXXX` reference (derived from the route UUID, `utils/reference.ts`) to both the driver and the sender — same scheme as booking references.
 
 ---
 

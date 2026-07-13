@@ -16,7 +16,7 @@ import type { RouteStatus } from '@/types/models';
 const ALL_BOOKING: BookingStatus[] = [
   'pending', 'confirmed', 'in_transit', 'delivered', 'disputed', 'cancelled',
 ];
-const ALL_ROUTE: RouteStatus[] = ['draft', 'active', 'full', 'completed', 'cancelled'];
+const ALL_ROUTE: RouteStatus[] = ['draft', 'active', 'full', 'expired', 'completed', 'cancelled'];
 
 describe('booking transitions', () => {
   it('allows every legal transition', () => {
@@ -63,6 +63,9 @@ describe('route transitions', () => {
     expect(canTransitionRoute('full', 'active')).toBe(true); // reopen on cancel
     expect(canTransitionRoute('full', 'completed')).toBe(true);
     expect(canTransitionRoute('full', 'cancelled')).toBe(true);
+    // Auto-expire edges (m048) — mirror enforce_route_transition().
+    expect(canTransitionRoute('active', 'expired')).toBe(true);
+    expect(canTransitionRoute('full', 'expired')).toBe(true);
   });
 
   it('rejects illegal jumps', () => {
@@ -70,11 +73,14 @@ describe('route transitions', () => {
     expect(canTransitionRoute('draft', 'completed')).toBe(false);
     expect(canTransitionRoute('completed', 'active')).toBe(false);
     expect(canTransitionRoute('cancelled', 'active')).toBe(false);
+    expect(canTransitionRoute('draft', 'expired')).toBe(false); // only active/full expire
+    expect(canTransitionRoute('expired', 'active')).toBe(false); // expired is terminal
   });
 
   it('terminal states allow no transitions', () => {
     expect(LEGAL_ROUTE_TRANSITIONS.completed).toHaveLength(0);
     expect(LEGAL_ROUTE_TRANSITIONS.cancelled).toHaveLength(0);
+    expect(LEGAL_ROUTE_TRANSITIONS.expired).toHaveLength(0);
   });
 
   it('exhaustive: every target is a valid status', () => {

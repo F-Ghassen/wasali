@@ -18,6 +18,7 @@ import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { StatusBadge } from '@/components/shared/ui/primitives/StatusBadge';
 import { formatDate, formatPrice } from '@/utils/formatters';
+import { shortRef } from '@/utils/reference';
 import { useAuthStore } from '@/stores/authStore';
 import { ShipmentLabelModal, type LabelData } from '@/components/tracking/ShipmentLabelModal';
 import type { BookingStatus } from '@/constants/bookingStatus';
@@ -91,7 +92,7 @@ export default function BookingDetailScreen() {
   const destFlag = getDestinationFlag(booking);
 
   const labelData: LabelData | null = booking && id ? {
-    trackingId:            `WSL-${id.slice(0, 6).toUpperCase()}`,
+    trackingId:            shortRef(id),
     originCity,
     originFlag,
     destCity,

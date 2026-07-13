@@ -26,6 +26,7 @@ import { useCitiesStore } from '@/stores/citiesStore';
 import { STOP_TYPE } from '@/constants/stopTypes';
 import { Button } from '@/components/shared/ui/primitives/Button';
 import { DriverBookingCard } from '@/components/notifications/DriverBookingCard';
+import { tripId } from '@/utils/reference';
 import type { RouteWithStops } from '@/types/models';
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -173,6 +174,8 @@ export default function DriverRouteDetailScreen() {
               {routeSubtitle}
             </Text>
           ) : null}
+
+          <Text style={styles.tripId}>Trip ID: {tripId(route.id)}</Text>
 
           <View style={styles.metaGrid}>
             <View style={styles.metaItem}>
@@ -415,6 +418,7 @@ const styles = StyleSheet.create({
   routeHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   routeTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.text.primary },
   routeSubtitle: { fontSize: FontSize.sm, color: Colors.text.secondary },
+  tripId: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: Spacing.xs, fontWeight: '600', letterSpacing: 0.5 },
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginTop: Spacing.sm },
   metaItem: { minWidth: '40%' },
   metaLabel: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginBottom: 2 },

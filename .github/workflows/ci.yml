@@ -20,7 +20,7 @@ jobs:
       - run: npx tsc --noEmit
 
   test:
-    name: Tests
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,4 +29,29 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm test
+      - run: npm test # unit only — no database required
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Boots the full local stack in Docker and applies all migrations +
+      # seed.sql (config.toml [db.seed]). Ephemeral — torn down with the runner.
+      - run: supabase db start
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration
+        env:
+          SUPABASE_URL: http://127.0.0.1:54321
+          # Fixed local-dev demo JWTs (same values hardcoded as fallbacks in
+          # tests/helpers.ts). NOT secrets: they only grant access to the
+          # ephemeral CI database, never any real project.
+          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hj04zWl196z2-SBc0
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.UZBKN53oO-hcH6q6YJVJVKDgJp1vmBt2g1MWVQkmCco

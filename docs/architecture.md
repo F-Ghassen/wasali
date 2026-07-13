@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-07-13_
+_Last updated: 2026-07-14_
 
 > **Core trips & bookings design is authoritative in** `docs/blueprint/trips-and-bookings.md`
 > (+ ADRs in `docs/adr/`). The schema diagram below predates several migrations — notably,
@@ -12,6 +12,7 @@ _Last updated: 2026-07-13_
 > for the current schema.
 
 **Recent updates:**
+- Added Playwright for web E2E (`playwright.config.ts`, `tests/e2e/`), complementing Maestro's native-only coverage (2026-07-14)
 - Corrected stale route-group names; added pointers to the trips & bookings blueprint and ADRs;
   flagged the pre-migration schema diagram and cash-only payment model (2026-07-13)
 - `FeaturedRoutes` refactored (SoC): types → `types/featured-route.ts`; API → `services/featuredRoutesService.ts`; state/animation → `hooks/useFeaturedRoutes.ts`; card UI → `components/featured/FeaturedRouteCard.tsx`; modal UI → `components/featured/RouteDetailsModal.tsx`; orchestrator `FeaturedRoutes.tsx` reduced to ~60 lines (2026-03-23)
@@ -33,6 +34,8 @@ tests/
   README.md               # How to run each test layer
   unit/                   # Vitest unit tests (no network)
   integration/            # Vitest integration tests (requires local Supabase)
+  e2e/                    # Playwright specs (web build, browser-driven)
+    home.spec.ts          # Welcome screen smoke test
 
 .maestro/
   config.yaml             # appId: host.exp.Exponent
@@ -44,6 +47,8 @@ tests/
   04_sender_tracking.yaml       # Sender tracking timeline + Print Label
   05_driver_route_cancel.yaml   # Cancel active route
   06_driver_mark_full.yaml      # Mark route full → invisible in sender search
+
+playwright.config.ts      # Web E2E config — boots `expo start --web`, drives Chromium
 ```
 
 ### Test layers
@@ -52,7 +57,8 @@ tests/
 |-------|------|-----------------|
 | Unit | Vitest | No |
 | Integration | Vitest + supabase-js admin | Local Supabase (`supabase start`) |
-| E2E | Maestro | Local Supabase + Expo dev server + simulator |
+| E2E (native) | Maestro | Local Supabase + Expo dev server + simulator |
+| E2E (web) | Playwright | Expo web dev server (auto-started by config) |
 
 ### helpers.ts
 

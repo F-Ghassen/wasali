@@ -329,7 +329,7 @@ export default {
             "Le système suit, notifie et livre",
         },
         {
-          title: "Vous aidez",
+          title: "Vous évaluez",
           description:
             "Évaluez les conducteurs et partagez vos commentaires",
         },

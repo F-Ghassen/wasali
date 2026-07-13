@@ -7,8 +7,12 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:all": "vitest run",
+    "test:watch": "vitest",
+    "db:reset": "supabase db reset",
+    "test:setup": "supabase start && supabase db reset && npx tsx tests/seed-test-data.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",

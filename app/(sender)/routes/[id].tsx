@@ -17,6 +17,7 @@ import { formatDateShort } from '@/utils/formatters';
 import { useSearchStore } from '@/stores/searchStore';
 import { useBookingStore } from '@/stores/bookingStore';
 import { useCitiesStore } from '@/stores/citiesStore';
+import { STOP_TYPE } from '@/constants/stopTypes';
 import { RoutePromoSection } from '@/components/routes/RoutePromoSection';
 import { RouteTimelineSection } from '@/components/routes/RouteTimelineSection';
 import { RouteCapacitySection } from '@/components/routes/RouteCapacitySection';
@@ -79,9 +80,24 @@ export default function RouteDetailScreen() {
     if (!cityId) return '';
     return cities.find((c) => c.id === cityId)?.name || '';
   };
+  const getCountry = (cityId: string | null | undefined) => {
+    if (!cityId) return '';
+    return cities.find((c) => c.id === cityId)?.country || '';
+  };
 
-  const originCity = getCityName(selectedRoute.origin_city_id);
-  const destCity = getCityName(selectedRoute.destination_city_id);
+  // Routes have no origin/destination columns — origin is the first collection
+  // stop's city, destination is the last dropoff stop's city (route_stops -> cities).
+  const stops = selectedRoute.route_stops ?? [];
+  const byOrder = (a: { stop_order: number }, b: { stop_order: number }) => a.stop_order - b.stop_order;
+  const collectionStops = stops.filter((st) => st.stop_type === STOP_TYPE.COLLECTION).sort(byOrder);
+  const dropoffStops = stops.filter((st) => st.stop_type === STOP_TYPE.DROPOFF).sort(byOrder);
+  const originCityId = collectionStops[0]?.city_id;
+  const destCityId = dropoffStops[dropoffStops.length - 1]?.city_id;
+
+  const originCity = getCityName(originCityId);
+  const destCity = getCityName(destCityId);
+  const originCountry = getCountry(originCityId);
+  const destCountry = getCountry(destCityId);
 
   const total = selectedRoute.total_weight_kg ?? selectedRoute.available_weight_kg;
   const filled = total - selectedRoute.available_weight_kg;
@@ -119,7 +135,7 @@ export default function RouteDetailScreen() {
             <View style={s.cityBlock}>
               <Text style={s.cityLabel}>FROM</Text>
               <Text style={s.cityName}>{originCity}</Text>
-              <Text style={s.country}>{selectedRoute.origin_country}</Text>
+              <Text style={s.country}>{originCountry}</Text>
             </View>
 
             <View style={s.arrowBlock}>
@@ -132,7 +148,7 @@ export default function RouteDetailScreen() {
             <View style={s.cityBlock}>
               <Text style={s.cityLabel}>TO</Text>
               <Text style={s.cityName}>{destCity}</Text>
-              <Text style={s.country}>{selectedRoute.destination_country}</Text>
+              <Text style={s.country}>{destCountry}</Text>
             </View>
           </View>
 
@@ -164,8 +180,8 @@ export default function RouteDetailScreen() {
         <RouteCapacitySection
           available={selectedRoute.available_weight_kg}
           total={total}
-          minBooking={selectedRoute.min_weight_kg}
-          maxSinglePackage={selectedRoute.max_single_package_kg}
+          minBooking={selectedRoute.min_weight_kg ?? undefined}
+          maxSinglePackage={selectedRoute.max_single_package_kg ?? undefined}
         />
 
         {/* Timeline */}

@@ -41,12 +41,15 @@ export function useDriverRouteCard(
     const statusCfg = STATUS_CONFIG[route.status] ?? STATUS_CONFIG.active;
 
     const now = new Date();
+    // Canonical promo source is promotion_percentage/promotion_active (migration 043);
+    // promo_label/promo_expires_at remain display/expiry metadata.
     const promoActive =
-      route.promo_discount_pct != null &&
+      !!route.promotion_active &&
+      route.promotion_percentage != null &&
       (route.promo_expires_at == null || new Date(route.promo_expires_at) >= now);
 
     const promoLabel = promoActive
-      ? (route.promo_label ?? `${route.promo_discount_pct}% off`)
+      ? (route.promo_label ?? `${route.promotion_percentage}% off`)
       : '';
 
     const totalKg  = route.available_weight_kg; // available is what's left; total not in this type

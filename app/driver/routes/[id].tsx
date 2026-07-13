@@ -52,6 +52,22 @@ export default function DriverRouteDetailScreen() {
   const routeBookings = bookings.filter((b) => b.route_id === id);
   const hasActiveBookings = routeBookings.some((b) => ['confirmed', 'in_transit'].includes(b.status));
 
+  // Routes have no origin/destination columns — origin is the first collection
+  // stop's city, destination is the last dropoff stop's city (route_stops -> cities).
+  const stops = route?.route_stops ?? [];
+  const byOrder = (a: { stop_order: number }, b: { stop_order: number }) => a.stop_order - b.stop_order;
+  const collectionStops = stops.filter((s) => s.stop_type === STOP_TYPE.COLLECTION).sort(byOrder);
+  const dropoffStops = stops.filter((s) => s.stop_type === STOP_TYPE.DROPOFF).sort(byOrder);
+  const originCityId = collectionStops[0]?.city_id;
+  const destinationCityId = dropoffStops[dropoffStops.length - 1]?.city_id;
+  const originLabel = originCityId ? getCityName(originCityId) : '';
+  const destinationLabel = destinationCityId ? getCityName(destinationCityId) : '';
+  const routeTitle = originLabel && destinationLabel ? `${originLabel} → ${destinationLabel}` : 'Route';
+  const routeSubtitle =
+    originCityId && destinationCityId
+      ? [getCountry(originCityId), getCountry(destinationCityId)].filter(Boolean).join(' → ')
+      : '';
+
   const load = () => {
     if (!id) return;
     // Fetch this specific route by ID — avoids replacing the whole store list
@@ -149,12 +165,14 @@ export default function DriverRouteDetailScreen() {
           <View style={styles.routeHeader}>
             <MapPin size={18} color={Colors.text.secondary} />
             <Text style={styles.routeTitle}>
-              Route
+              {routeTitle}
             </Text>
           </View>
-          <Text style={styles.routeSubtitle}>
-            Route
-          </Text>
+          {routeSubtitle ? (
+            <Text style={styles.routeSubtitle}>
+              {routeSubtitle}
+            </Text>
+          ) : null}
 
           <View style={styles.metaGrid}>
             <View style={styles.metaItem}>
@@ -196,16 +214,18 @@ export default function DriverRouteDetailScreen() {
             </View>
           )}
 
-          {/* Promo */}
-          {(route as any).promo_discount_pct != null &&
+          {/* Promo — reads the canonical promotion_percentage/promotion_active
+              (migration 043); promo_label/promo_expires_at are display metadata. */}
+          {(route as any).promotion_active &&
+            (route as any).promotion_percentage != null &&
             ((route as any).promo_expires_at == null ||
               new Date((route as any).promo_expires_at) >= new Date()) && (
             <View style={styles.promoCard}>
               <Text style={styles.promoBadge}>
-                {(route as any).promo_label || `${(route as any).promo_discount_pct}% off`}
+                {(route as any).promo_label || `${(route as any).promotion_percentage}% off`}
               </Text>
               <Text style={styles.promoDetail}>
-                Discounted price: €{(route.price_per_kg_eur * (1 - (route as any).promo_discount_pct / 100)).toFixed(2)}/kg
+                Discounted price: €{(route.price_per_kg_eur * (1 - (route as any).promotion_percentage / 100)).toFixed(2)}/kg
               </Text>
               {(route as any).promo_expires_at && (
                 <Text style={styles.promoExpiry}>

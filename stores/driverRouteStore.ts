@@ -171,7 +171,14 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
         notes: data.notes ?? null,
         status: 'draft',
         payment_methods: data.payment_methods ?? ['cash_sender', 'cash_recipient', 'paypal', 'bank_transfer'],
-        promo_discount_pct: data.promo_discount_pct ?? null,
+        // Canonical promo source of truth (read by search/pricing via effectivePrice).
+        // promotion_percentage/promotion_active drive the discount; promo_label and
+        // promo_expires_at remain display/expiry metadata. promo_discount_pct is
+        // deprecated (migration 043) and no longer written.
+        promotion_percentage: data.promo_discount_pct ?? null,
+        promotion_active:
+          data.promo_discount_pct != null &&
+          (data.promo_expires_at == null || new Date(data.promo_expires_at) >= new Date()),
         promo_expires_at: data.promo_expires_at ?? null,
         promo_label: data.promo_label ?? null,
         logistics_options: data.logistics_options ?? [],

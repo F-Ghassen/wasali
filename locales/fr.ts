@@ -136,12 +136,11 @@ export default {
       cancel: "Annuler le trajet",
     },
     alerts: {
-      cannotCancel: "Annulation impossible",
-      cannotCancelMsg:
-        "Ce trajet a des réservations confirmées ou en transit. Veuillez les résoudre avant d'annuler.",
       cancelTitle: "Annuler le trajet",
       cancelMsg:
         "Êtes-vous sûr de vouloir annuler ce trajet ? Cette action est irréversible.",
+      cancelMsgWithBookings:
+        "Ce trajet a {{count}} réservation(s) active(s). L'annulation rejettera toutes ces réservations et notifiera les expéditeurs. Cette action est irréversible.",
       markFullTitle: "Marquer complet",
       markFullMsg: "Aucune nouvelle réservation ne sera acceptée.",
     },

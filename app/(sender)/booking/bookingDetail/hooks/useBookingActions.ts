@@ -7,9 +7,10 @@ import { getOriginCity, getDestinationCity } from '../utils/routeCities';
 export function useBookingActions(bookingId: string | undefined, profile: any) {
   const cancelBooking = async (): Promise<boolean> => {
     if (!bookingId) return false;
+    const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('bookings')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', cancellation_reason: 'sender_cancelled', cancelled_at: now })
       .eq('id', bookingId)
       .select('id, status');
     if (error || !data || data.length === 0) return false;

@@ -21,8 +21,8 @@ import { formatDate, formatPrice } from '@/utils/formatters';
 import { shortRef } from '@/utils/reference';
 import { useAuthStore } from '@/stores/authStore';
 import { ShipmentLabelModal, type LabelData } from '@/components/tracking/ShipmentLabelModal';
-import type { BookingStatus } from '@/constants/bookingStatus';
-import { BOOKING_STATUS_CONFIG } from '@/constants/bookingStatus';
+import type { BookingStatus, CancellationReason } from '@/constants/bookingStatus';
+import { BOOKING_STATUS_CONFIG, SENDER_CANCELLATION_REASON_MESSAGES } from '@/constants/bookingStatus';
 import { TimelineStep } from '@/components/booking/detail/TimelineStep';
 import { useBookingDetail } from './hooks/useBookingDetail';
 import { useBookingActions } from './hooks/useBookingActions';
@@ -86,6 +86,9 @@ export default function BookingDetailScreen() {
 
   const currentStatus = booking.status as BookingStatus;
   const statusConfig = BOOKING_STATUS_CONFIG[currentStatus];
+  const cancellationMessage = currentStatus === 'cancelled' && booking.cancellation_reason
+    ? SENDER_CANCELLATION_REASON_MESSAGES[booking.cancellation_reason as CancellationReason]
+    : null;
   const originCity = getOriginCity(booking);
   const destCity = getDestinationCity(booking);
   const originFlag = getOriginFlag(booking);
@@ -193,6 +196,9 @@ export default function BookingDetailScreen() {
                 {statusConfig.label}
               </Text>
             </View>
+            {cancellationMessage && (
+              <Text style={styles.cancellationReason}>{cancellationMessage}</Text>
+            )}
           </View>
 
           {/* Escrow notice */}
@@ -431,6 +437,12 @@ const styles = StyleSheet.create({
   },
   statusIcon:  { fontSize: FontSize.base },
   statusLabel: { fontSize: FontSize.sm, fontWeight: '700' },
+  cancellationReason: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    marginTop: Spacing.xs,
+    textAlign: 'center',
+  },
 
   escrowBanner: {
     backgroundColor: Colors.successLight,

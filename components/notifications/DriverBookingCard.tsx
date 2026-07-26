@@ -6,7 +6,8 @@ import { BorderRadius, Spacing } from "@/constants/spacing";
 import { FontSize } from "@/constants/typography";
 import { StatusBadge } from "@/components/shared/ui/primitives";
 import type { BookingWithSender } from "@/types/models";
-import type { BookingStatus } from "@/constants/bookingStatus";
+import type { BookingStatus, CancellationReason } from "@/constants/bookingStatus";
+import { CANCELLATION_REASON_LABELS } from "@/constants/bookingStatus";
 
 interface DriverBookingCardProps {
   booking: BookingWithSender;
@@ -28,6 +29,10 @@ export function DriverBookingCard({
     | undefined;
   const isPending = booking.status === "pending";
   const isDelivered = booking.status === "delivered";
+  const isCancelled = booking.status === "cancelled";
+  const cancellationLabel = isCancelled && booking.cancellation_reason
+    ? CANCELLATION_REASON_LABELS[booking.cancellation_reason as CancellationReason]
+    : null;
   const isManualPayment =
     booking.payment_type === "cash_on_collection" ||
     booking.payment_type === "cash_on_delivery";
@@ -42,10 +47,15 @@ export function DriverBookingCard({
             {booking.package_weight_kg}kg · {booking.package_category}
           </Text>
         </View>
-        <StatusBadge
-          status={booking.status as BookingStatus}
-          showIcon={false}
-        />
+        <View style={styles.statusColumn}>
+          <StatusBadge
+            status={booking.status as BookingStatus}
+            showIcon={false}
+          />
+          {cancellationLabel && (
+            <Text style={styles.cancellationCaption}>{cancellationLabel}</Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.details}>
@@ -201,4 +211,6 @@ const styles = StyleSheet.create({
   footerHint: { fontSize: FontSize.xs, color: Colors.text.tertiary },
   unpaid: { color: Colors.warning, fontWeight: "600" },
   paid:   { color: Colors.success, fontWeight: "600" },
+  statusColumn: { alignItems: "flex-end", gap: 2 },
+  cancellationCaption: { fontSize: FontSize.xs, color: Colors.text.tertiary },
 });

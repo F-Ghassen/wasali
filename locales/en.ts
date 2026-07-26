@@ -135,12 +135,11 @@ export default {
       cancel: "Cancel Route",
     },
     alerts: {
-      cannotCancel: "Cannot Cancel",
-      cannotCancelMsg:
-        "This route has confirmed or in-transit bookings. Please resolve them before cancelling.",
       cancelTitle: "Cancel Route",
       cancelMsg:
         "Are you sure you want to cancel this route? This cannot be undone.",
+      cancelMsgWithBookings:
+        "This route has {{count}} active booking(s). Cancelling will reject all of them and notify the senders. This cannot be undone.",
       markFullTitle: "Mark as Full",
       markFullMsg: "No new bookings will be accepted.",
     },

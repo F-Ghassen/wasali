@@ -10,6 +10,7 @@ interface BookingRecord {
   sender_id: string;
   package_weight_kg: number;
   price_eur: number;
+  cancellation_reason: string | null;
 }
 
 interface WebhookPayload {
@@ -19,9 +20,20 @@ interface WebhookPayload {
   old_record: BookingRecord;
 }
 
-type NotificationType = 'new_booking' | 'booking_confirmed' | 'in_transit' | 'delivered';
+type NotificationType =
+  | 'new_booking'
+  | 'booking_confirmed'
+  | 'in_transit'
+  | 'delivered'
+  | 'booking_cancelled';
 
-const EVENT_MAP: Record<string, { type: NotificationType; recipientRole: 'driver' | 'sender'; message: string }> = {
+interface BookingEvent {
+  type: NotificationType;
+  recipientRole: 'driver' | 'sender';
+  message: string;
+}
+
+const EVENT_MAP: Record<string, BookingEvent> = {
   pending: {
     type: 'new_booking',
     recipientRole: 'driver',
@@ -44,15 +56,48 @@ const EVENT_MAP: Record<string, { type: NotificationType; recipientRole: 'driver
   },
 };
 
+// 'cancelled' has no single recipient/message — both depend on WHY the
+// booking was cancelled (bookings.cancellation_reason, migration 049).
+// Sender-initiated actions notify the driver; driver/route-initiated ones
+// notify the sender.
+const CANCELLATION_EVENT_MAP: Record<string, BookingEvent> = {
+  sender_cancelled: {
+    type: 'booking_cancelled',
+    recipientRole: 'driver',
+    message: 'Sender cancelled a booking on your route',
+  },
+  rejected_by_driver: {
+    type: 'booking_cancelled',
+    recipientRole: 'sender',
+    message: 'Driver rejected your booking request',
+  },
+  route_cancelled: {
+    type: 'booking_cancelled',
+    recipientRole: 'sender',
+    message: 'The driver cancelled the route — your booking was cancelled',
+  },
+  route_expired: {
+    type: 'booking_cancelled',
+    recipientRole: 'sender',
+    message: 'This route expired before departure — your booking was cancelled',
+  },
+};
+
+function resolveEvent(record: BookingRecord): BookingEvent | undefined {
+  if (record.status === 'cancelled') {
+    return record.cancellation_reason ? CANCELLATION_EVENT_MAP[record.cancellation_reason] : undefined;
+  }
+  return EVENT_MAP[record.status];
+}
+
 serve(async (req) => {
   try {
     const payload: WebhookPayload = await req.json();
     const { record } = payload;
-    const newStatus = record.status;
 
-    const event = EVENT_MAP[newStatus];
+    const event = resolveEvent(record);
     if (!event) {
-      return new Response(JSON.stringify({ skipped: true, status: newStatus }), { status: 200 });
+      return new Response(JSON.stringify({ skipped: true, status: record.status }), { status: 200 });
     }
 
     const supabase = createClient(

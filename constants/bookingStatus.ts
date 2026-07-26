@@ -10,6 +10,18 @@ export type BookingStatus =
 
 export type PaymentStatus = 'unpaid' | 'paid' | 'captured' | 'refunded' | 'failed';
 
+/**
+ * Why a booking ended up 'cancelled'. Mirrors the CHECK constraint on
+ * bookings.cancellation_reason (migration 049) and the four cancellation
+ * paths in the codebase: sender self-cancel, driver manual reject, and the
+ * two cascade sources (driver cancels the route / nightly expiry cron).
+ */
+export type CancellationReason =
+  | 'sender_cancelled'
+  | 'rejected_by_driver'
+  | 'route_cancelled'
+  | 'route_expired';
+
 export interface StatusConfig {
   label: string;
   color: string;
@@ -94,6 +106,30 @@ export function canTransitionBooking(from: BookingStatus, to: BookingStatus): bo
 export function canTransitionRoute(from: RouteStatus, to: RouteStatus): boolean {
   return LEGAL_ROUTE_TRANSITIONS[from]?.includes(to) ?? false;
 }
+
+/**
+ * Short, driver-facing caption for a cancelled booking (used on
+ * DriverBookingCard). Generic reason wording — the driver already knows
+ * whether they did the cancelling.
+ */
+export const CANCELLATION_REASON_LABELS: Record<CancellationReason, string> = {
+  sender_cancelled: 'Cancelled by sender',
+  rejected_by_driver: 'Rejected by driver',
+  route_cancelled: 'Route cancelled',
+  route_expired: 'Route expired',
+};
+
+/**
+ * Full sentence, sender-facing explanation for a cancelled booking (used on
+ * the sender's booking detail screen). Phrased from the sender's point of
+ * view — distinguishes "you did this" from "this happened to you".
+ */
+export const SENDER_CANCELLATION_REASON_MESSAGES: Record<CancellationReason, string> = {
+  sender_cancelled: 'You cancelled this booking.',
+  rejected_by_driver: 'The driver rejected your booking request.',
+  route_cancelled: 'The driver cancelled the route — your booking was cancelled.',
+  route_expired: 'This route expired before departure — your booking was cancelled.',
+};
 
 /** Cash payment types — the only methods that can be marked paid manually. */
 export const CASH_PAYMENT_TYPES = ['cash_on_collection', 'cash_on_delivery'] as const;

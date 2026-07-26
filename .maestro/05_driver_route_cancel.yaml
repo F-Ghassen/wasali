@@ -1,9 +1,14 @@
 # 05_driver_route_cancel.yaml
-# E2E flow: driver navigates to an active route, cancels it, confirms the
-# alert, and asserts the route no longer appears in the active routes list.
+# E2E flow: driver navigates to an active route that has at least one pending
+# booking, cancels it, sees the cascade-impact copy in the confirmation
+# dialog, confirms, and asserts the route no longer appears in the active
+# routes list. Cancelling now cascades (migration 049) — every pending/
+# confirmed booking on the route auto-rejects with reason='route_cancelled'
+# instead of the cancel being blocked outright.
 #
 # Required env vars: DRIVER_EMAIL, DRIVER_PASSWORD
-# Pre-condition: at least one active route must exist for this driver.
+# Pre-condition: at least one active route with 1+ pending booking must exist
+# for this driver (run seed-test-data.ts and 02_sender_search_and_book.yaml first).
 
 appId: host.exp.Exponent
 
@@ -33,18 +38,18 @@ appId: host.exp.Exponent
 # 5. Tap Cancel route (scroll down in case button is below the fold)
 - scrollUntilVisible:
     element:
-      text: "Cancel route"
+      text: "Cancel Route"
     direction: DOWN
 - tapOn:
-    text: "Cancel route"
+    text: "Cancel Route"
 
-# 6. Confirm the alert dialog
+# 6. Confirm the alert shows the cascade-impact copy (not a "cannot cancel" block)
 - assertVisible:
-    text: "Are you sure"
+    text: "active booking"
 - tapOn:
-    text: "Yes, cancel"
+    text: "Cancel Route"
 
-# 7. Assert we are back on the routes list and the route is gone
+# 7. Assert we are back on the routes list and the route is gone from Active
 - assertVisible:
     text: "My Routes"
 - assertNotVisible:

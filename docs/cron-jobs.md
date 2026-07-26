@@ -14,7 +14,7 @@ via the [`pg_cron`](https://github.com/citusdata/pg_cron) extension.
 
 | Job name | Schedule (UTC) | Defined in | What it does |
 |---|---|---|---|
-| `expire-routes` | `15 2 * * *` (nightly 02:15) | [`supabase/migrations/048_route_expiry.sql`](../supabase/migrations/048_route_expiry.sql) | Flips `active`/`full` routes whose `departure_date < CURRENT_DATE` to `status = 'expired'`. Runs as the job owner (bypasses RLS); the `enforce_route_transition()` trigger permits `active/full → expired`. Expired routes drop out of sender search and show as "Expired" in the driver's history. See [ADR / route expiry in the blueprint](blueprint/trips-and-bookings.md). |
+| `expire-routes` | `15 2 * * *` (nightly 02:15) | [`supabase/migrations/048_route_expiry.sql`](../supabase/migrations/048_route_expiry.sql) | Flips `active`/`full` routes whose `departure_date < CURRENT_DATE` to `status = 'expired'`. Runs as the job owner (bypasses RLS); the `enforce_route_transition()` trigger permits `active/full → expired`. Expired routes drop out of sender search and show as "Expired" in the driver's history. As of migration 049, this `UPDATE` also fires `trg_cascade_cancel_bookings`, which auto-cancels every `pending`/`confirmed` booking on the route (`cancellation_reason='route_expired'`, capacity restored). See [ADR / route expiry in the blueprint](blueprint/trips-and-bookings.md) and [booking cascade cancellation](booking-cascade-cancellation.md). |
 
 ## Conventions
 

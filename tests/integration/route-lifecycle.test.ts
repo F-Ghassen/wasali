@@ -13,7 +13,9 @@ import {
   createTestUser,
   cleanupUser,
   cleanupRoute,
+  seedRoute,
   TEST_ROUTE,
+  TEST_BOOKING_DRAFT,
   type TestUser,
 } from '../helpers';
 import { STOP_TYPE } from '@/constants/stopTypes';
@@ -200,6 +202,84 @@ describe.skipIf(SKIP)('Route lifecycle (integration)', () => {
       .eq('id', route!.id);
 
     expect(error).toBeNull();
+  });
+
+  // ── 6b. Cancel route cascades: pending/confirmed bookings auto-reject ────
+  // (migration 049 — trg_cascade_cancel_bookings)
+
+  it('cancelling a route auto-cancels its pending and confirmed bookings with reason=route_cancelled', async () => {
+    const cascadeRouteId = await seedRoute(driver.userId, { available_weight_kg: 50 });
+    routeIds.push(cascadeRouteId);
+
+    const { data: pendingBooking } = await adminClient
+      .from('bookings')
+      .insert({ ...TEST_BOOKING_DRAFT, sender_id: sender.userId, route_id: cascadeRouteId, status: 'pending', package_weight_kg: 5 })
+      .select('id')
+      .single();
+    const { data: confirmedBooking } = await adminClient
+      .from('bookings')
+      .insert({ ...TEST_BOOKING_DRAFT, sender_id: sender.userId, route_id: cascadeRouteId, status: 'confirmed', package_weight_kg: 8 })
+      .select('id')
+      .single();
+    // Confirming normally decrements capacity — mirror that so the restore is observable.
+    await adminClient.rpc('decrement_route_capacity', { p_route_id: cascadeRouteId, p_weight_kg: 8 });
+
+    const { error: cancelErr } = await driver.client
+      .from('routes')
+      .update({ status: 'cancelled' })
+      .eq('id', cascadeRouteId);
+    expect(cancelErr).toBeNull();
+
+    const { data: bookingsAfter } = await adminClient
+      .from('bookings')
+      .select('id, status, cancellation_reason')
+      .in('id', [pendingBooking!.id, confirmedBooking!.id]);
+
+    for (const b of bookingsAfter!) {
+      expect(b.status).toBe('cancelled');
+      expect(b.cancellation_reason).toBe('route_cancelled');
+    }
+
+    // Confirmed booking's 8kg should be restored (42 after decrement, back to 50).
+    const { data: routeAfter } = await adminClient
+      .from('routes')
+      .select('available_weight_kg')
+      .eq('id', cascadeRouteId)
+      .single();
+    expect(routeAfter!.available_weight_kg).toBe(50);
+  });
+
+  // ── 6c. Cascade leaves in_transit/delivered/already-cancelled untouched ──
+
+  it('cancelling a route does not touch in_transit, delivered, or already-cancelled bookings', async () => {
+    const cascadeRouteId = await seedRoute(driver.userId, { available_weight_kg: 50 });
+    routeIds.push(cascadeRouteId);
+
+    const seed = async (status: string) => {
+      const { data } = await adminClient
+        .from('bookings')
+        .insert({ ...TEST_BOOKING_DRAFT, sender_id: sender.userId, route_id: cascadeRouteId, status, package_weight_kg: 3 })
+        .select('id')
+        .single();
+      return data!.id;
+    };
+    const inTransitId = await seed('in_transit');
+    const deliveredId = await seed('delivered');
+    const alreadyCancelledId = await seed('cancelled');
+
+    await driver.client.from('routes').update({ status: 'cancelled' }).eq('id', cascadeRouteId);
+
+    const { data: after } = await adminClient
+      .from('bookings')
+      .select('id, status, cancellation_reason')
+      .in('id', [inTransitId, deliveredId, alreadyCancelledId]);
+
+    const byId = Object.fromEntries(after!.map((b) => [b.id, b]));
+    expect(byId[inTransitId].status).toBe('in_transit');
+    expect(byId[deliveredId].status).toBe('delivered');
+    // Pre-existing cancellation is untouched — reason stays null, not overwritten.
+    expect(byId[alreadyCancelledId].status).toBe('cancelled');
+    expect(byId[alreadyCancelledId].cancellation_reason).toBeNull();
   });
 
   // ── 7. Complete route ────────────────────────────────────────────────────

@@ -475,6 +475,11 @@ Prohibited items (red chips)
   │     view route detail
   │     edit fields (weight, price, notes)
   │     actions: Mark Full | Cancel Route
+  │       Cancel Route now cascades (m049): if the route has pending/confirmed
+  │       bookings, the confirmation dialog shows the impact count ("This route
+  │       has N active booking(s)...") — cancelling auto-rejects all of them
+  │       (cancellation_reason='route_cancelled') and notifies each sender.
+  │       No longer blocked outright.
   └── FAB [+]  →  /driver/routes/new
 ```
 
@@ -539,6 +544,8 @@ draft ──▶ active ──▶ full
 | `cancelled` | Driver cancels route |
 | `completed` | Driver marks trip done |
 
+**Cascading booking cancellation (m049):** transitioning a route into `cancelled` or `expired` fires `trg_cascade_cancel_bookings`, which auto-cancels every `pending`/`confirmed` booking on that route — `in_transit`/`delivered`/`disputed`/already-`cancelled` bookings are untouched. Capacity is restored for any booking that was `confirmed`. The reason is tagged so senders and support can tell driver-initiated cancellation from route expiry apart from a driver's manual per-booking reject (see §5 below).
+
 **Trip ID:** every route shows a human-readable `WSL-XXXXXX` reference (derived from the route UUID, `utils/reference.ts`) to both the driver and the sender — same scheme as booking references.
 
 ---
@@ -559,8 +566,17 @@ pending ──▶  confirmed ──▶ in_transit ──▶ delivered ──▶ 
 | `confirmed` | Driver | Taps "Confirm" |
 | `in_transit` | Driver | Taps "Mark Collected" |
 | `delivered` | Driver | Taps "Mark Delivered" |
-| `cancelled` | Driver or Sender | Cancellation action |
+| `cancelled` | Driver, Sender, or System (cascade) | Cancellation action, or the route it's on transitions to `cancelled`/`expired` |
 | `disputed` | Sender | Opens dispute after delivery |
+
+**Cancellation reasons (`bookings.cancellation_reason`, migration 049)** — every path into `cancelled` now records why, distinguishing a driver's manual per-booking reject from a route-level cascade:
+
+| Reason | Set by | Notifies |
+|---|---|---|
+| `sender_cancelled` | Sender self-cancels (`pending`/`confirmed`, pre-`in_transit`) | Driver |
+| `rejected_by_driver` | Driver rejects a single `pending` booking | Sender |
+| `route_cancelled` | Cascade — driver cancels the whole route | Sender |
+| `route_expired` | Cascade — nightly `expire-routes` cron finds `departure_date` passed | Sender |
 
 ---
 
@@ -574,6 +590,7 @@ Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notif
 | Booking confirmed | Sender | push + email + in-app |
 | Package collected / in transit | Sender | push + email + in-app |
 | Package delivered | Sender | push + email + in-app |
+| Booking cancelled (any reason, m049) | Driver (if sender cancelled) or Sender (if driver rejected / route cancelled / route expired) | push + email + in-app |
 | New offer on shipping request | Sender | push + in-app |
 | Offer accepted | Driver | push + in-app |
 | New P2P carry offer | Document sender | push + in-app |
@@ -583,6 +600,11 @@ Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notif
 - Fetches route + recipient profile
 - Sends Expo push (native), Resend email (web / notification_email set), inserts notifications row
 - `notificationStore` subscribes via Supabase Realtime to receive live inserts
+- Cancellation is reason-routed, not status-routed: `status='cancelled'` alone doesn't
+  pick a recipient/message — the function reads `cancellation_reason` and branches
+  (`sender_cancelled` → notify driver; `rejected_by_driver`/`route_cancelled`/
+  `route_expired` → notify sender). Before migration 049, no notification fired on
+  cancellation at all — this closes that gap for all four cancellation paths.
 
 **In-app notification inbox:**
 - Profile tab gets a red dot badge when `unreadCount > 0`
@@ -611,7 +633,7 @@ The `.maestro/` directory contains automated E2E flows that mirror the user jour
 | `02_sender_search_and_book.yaml` | Sender search → select route → 4-step booking → tracking screen |
 | `03_driver_booking_lifecycle.yaml` | Driver: Pending → Confirmed → In transit → Delivered |
 | `04_sender_tracking.yaml` | Sender: Bookings tab → tracking timeline → Print Label |
-| `05_driver_route_cancel.yaml` | Driver: Cancel active route → gone from list |
+| `05_driver_route_cancel.yaml` | Driver: Cancel active route with a pending booking → cascade-impact copy shown → gone from list |
 | `06_driver_mark_full.yaml` | Driver: Mark full → route hidden in sender search |
 
 See `tests/README.md` for setup and run instructions.

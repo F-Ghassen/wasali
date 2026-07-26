@@ -51,7 +51,10 @@ export default function DriverRouteDetailScreen() {
 
   const route = routes.find((r) => r.id === id) as RouteWithStops | undefined;
   const routeBookings = bookings.filter((b) => b.route_id === id);
-  const hasActiveBookings = routeBookings.some((b) => ['confirmed', 'in_transit'].includes(b.status));
+  // Bookings still 'pending'/'confirmed' are what the cancel cascade (m049)
+  // will auto-reject; in_transit/delivered/disputed are left untouched by the
+  // DB trigger, so they don't count toward the cancellation impact.
+  const activeBookingCount = routeBookings.filter((b) => ['pending', 'confirmed'].includes(b.status)).length;
 
   // Routes have no origin/destination columns — origin is the first collection
   // stop's city, destination is the last dropoff stop's city (route_stops -> cities).
@@ -80,13 +83,14 @@ export default function DriverRouteDetailScreen() {
   useEffect(() => { load(); }, [id, profile?.id]);
 
   const handleCancel = () => {
-    if (hasActiveBookings) {
-      Alert.alert(t('routeDetail.alerts.cannotCancel'), t('routeDetail.alerts.cannotCancelMsg'));
-      return;
-    }
+    // Cancelling now cascades: the DB trigger (m049) auto-rejects every
+    // pending/confirmed booking on this route. Surface the impact up front
+    // instead of blocking the driver — they decide, with full information.
     Alert.alert(
       t('routeDetail.alerts.cancelTitle'),
-      t('routeDetail.alerts.cancelMsg'),
+      activeBookingCount > 0
+        ? t('routeDetail.alerts.cancelMsgWithBookings', { count: activeBookingCount })
+        : t('routeDetail.alerts.cancelMsg'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {

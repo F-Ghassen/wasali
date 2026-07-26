@@ -4,6 +4,28 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature — Cascading booking cancellation (2026-07-26)
+
+- **049_booking_cancellation_reason.sql** — Adds a CHECK constraint on the
+  existing `bookings.cancellation_reason` column (`sender_cancelled`,
+  `rejected_by_driver`, `route_cancelled`, `route_expired`) and a new
+  `cascade_cancel_bookings_on_route_terminal()` trigger
+  (`trg_cascade_cancel_bookings`, `AFTER UPDATE ON routes`). When a route
+  transitions into `cancelled` or `expired`, every `pending`/`confirmed`
+  booking on it is auto-cancelled with the matching reason, and capacity is
+  restored for any that were `confirmed` (via `increment_route_capacity`,
+  m045). `in_transit`/`delivered`/`disputed`/already-`cancelled` bookings are
+  left untouched. `SECURITY DEFINER` so it fires uniformly whether triggered
+  by a driver's session or the `expire-routes` cron (m048), which never goes
+  through app code. Backfills routes already in a terminal state with
+  orphaned bookings. Previously, `rejectBooking` (driver) and `cancelBooking`
+  (sender self-cancel) wrote `status='cancelled'` with no reason and no
+  notification — both app-side paths now set `cancellation_reason` too
+  (`rejected_by_driver` / `sender_cancelled`), and `notify-booking-event`
+  gained a `cancelled` branch keyed off the reason. See
+  [docs/cron-jobs.md](../docs/cron-jobs.md) (`expire-routes` row) for the
+  cron-side note.
+
 ## Feature — Route expiration (2026-07-13)
 
 - **048_route_expiry.sql** — Adds an `expired` route status (CHECK extended to

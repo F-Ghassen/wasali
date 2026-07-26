@@ -218,9 +218,15 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
 
       const wasConfirmed = booking.status === 'confirmed';
 
+      const now = new Date().toISOString();
       const { error: statusError } = await supabase
         .from('bookings')
-        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .update({
+          status: 'cancelled',
+          cancellation_reason: 'rejected_by_driver',
+          cancelled_at: now,
+          updated_at: now,
+        })
         .eq('id', id);
       if (statusError) throw statusError;
 

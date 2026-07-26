@@ -55,15 +55,15 @@ export default function SendScreen() {
   const [offerMoney,  setOfferMoney]  = useState(false);
   const [offerAmount, setOfferAmount] = useState('');
 
-  // Build dynamic city lists from store
-  const euCities = useMemo(
-    () => cities.filter(c => c.country !== 'Tunisia'),
-    [cities]
+  // "To" excludes whatever country was picked for "From" — generalizes to
+  // any countries configured in the `cities` table, not just EU/Tunisia.
+  const fromCityCountry = useMemo(
+    () => cities.find(c => c.id === fromCityId)?.country,
+    [cities, fromCityId]
   );
-
-  const tnCities = useMemo(
-    () => cities.filter(c => c.country === 'Tunisia'),
-    [cities]
+  const toCities = useMemo(
+    () => fromCityCountry ? cities.filter(c => c.country !== fromCityCountry) : cities,
+    [cities, fromCityCountry]
   );
 
   const canSubmit = fromCity && toCity && docType;
@@ -98,20 +98,20 @@ export default function SendScreen() {
             <Text style={s.cardTitle}>Route</Text>
             <View style={s.routeRow}>
               <View style={s.cityCol}>
-                <Text style={s.fieldLabel}>From (EU)</Text>
+                <Text style={s.fieldLabel}>From</Text>
                 <CityPickerInput
                   value={fromCity}
-                  cities={euCities}
+                  cities={cities}
                   placeholder="Select city"
                   onChange={(city) => { setFromCity(city.name); setFromCityId(city.id); }}
                 />
               </View>
               <Text style={s.arrow}>→</Text>
               <View style={s.cityCol}>
-                <Text style={s.fieldLabel}>To (TN)</Text>
+                <Text style={s.fieldLabel}>To</Text>
                 <CityPickerInput
                   value={toCity}
-                  cities={tnCities}
+                  cities={toCities}
                   placeholder="Select city"
                   onChange={(city) => { setToCity(city.name); setToCityId(city.id); }}
                 />

@@ -375,17 +375,6 @@ export default function NewRouteScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  // Filter cities by region
-  const euCities = useMemo(
-    () => cities.filter((c) => c.country !== "Tunisia"),
-    [cities],
-  );
-
-  const tnCities = useMemo(
-    () => cities.filter((c) => c.country === "Tunisia"),
-    [cities],
-  );
-
   // Collection stops: show all cities
   const collectionCities = useMemo(() => cities, [cities]);
 
@@ -428,17 +417,14 @@ export default function NewRouteScreen() {
     emptyDropStop(),
   ]);
 
-  // Dropoff stops: dynamic filtering based on collection selection
+  // Dropoff stops: exclude any country already selected for pickup.
+  // Generalizes to any number of countries configured in the `cities` table —
+  // no hardcoded region list.
   const dropoffCities = useMemo(() => {
-    // Get all countries selected in collection stops
     const selectedCountries = new Set(
       collectionStops
-        .filter((s) => s.city_id)
-        .map((stop) => {
-          const city = cities.find((c) => c.id === stop.city_id);
-          return city?.country;
-        })
-        .filter(Boolean),
+        .map((stop) => cities.find((c) => c.id === stop.city_id)?.country)
+        .filter((c): c is string => Boolean(c)),
     );
 
     if (selectedCountries.size === 0) {
@@ -446,23 +432,8 @@ export default function NewRouteScreen() {
       return cities;
     }
 
-    // Check if any selected countries are Tunisia
-    const hasTunisia = selectedCountries.has("Tunisia");
-    const hasEU = Array.from(selectedCountries).some((c) => c !== "Tunisia");
-
-    // If only Tunisia selected in collection → show only EU in dropoff
-    if (hasTunisia && !hasEU) {
-      return euCities;
-    }
-
-    // If only EU selected in collection → show only Tunisia in dropoff
-    if (hasEU && !hasTunisia) {
-      return tnCities;
-    }
-
-    // Mixed selection - show all (shouldn't happen in normal flow)
-    return cities;
-  }, [cities, euCities, tnCities, collectionStops]);
+    return cities.filter((c) => !selectedCountries.has(c.country));
+  }, [cities, collectionStops]);
 
   // ── Step 3: Notes & Rules ──────────────────────────────────────────────────
   const [notes, setNotes] = useState("");

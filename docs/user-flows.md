@@ -377,7 +377,7 @@ Delivery confirmed  →  points credited to carrier
 Step 1 — Collection Stops
   ┌─ Pre-filled with 2 empty stops ─┐
   │  Stop N:                        │
-  │    city (EU cities picker)      │
+  │    city (any city in `cities`)  │
   │    departure date (stop 1 only) │  ← stop 1 date = departure_date
   │    collection date (stop 2+)    │
   │    meeting point URL (optional) │
@@ -388,13 +388,17 @@ Step 1 — Collection Stops
 Step 2 — Drop-off Stops
   ┌─ Pre-filled with 2 empty stops ─┐
   │  Stop N:                        │
-  │    city (TN cities picker)      │
+  │    city (any country other than │
+  │    the ones picked in Step 1)   │
   │    estimated arrival (optional) │
   │    meeting point URL (optional) │
   └─────────────────────────────────┘
   [+ Add drop-off stop]  (max 8)
   Info banner: "Arrival dates are estimates"
   Validation: at least 1 stop with city + country
+  Dropoff picker excludes any country already selected for collection —
+  driven dynamically by the `cities` table (any number of countries), not
+  a hardcoded EU/Tunisia split.
 
 Step 3 — Notes & Rules
   Notes for senders (free text, optional)

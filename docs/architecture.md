@@ -12,6 +12,7 @@ _Last updated: 2026-07-14_
 > for the current schema.
 
 **Recent updates:**
+- Driver route wizard, sender p2p send, and shipping-request creation no longer hardcode a binary EU-vs-Tunisia city split (`country === 'Tunisia'` string checks in `app/driver/routes/new.tsx`, `app/(sender)/p2p/send.tsx`, `app/shipping-requests/new.tsx`). Destination/dropoff pickers now dynamically exclude whatever country was already picked for origin/pickup, so any country/city added to the `cities` table (via a future migration) becomes selectable everywhere with no further code changes (2026-07-26)
 - Added Playwright for web E2E (`playwright.config.ts`, `tests/e2e/`), complementing Maestro's native-only coverage (2026-07-14)
 - Corrected stale route-group names; added pointers to the trips & bookings blueprint and ADRs;
   flagged the pre-migration schema diagram and cash-only payment model (2026-07-13)

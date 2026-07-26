@@ -28,8 +28,12 @@ export default function NewRequestScreen() {
   const { draft, setDraftField, submitRequest, isLoading } = useRequestStore();
   const { cities } = useCitiesStore();
 
-  const euCities = useMemo(() => cities.filter(c => c.country !== 'Tunisia'), [cities]);
-  const tnCities = useMemo(() => cities.filter(c => c.country === 'Tunisia'), [cities]);
+  // Destination excludes whatever country was picked for origin — generalizes
+  // to any countries configured in the `cities` table, not just EU/Tunisia.
+  const destinationCities = useMemo(
+    () => draft.originCountry ? cities.filter(c => c.country !== draft.originCountry) : cities,
+    [cities, draft.originCountry]
+  );
 
   const handleSubmit = async () => {
     if (!session) return;
@@ -64,7 +68,7 @@ export default function NewRequestScreen() {
             label="From City *"
             value={draft.originCity ?? ''}
             country={draft.originCountry}
-            cities={euCities}
+            cities={cities}
             placeholder="e.g. Paris"
             onChange={(city) => {
               setDraftField('originCityId', city.id);
@@ -77,7 +81,7 @@ export default function NewRequestScreen() {
             label="To City *"
             value={draft.destinationCity ?? ''}
             country={draft.destinationCountry}
-            cities={tnCities}
+            cities={destinationCities}
             placeholder="e.g. Tunis"
             onChange={(city) => {
               setDraftField('destinationCityId', city.id);

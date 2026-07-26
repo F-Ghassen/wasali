@@ -4,6 +4,20 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Bugfix — handle_new_user() role cast (2026-07-26)
+
+- **050_fix_handle_new_user_role_cast.sql** — `038_convert_role_to_enum.sql`
+  converted `profiles.role` from `text` to the `public.user_role` ENUM but
+  never updated `handle_new_user()` (last touched in `005_driver_role.sql`),
+  which still inserted a plain text value. Postgres rejected the untyped
+  literal on insert into the enum column, so the `AFTER INSERT ON auth.users`
+  trigger failed for **every signup** since migration 038 landed — surfaced to
+  clients as `"Database error creating new user"` (500) from
+  `auth.admin.createUser` / the signup API. Fix casts the `COALESCE(...,
+  'sender')` result to `public.user_role`. Found and fixed while creating a
+  driver test account; verified via `auth.admin.createUser` +
+  `signInWithPassword` against the linked project post-fix.
+
 ## Feature — Cascading booking cancellation (2026-07-26)
 
 - **049_booking_cancellation_reason.sql** — Adds a CHECK constraint on the

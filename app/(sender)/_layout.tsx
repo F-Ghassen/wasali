@@ -141,14 +141,20 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <Package size={iconSize} color={color} strokeWidth={2} />,
         }}
         listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            // Reset the booking stack to the root (index) when tab is pressed
+          tabPress: () => {
+            // Reset the booking stack to the root (index) when tab is pressed.
+            // Check the *focused* nested route name rather than stack depth —
+            // router.replace() with an absolute path can collapse the nested
+            // stack to a single entry (e.g. just "bookingDetail/[id]" after
+            // submitting a booking), which a depth check would miss.
             const state = navigation.getState();
-            const bookingRouteIndex = state.routes.findIndex((r) => r.name === 'booking');
-            if (bookingRouteIndex !== -1) {
-              const bookingRoute = state.routes[bookingRouteIndex];
-              if (bookingRoute.state && bookingRoute.state.routes.length > 1) {
-                // If we're nested deeper than the index, go back to index
+            const routes: Array<{ name: string; state?: { index?: number; routes: Array<{ name: string }> } }> =
+              state.routes;
+            const bookingRoute = routes.find((r) => r.name === 'booking');
+            const nestedState = bookingRoute?.state;
+            if (nestedState) {
+              const focusedRoute = nestedState.routes[nestedState.index ?? nestedState.routes.length - 1];
+              if (focusedRoute?.name !== 'index') {
                 navigation.navigate('booking', {
                   screen: 'index',
                 });

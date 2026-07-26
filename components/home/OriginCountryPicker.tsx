@@ -2,16 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  Image,
-  TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { format } from 'date-fns';
-import { ArrowRight, Lock, Package } from 'lucide-react-native';
+import { Lock } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { STOP_TYPE } from '@/constants/stopTypes';
 import { BorderRadius, Spacing } from '@/constants/spacing';
@@ -20,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { useSearchStore } from '@/stores/searchStore';
 import { useCitiesStore } from '@/stores/citiesStore';
 import { Skeleton } from '@/components/shared/ui/primitives/Skeleton';
-import { getFlagImageUrl } from '@/lib/flagImages';
+import { CountryCard } from './CountryCard';
 
 type CountryData = {
   country: string;
@@ -28,6 +25,12 @@ type CountryData = {
   routeCount: number;
   cityId?: string;
 };
+
+// Always show at least this many country cards, even when fewer countries
+// currently have active routes — falls back to these (with routeCount: 0)
+// so the section never looks sparse/empty on a quiet day.
+const MIN_VISIBLE_COUNTRIES = 4;
+const FALLBACK_COUNTRIES = ['Tunisia', 'Germany', 'France', 'Italy'];
 
 export default function OriginCountryPicker() {
   const { width } = useWindowDimensions();
@@ -124,6 +127,20 @@ export default function OriginCountryPicker() {
         });
       });
 
+      // Backfill with the static fallback list so the section always shows at
+      // least MIN_VISIBLE_COUNTRIES cards, even with 0 routes on a quiet day.
+      const shownCountries = new Set(result.map((c) => c.country));
+      for (const country of FALLBACK_COUNTRIES) {
+        if (result.length >= MIN_VISIBLE_COUNTRIES) break;
+        if (shownCountries.has(country)) continue;
+        result.push({
+          country,
+          flag: countryFlags[country] || '🌍',
+          routeCount: countryMap[country]?.count ?? 0,
+        });
+        shownCountries.add(country);
+      }
+
       setCountries(result);
       setIsLoading(false);
     } catch (error) {
@@ -146,7 +163,7 @@ export default function OriginCountryPicker() {
 
     // Navigate to results - show all destinations from any city in this country
     router.push({
-      pathname: '/(tabs)/routes/results',
+      pathname: '/(sender)/routes/results',
       params: {
         origin_country: country.country,
         depart_from_date: today,
@@ -213,64 +230,29 @@ export default function OriginCountryPicker() {
       {isWide ? (
         // Desktop: Row layout
         <View style={styles.cardsRowDesktop}>
-          {countries.map((country) => (
-            <TouchableOpacity
+          {countries.map((country, index) => (
+            <CountryCard
               key={country.country}
-              style={styles.countryCard}
+              country={country.country}
+              routeCount={country.routeCount}
+              index={index}
+              variant="desktop"
               onPress={() => handleCardPress(country)}
-              activeOpacity={0.9}
-            >
-              <Image
-                source={{ uri: getFlagImageUrl(country.country) }}
-                style={styles.cardImage}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.75)']}
-                style={styles.cardGradient}
-              />
-              <View style={styles.cardContent}>
-                <Text style={styles.countryName}>{country.country}</Text>
-                <View style={styles.routeMeta}>
-                  <Package size={11} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-                  <Text style={styles.routeCount}>
-                    {country.routeCount} {country.routeCount === 1 ? 'route' : 'routes'}
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.arrowChip}>
-                <ArrowRight size={12} color={Colors.white} strokeWidth={2.5} />
-              </View>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       ) : (
         // Mobile: 2x2 grid
         <View style={styles.cardsGridMobile}>
-          {countries.map((country) => (
-            <TouchableOpacity
+          {countries.map((country, index) => (
+            <CountryCard
               key={country.country}
-              style={styles.countryCardMobile}
+              country={country.country}
+              routeCount={country.routeCount}
+              index={index}
+              variant="mobile"
               onPress={() => handleCardPress(country)}
-              activeOpacity={0.9}
-            >
-              <Image
-                source={{ uri: getFlagImageUrl(country.country) }}
-                style={styles.cardImage}
-                resizeMode="cover"
-              />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)']}
-                style={styles.cardGradient}
-              />
-              <View style={styles.cardContent}>
-                <Text style={styles.countryName}>{country.country}</Text>
-                <View style={styles.routeMeta}>
-                  <Package size={10} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-                  <Text style={styles.routeCount}>{country.routeCount} routes</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       )}
@@ -308,23 +290,11 @@ const styles = StyleSheet.create({
   },
 
   // ── Desktop Row Layout ───────────────────────────────────────────────────
+  // Card sizing/appearance now lives in CountryCard.tsx
   cardsRowDesktop: {
     flexDirection: 'row',
     gap: Spacing.md,
     marginBottom: Spacing.xl,
-  },
-  countryCard: {
-    flex: 1,
-    height: 160,
-    borderRadius: BorderRadius['2xl'],
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: Colors.background.secondary,
-    shadowColor: Colors.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
   },
 
   // ── Mobile 2x2 Grid ────────────────────────────────────────────────────
@@ -334,73 +304,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     marginBottom: Spacing.xl,
     justifyContent: 'space-between',
-  },
-  countryCardMobile: {
-    width: '48%',
-    height: 150,
-    borderRadius: BorderRadius['2xl'],
-    overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: Colors.background.secondary,
-    shadowColor: Colors.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-
-  // ── Shared card internals ───────────────────────────────────────────────
-  cardImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-  },
-  cardGradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: '70%',
-  },
-  cardContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: Spacing.md,
-    gap: 4,
-  },
-  countryName: {
-    fontSize: FontSize.base,
-    fontWeight: '800',
-    color: Colors.white,
-    letterSpacing: -0.2,
-    textShadowColor: 'rgba(0,0,0,0.4)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  routeMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  routeCount: {
-    fontSize: FontSize.sm,
-    color: 'rgba(255,255,255,0.95)',
-    fontWeight: '700',
-  },
-  arrowChip: {
-    position: 'absolute',
-    top: Spacing.md,
-    right: Spacing.md,
-    width: 26,
-    height: 26,
-    borderRadius: BorderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // ── See All CTA ────────────────────────────────────────────────────────

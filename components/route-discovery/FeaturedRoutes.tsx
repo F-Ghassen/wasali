@@ -33,8 +33,8 @@ export default function FeaturedRoutes() {
   const handleOpenModal = (routeId: string) => setSelectedRouteId(routeId);
   const handleCloseModal = () => setSelectedRouteId(null);
   const handleBook = (routeId: string) =>
-    router.push(`/(tabs)/booking/bookingCreation?routeId=${routeId}`);
-  const handleSeeAll = () => router.push('/(tabs)/routes/results' as any);
+    router.push(`/(sender)/booking/bookingCreation?routeId=${routeId}` as any);
+  const handleSeeAll = () => router.push('/(sender)/routes/results' as any);
 
   return (
     <Animated.View style={[s.section, { paddingHorizontal: horizontalPadding, paddingVertical: Spacing.xl, transform: [{ translateY: slideY }], opacity }]}>

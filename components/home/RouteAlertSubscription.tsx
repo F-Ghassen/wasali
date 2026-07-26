@@ -20,7 +20,7 @@ export default function RouteAlertSubscription({ onOpenAlertSheet }: RouteAlertS
       onOpenAlertSheet();
     } else {
       // Fallback: navigate to routes page where alert sheet is available
-      router.push('/(tabs)/routes/results' as any);
+      router.push('/(sender)/routes/results' as any);
     }
   };
 

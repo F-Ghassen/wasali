@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "db:reset": "supabase db reset",
-    "test:setup": "supabase start && supabase db reset && npx tsx tests/seed-test-data.ts"
+    "test:setup": "supabase start && supabase db reset && npx tsx tests/seed-test-data.ts",
+    "flags:generate": "node scripts/generate-flag-svgs.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",

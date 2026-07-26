@@ -72,7 +72,7 @@ export function NotificationList({ visible, onClose }: NotificationListProps) {
       if (profile?.role === 'driver') {
         router.push(`/driver/bookings/${item.booking_id}`);
       } else {
-        router.push(`/(tabs)/booking/bookingDetail/${item.booking_id}`);
+        router.push(`/(sender)/booking/bookingDetail/${item.booking_id}` as any);
       }
     }
   };

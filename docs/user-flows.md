@@ -1,12 +1,13 @@
 # Wasali — User Flows
 
-_Last updated: 2026-07-13_
+_Last updated: 2026-07-26_
 
 > **Authoritative source for the core trips & bookings loop:**
 > `docs/blueprint/trips-and-bookings.md`. Where this document and the blueprint
 > disagree, the blueprint wins.
 
 **Recent updates:**
+- Fixed 4 leftover `(tabs)`/`(driver-tabs)` navigation calls (home-page country flags, route alerts, featured routes, notifications) that the 2026-07-13 route-group rename missed, causing "Unmatched Route" crashes (2026-07-26)
 - Corrected stale route-group names (`(tabs)`/`(driver-tabs)` → `(sender)`/`(driver)`),
   removed the non-existent `/booking/confirmation` route, and reconciled the payment model
   to **cash-only at launch (no escrow)** per ADR 0004 (2026-07-13).

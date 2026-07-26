@@ -81,8 +81,8 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="dev" />
         <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(driver-tabs)" />
+        <Stack.Screen name="(sender)" />
+        <Stack.Screen name="(driver)" />
         <Stack.Screen name="driver" />
         <Stack.Screen name="rate" />
         <Stack.Screen name="routes" />

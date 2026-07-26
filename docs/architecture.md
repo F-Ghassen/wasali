@@ -1,6 +1,6 @@
 # Wasali — Architecture
 
-_Last updated: 2026-07-14_
+_Last updated: 2026-07-26_
 
 > **Core trips & bookings design is authoritative in** `docs/blueprint/trips-and-bookings.md`
 > (+ ADRs in `docs/adr/`). The schema diagram below predates several migrations — notably,
@@ -12,6 +12,8 @@ _Last updated: 2026-07-14_
 > for the current schema.
 
 **Recent updates:**
+- `OriginCountryPicker`'s country-flag cards replaced the flagcdn.com PNG `<Image>` with a locally bundled SVG `FlagIcon` (`components/shared/ui/primitives/FlagIcon.tsx`, source flags in `assets/flags/*.svg` compiled to `lib/flags/flagSvgData.generated.ts` via `npm run flags:generate`) — removes the third-party network dependency and the raster distortion/pixelation that showed on web when a fixed-size PNG was stretched into a card. Also fixed cards rendering only a fraction of the flag (e.g. Germany showing solid red): `preserveAspectRatio` switched from "slice" (cover, crops to fill) to "meet" (contain, always shows the whole flag), and `countryCard` gained a `maxWidth` cap so a single card can no longer stretch to an extreme aspect ratio when few countries have routes. Card rendering extracted to `components/home/CountryCard.tsx` (SoC — animation state in `components/home/hooks/useCountryCardAnimation.ts`); added entrance stagger, sheen sweep, press scale, and web hover lift. The section also now guarantees at least 4 visible cards, backfilling with a static fallback list (Tunisia, Germany, France, Italy at 0 routes) when fewer countries have active routes (2026-07-26)
+- Fixed "Unmatched Route" crash on the sender home page's country-flag cards: 4 `router.push` calls (`OriginCountryPicker`, `RouteAlertSubscription`, `FeaturedRoutes`, `NotificationList`) and the root `<Stack.Screen>` registrations still targeted the pre-rename `(tabs)`/`(driver-tabs)` route groups; the 2026-07-13 rename to `(sender)`/`(driver)` had missed them. All now point at the correct groups (2026-07-26)
 - Driver route wizard, sender p2p send, and shipping-request creation no longer hardcode a binary EU-vs-Tunisia city split (`country === 'Tunisia'` string checks in `app/driver/routes/new.tsx`, `app/(sender)/p2p/send.tsx`, `app/shipping-requests/new.tsx`). Destination/dropoff pickers now dynamically exclude whatever country was already picked for origin/pickup, so any country/city added to the `cities` table (via a future migration) becomes selectable everywhere with no further code changes (2026-07-26)
 - Added Playwright for web E2E (`playwright.config.ts`, `tests/e2e/`), complementing Maestro's native-only coverage (2026-07-14)
 - Corrected stale route-group names; added pointers to the trips & bookings blueprint and ADRs;

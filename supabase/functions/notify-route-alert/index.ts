@@ -1,15 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-interface RouteData {
+interface RouteInfo {
   id: string;
-  origin_city: string;
-  destination_city: string;
+  originCityId: string;
+  destinationCityId: string;
+  originCityName: string;
+  destinationCityName: string;
   price_per_kg_eur: number | null;
   departure_date: string | null;
   driver_id: string;
@@ -17,14 +24,21 @@ interface RouteData {
 
 interface AlertMatch {
   id: string;
-  email: string;
+  email: string | null;
   user_id: string | null;
 }
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   try {
     if (req.method !== "POST") {
-      return new Response("Method not allowed", { status: 405 });
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: corsHeaders,
+      });
     }
 
     const { routeId } = await req.json();
@@ -32,50 +46,36 @@ serve(async (req) => {
     if (!routeId) {
       return new Response(
         JSON.stringify({ error: "routeId is required" }),
-        { status: 400 }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get the published route
-    const { data: route, error: routeError } = await supabase
-      .from("routes")
-      .select(
-        "id, origin_city, destination_city, price_per_kg_eur, departure_date, driver_id"
-      )
-      .eq("id", routeId)
-      .eq("status", "active")
-      .single();
+    const route = await loadRouteInfo(routeId);
 
-    if (routeError || !route) {
-      console.log("Route not found or not active:", routeId);
+    if (!route) {
+      console.log("Route not found, not active, or missing stops:", routeId);
       return new Response(
         JSON.stringify({ error: "Route not found or not active" }),
-        { status: 404 }
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Found route: ${route.origin_city} → ${route.destination_city}`);
+    console.log(`Found route: ${route.originCityName} → ${route.destinationCityName}`);
 
-    // Find matching alerts
-    const matchedAlerts = await findMatchingAlerts(
-      route as RouteData
-    );
+    const matchedAlerts = await findMatchingAlerts(route);
 
     if (matchedAlerts.length === 0) {
       console.log("No matching alerts found");
       return new Response(
         JSON.stringify({ message: "No matching alerts found" }),
-        { status: 200 }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log(`Found ${matchedAlerts.length} matching alerts`);
 
-    // Send emails
-    const emailsSent = await sendAlertsEmails(route as RouteData, matchedAlerts);
-
-    // Create notifications for signed-in users
-    await createUserNotifications(route as RouteData, matchedAlerts);
+    const emailsSent = await sendAlertsEmails(route, matchedAlerts);
+    await createUserNotifications(route, matchedAlerts);
 
     return new Response(
       JSON.stringify({
@@ -83,7 +83,7 @@ serve(async (req) => {
         emailsSent,
         alertsMatched: matchedAlerts.length,
       }),
-      { status: 200 }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Error in notify-route-alert:", error);
@@ -91,25 +91,72 @@ serve(async (req) => {
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
       }),
-      { status: 500 }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
 
 /**
+ * Load the published route plus its origin/destination city IDs and names,
+ * derived from route_stops (routes itself has no city columns).
+ */
+async function loadRouteInfo(routeId: string): Promise<RouteInfo | null> {
+  const { data: route, error: routeError } = await supabase
+    .from("routes")
+    .select("id, price_per_kg_eur, departure_date, driver_id, status")
+    .eq("id", routeId)
+    .eq("status", "active")
+    .single();
+
+  if (routeError || !route) {
+    return null;
+  }
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("route_stops")
+    .select("city_id, stop_type")
+    .eq("route_id", routeId);
+
+  if (stopsError || !stops) {
+    return null;
+  }
+
+  const originCityId = stops.find((s) => s.stop_type === "collection")?.city_id;
+  const destinationCityId = stops.find((s) => s.stop_type === "dropoff")?.city_id;
+
+  if (!originCityId || !destinationCityId) {
+    return null;
+  }
+
+  const { data: cities } = await supabase
+    .from("cities")
+    .select("id, name")
+    .in("id", [originCityId, destinationCityId]);
+
+  const originCityName = cities?.find((c) => c.id === originCityId)?.name ?? "Unknown";
+  const destinationCityName = cities?.find((c) => c.id === destinationCityId)?.name ?? "Unknown";
+
+  return {
+    id: route.id,
+    originCityId,
+    destinationCityId,
+    originCityName,
+    destinationCityName,
+    price_per_kg_eur: route.price_per_kg_eur,
+    departure_date: route.departure_date,
+    driver_id: route.driver_id,
+  };
+}
+
+/**
  * Find all route alerts matching the published route
  */
-async function findMatchingAlerts(
-  route: RouteData
-): Promise<AlertMatch[]> {
-  // Base query: match origin and destination cities
+async function findMatchingAlerts(route: RouteInfo): Promise<AlertMatch[]> {
   let query = supabase
     .from("route_alerts")
-    .select("id, email, user_id");
-
-  query = query
-    .eq("origin_city", route.origin_city)
-    .eq("destination_city", route.destination_city);
+    .select("id, email, user_id")
+    .eq("origin_city_id", route.originCityId)
+    .eq("destination_city_id", route.destinationCityId);
 
   // If route has a departure date, only match alerts that either:
   // 1. Have no date restriction (null)
@@ -119,7 +166,6 @@ async function findMatchingAlerts(
       `date_from.is.null,date_from.lte.${route.departure_date}`
     );
   } else {
-    // Route has no specific date, match all alerts for these cities
     query = query.is("date_from", null);
   }
 
@@ -134,21 +180,27 @@ async function findMatchingAlerts(
 }
 
 /**
- * Send emails to all matched users
+ * Send emails to matched alerts that have an email on file
  */
 async function sendAlertsEmails(
-  route: RouteData,
+  route: RouteInfo,
   alerts: AlertMatch[]
 ): Promise<number> {
+  const emailAlerts = alerts.filter((a) => a.email);
+
+  if (emailAlerts.length === 0) {
+    return 0;
+  }
+
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   if (!resendApiKey) {
     console.error("RESEND_API_KEY not set");
-    throw new Error("Email service not configured");
+    return 0;
   }
 
   let emailsSent = 0;
 
-  for (const alert of alerts) {
+  for (const alert of emailAlerts) {
     try {
       const emailContent = formatEmailContent(route);
 
@@ -161,7 +213,7 @@ async function sendAlertsEmails(
         body: JSON.stringify({
           from: "alerts@wasali.app",
           to: alert.email,
-          subject: `🚚 New Route: ${route.origin_city} → ${route.destination_city}`,
+          subject: `🚚 New Route: ${route.originCityName} → ${route.destinationCityName}`,
           html: emailContent,
           replyTo: "support@wasali.app",
         }),
@@ -183,10 +235,10 @@ async function sendAlertsEmails(
 }
 
 /**
- * Create in-app notifications for signed-in users
+ * Create in-app notifications for signed-in users (notifications.user_id is NOT NULL)
  */
 async function createUserNotifications(
-  route: RouteData,
+  route: RouteInfo,
   alerts: AlertMatch[]
 ): Promise<void> {
   const userAlerts = alerts.filter((a) => a.user_id);
@@ -198,7 +250,7 @@ async function createUserNotifications(
   const notifications = userAlerts.map((alert) => ({
     user_id: alert.user_id,
     type: "route_alert_match",
-    message: `A new route from ${route.origin_city} to ${route.destination_city} was just published!${
+    message: `A new route from ${route.originCityName} to ${route.destinationCityName} was just published!${
       route.price_per_kg_eur ? ` Price: €${route.price_per_kg_eur}/kg` : ""
     }`,
   }));
@@ -217,7 +269,7 @@ async function createUserNotifications(
 /**
  * Format email HTML content
  */
-function formatEmailContent(route: RouteData): string {
+function formatEmailContent(route: RouteInfo): string {
   const priceText = route.price_per_kg_eur
     ? `<p style="font-size: 16px; color: #22c55e;"><strong>€${route.price_per_kg_eur.toFixed(2)}/kg</strong></p>`
     : "";
@@ -242,9 +294,9 @@ function formatEmailContent(route: RouteData): string {
 
           <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
             <div style="font-size: 18px; margin-bottom: 12px;">
-              <span style="font-weight: 600;">${route.origin_city}</span>
+              <span style="font-weight: 600;">${route.originCityName}</span>
               <span style="margin: 0 8px;">→</span>
-              <span style="font-weight: 600;">${route.destination_city}</span>
+              <span style="font-weight: 600;">${route.destinationCityName}</span>
             </div>
             ${priceText}
             ${dateText}
@@ -255,7 +307,7 @@ function formatEmailContent(route: RouteData): string {
           </p>
 
           <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://wasali.app/routes?from=${encodeURIComponent(route.origin_city)}&to=${encodeURIComponent(route.destination_city)}"
+            <a href="https://wasali.app/routes?from=${encodeURIComponent(route.originCityName)}&to=${encodeURIComponent(route.destinationCityName)}"
                style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
               View Route
             </a>

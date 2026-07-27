@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, ViewStyle, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react-native';
@@ -7,6 +7,7 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useFeaturedRoutes } from '@/app/route-discovery/hooks/useFeaturedRoutes';
+import { useHoverable } from '@/hooks/useHoverable';
 import { FeaturedRouteCard } from '@/components/route-discovery/FeaturedRouteCard';
 import { RouteDetailsModal } from '@/components/route-discovery/RouteDetailsModal';
 import type { FeaturedRoute } from '@/app/route-discovery/types/featured-route';
@@ -16,6 +17,7 @@ export default function FeaturedRoutes() {
   const { t }         = useTranslation();
   const { width }     = useWindowDimensions();
   const { routes, slideY, opacity } = useFeaturedRoutes();
+  const { isHovered, hoverHandlers } = useHoverable();
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
@@ -53,10 +55,14 @@ export default function FeaturedRoutes() {
         ))}
       </View>
 
-      <TouchableOpacity style={s.seeAllBtn} onPress={handleSeeAll} activeOpacity={0.7}>
+      <Pressable
+        style={[s.seeAllBtn, isHovered && s.seeAllBtnHover]}
+        onPress={handleSeeAll}
+        {...hoverHandlers}
+      >
         <Text style={s.seeAllBtnText}>{t('home.whereFrom.seeAll')}</Text>
         <ArrowRight size={16} color={Colors.text.primary} strokeWidth={2.5} />
-      </TouchableOpacity>
+      </Pressable>
 
       {selectedRouteId && (
         <RouteDetailsModal
@@ -91,6 +97,14 @@ const s = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.primary,
     backgroundColor: Colors.white,
-  },
+    transitionProperty: 'background-color, border-color, transform',
+    transitionDuration: '160ms',
+    transitionTimingFunction: 'ease-out',
+    cursor: 'pointer',
+  } as ViewStyle,
+  seeAllBtnHover: {
+    backgroundColor: Colors.primaryLight,
+    transform: [{ translateY: -1 }],
+  } as ViewStyle,
   seeAllBtnText: { color: Colors.text.primary, fontWeight: '700', fontSize: FontSize.base },
 });

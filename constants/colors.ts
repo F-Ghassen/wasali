@@ -3,10 +3,12 @@ export const Colors = {
   primary: '#000000',
   primaryLight: 'rgba(0,0,0,0.06)',
   primaryDark: '#1A1A1A',
+  primaryHover: '#2D2D2D',
 
   // Secondary accent — Uber blue
   secondary: '#276EF1',
   secondaryLight: 'rgba(39,110,241,0.08)',
+  secondaryHover: '#1D5BCC',
 
   // Semantic
   success: '#05944F',
@@ -15,7 +17,9 @@ export const Colors = {
   warningLight: 'rgba(255,192,67,0.08)',
   error: '#E11900',
   errorLight: 'rgba(225,25,0,0.08)',
+  errorHover: '#B81400',
   gold: '#C9A227',
+  goldHover: '#AD8A1F',
 
   // Text — high contrast on white
   text: {

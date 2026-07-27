@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import { format } from 'date-fns';
 import { ArrowRight, Package, Star } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
+import { useHoverable } from '@/hooks/useHoverable';
 import type { FeaturedRoute } from '@/app/route-discovery/types/featured-route';
 
 const SERVICE_LABEL: Record<string, string> = {
@@ -33,6 +34,7 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
   const dropoffStops = r.stops.filter((s) => s.stopType === 'dropoff');
   const capacityPct  = Math.round((r.capacityLeft / r.totalWeight) * 100);
   const isLowStock   = capacityPct <= 20;
+  const { isHovered, hoverHandlers } = useHoverable();
 
   return (
     <View style={s.card}>
@@ -159,9 +161,13 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
 
       {/* CTA */}
       {!r.isFull ? (
-        <TouchableOpacity style={s.bookBtn} onPress={() => onBook(r.id)} activeOpacity={0.85}>
+        <Pressable
+          style={[s.bookBtn, isHovered && s.bookBtnHover]}
+          onPress={() => onBook(r.id)}
+          {...hoverHandlers}
+        >
           <Text style={s.bookBtnText}>{t('home.bookSlot')}</Text>
-        </TouchableOpacity>
+        </Pressable>
       ) : (
         <View style={s.fullBox}>
           <Text style={s.fullText}>{t('home.routeFull')}</Text>
@@ -312,7 +318,15 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: Spacing.md,
     marginBottom: Spacing.md,
-  },
+    transitionProperty: 'background-color, box-shadow, transform',
+    transitionDuration: '160ms',
+    transitionTimingFunction: 'ease-out',
+    cursor: 'pointer',
+  } as ViewStyle,
+  bookBtnHover: {
+    backgroundColor: Colors.primaryHover,
+    transform: [{ translateY: -1 }],
+  } as ViewStyle,
   bookBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
   fullBox: {
     backgroundColor: Colors.background.secondary,

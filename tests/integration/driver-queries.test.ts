@@ -164,7 +164,7 @@ describe.skipIf(SKIP)('Driver Supabase queries', () => {
     const { data, error } = await driverClient
       .from('bookings')
       .select(
-        '*, sender:profiles!sender_id(id, full_name, phone, avatar_url), route:routes!route_id(id, departure_date, estimated_arrival_date)',
+        '*, sender:profiles!sender_id(id, full_name, phone, avatar_url, rating, completed_trips), route:routes!route_id(id, departure_date, estimated_arrival_date, min_weight_kg, max_single_package_kg, price_per_kg_eur, promotion_active, promotion_percentage, route_stops(*, city:cities(id, name, flag_emoji, country_code)), route_payment_methods(payment_type, enabled))',
       )
       .in('route_id', [routeId])
       .order('created_at', { ascending: false });
@@ -181,8 +181,17 @@ describe.skipIf(SKIP)('Driver Supabase queries', () => {
     expect(booking).toHaveProperty('payment_status');
     expect(booking.sender).toHaveProperty('id');
     expect(booking.sender).toHaveProperty('full_name');
+    // Driver-detail-screen additions: sender rating/trip count (item 8)
+    expect(booking.sender).toHaveProperty('rating');
+    expect(booking.sender).toHaveProperty('completed_trips');
     expect(booking.route).toHaveProperty('id');
     expect(booking.route).toHaveProperty('departure_date');
+    // Driver-detail-screen additions: trip card cities (item 1) + dynamic
+    // payment methods reference row (item 9)
+    expect(booking.route).toHaveProperty('route_stops');
+    expect(Array.isArray((booking.route as any).route_stops)).toBe(true);
+    expect(booking.route).toHaveProperty('route_payment_methods');
+    expect(Array.isArray((booking.route as any).route_payment_methods)).toBe(true);
     // Explicitly assert the dropped columns are absent from the result
     expect(booking.route).not.toHaveProperty('origin_city');
     expect(booking.route).not.toHaveProperty('destination_city');

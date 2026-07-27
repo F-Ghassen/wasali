@@ -158,8 +158,14 @@ export default {
     notFound: "Réservation introuvable",
     sections: {
       sender: "Expéditeur",
+      recipient: "Destinataire",
+      trip: "Trajet",
       package: "Colis",
       logistics: "Logistique",
+      payout: "Votre versement",
+      payment: "Paiement",
+      acceptedPayments: "Moyens de paiement acceptés",
+      photos: "Photos du colis",
     },
     labels: {
       category: "Catégorie",
@@ -171,6 +177,12 @@ export default {
       pickupAddress: "Adresse de collecte",
       deliveryAddress: "Adresse de livraison",
       senderNotes: "Notes de l'expéditeur",
+      noteFromSender: "Note de l'expéditeur",
+      estimatedCollection: "Collecte estimée",
+      requestedOn: "Demandé le",
+      payout: "Vous recevrez",
+      senderPaid: "Payé par l'expéditeur",
+      noRatingYet: "Pas encore d'évaluation",
     },
     logisticsValues: {
       driverCollects: "Le conducteur collecte",
@@ -184,6 +196,7 @@ export default {
       scanQR: "Scanner le QR de l'expéditeur",
       markInTransit: "Marquer en transit",
       markDelivered: "Marquer comme livré",
+      markAsPaid: "Marquer comme payé",
     },
     alerts: {
       confirmTitle: "Confirmer",
@@ -194,11 +207,35 @@ export default {
       inTransitMsg: "Confirmez-vous avoir récupéré ce colis ?",
       deliveredTitle: "Marquer comme livré",
       deliveredMsg: "Confirmez-vous que ce colis a été livré ?",
+      markPaidMsg: "Confirmez-vous avoir reçu l'espèce ou le virement pour cette réservation ?",
+      weightAdjustErrorCapacity: "Pas assez de capacité restante sur ce trajet pour le poids corrigé.",
+      whatsappUnavailableTitle: "WhatsApp indisponible",
+      whatsappUnavailableMsg: "Impossible d'ouvrir WhatsApp.",
     },
     toast: {
       inTransit: "Colis marqué en transit",
       failed: "Action échouée. Veuillez réessayer.",
       updateFailed: "Échec de la mise à jour du statut",
+      confirmed: "Réservation confirmée",
+      rejected: "Réservation refusée",
+      delivered: "Réservation marquée comme livrée",
+      markedPaid: "Réservation marquée comme payée",
+    },
+    paymentHints: {
+      collectFromSender: "Collecter les espèces auprès de l'expéditeur à la collecte",
+      collectFromRecipient: "Collecter les espèces auprès du destinataire à la livraison",
+    },
+    paidLabel: "Espèces reçues",
+    disputed: {
+      title: "Litige en cours",
+      message: "Un litige a été signalé sur cette réservation. Notre équipe support l'examine — aucune action n'est requise de votre part pour le moment.",
+    },
+    weightConfirm: {
+      title: "Confirmer le poids du colis",
+      subtitle: "Pesez le colis et corrigez ici s'il diffère de ce que l'expéditeur a réservé. Le prix et le versement seront recalculés.",
+      confirmBtn: "Confirmer et marquer en transit",
+      adjustedNotice: "Poids ajusté — l'expéditeur sera notifié et le prix recalculé.",
+      invalid: "Saisissez un poids valide supérieur à 0 kg.",
     },
   },
 
@@ -424,10 +461,35 @@ export default {
       mixed: "Mixte",
       other: "Autre",
     },
+    package: {
+      uploadPartialError: "Certaines photos n'ont pas pu être envoyées et ne seront pas partagées avec le conducteur.",
+    },
     payment: {
       card: "Carte bancaire",
       paypal: "PayPal",
       cash: "Espèces au conducteur",
+    },
+    paymentTypes: {
+      cashOnCollection: {
+        label: "Espèces à la collecte",
+        description: "Payez le conducteur en lui remettant votre colis.",
+      },
+      cashOnDelivery: {
+        label: "Espèces à la livraison",
+        description: "Le destinataire paie le conducteur à la livraison.",
+      },
+      creditDebitCard: {
+        label: "Carte bancaire",
+        description: "Paiement sécurisé par carte via Stripe.",
+      },
+      paypal: {
+        label: "PayPal",
+        description: "Payer via PayPal.",
+      },
+      bankTransfer: {
+        label: "Virement bancaire",
+        description: "Virement direct sur le compte bancaire du conducteur.",
+      },
     },
     confirmPay: "Confirmer la réservation →",
     reviewPay: "Vérifier la réservation →",

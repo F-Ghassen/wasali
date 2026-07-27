@@ -133,6 +133,7 @@ export const TEST_ROUTE = {
 export const TEST_BOOKING_DRAFT = {
   package_weight_kg: 5,
   package_category: 'general',
+  package_categories: ['general'] as string[],
   package_photos: [] as string[],
   declared_value_eur: null as number | null,
   pickup_type: 'sender_dropoff' as string,

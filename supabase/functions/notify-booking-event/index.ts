@@ -25,7 +25,8 @@ type NotificationType =
   | 'booking_confirmed'
   | 'in_transit'
   | 'delivered'
-  | 'booking_cancelled';
+  | 'booking_cancelled'
+  | 'weight_adjusted';
 
 interface BookingEvent {
   type: NotificationType;
@@ -83,7 +84,20 @@ const CANCELLATION_EVENT_MAP: Record<string, BookingEvent> = {
   },
 };
 
-function resolveEvent(record: BookingRecord): BookingEvent | undefined {
+// Weight adjustment (driver mid-pickup correction, see
+// stores/driverBookingStore.ts adjustPackageWeight) is always written in a
+// separate UPDATE from a status transition — never combined in one write —
+// so checking it ahead of the status branch stays unambiguous: a row can
+// match at most one of these two paths per webhook invocation.
+function resolveEvent(record: BookingRecord, oldRecord: BookingRecord): BookingEvent | undefined {
+  if (record.package_weight_kg !== oldRecord.package_weight_kg) {
+    return {
+      type: 'weight_adjusted',
+      recipientRole: 'sender',
+      message: `Driver adjusted package weight from ${oldRecord.package_weight_kg}kg to ${record.package_weight_kg}kg`,
+    };
+  }
+
   if (record.status === 'cancelled') {
     return record.cancellation_reason ? CANCELLATION_EVENT_MAP[record.cancellation_reason] : undefined;
   }
@@ -93,9 +107,9 @@ function resolveEvent(record: BookingRecord): BookingEvent | undefined {
 serve(async (req) => {
   try {
     const payload: WebhookPayload = await req.json();
-    const { record } = payload;
+    const { record, old_record } = payload;
 
-    const event = resolveEvent(record);
+    const event = resolveEvent(record, old_record);
     if (!event) {
       return new Response(JSON.stringify({ skipped: true, status: record.status }), { status: 200 });
     }

@@ -410,6 +410,24 @@ Supported payment methods (driver-configurable per route):
 - `bank_transfer` — Bank transfer
 - Stripe card (online escrow)
 
+> **Current reality vs. this diagram (2026-07-27):** the diagram above
+> describes the intended full flow once card payments ship. Today,
+> `bookingSubmitSchema` (`utils/validators.ts`) only accepts
+> `cash_on_collection`/`cash_on_delivery` at submit time, `create-payment-intent`
+> is never called from the client, `STRIPE_SECRET_KEY` isn't even configured
+> as a project secret, and no booking ever gets a `stripe_payment_intent_id`.
+> `capture-payment` (invoked by the driver's "Mark as Delivered") previously
+> assumed every booking had one and required it unconditionally — so that
+> button 422'd for **every** booking in the system (100% of current traffic
+> is cash). Fixed: the function now checks `payment_type` and, for cash
+> bookings, skips the Stripe capture step entirely and just flips the
+> booking to `delivered` directly (cash already changed hands physically —
+> there's no escrow to release). The `Stripe` client itself was also moved
+> from module-scope (constructed unconditionally on every invocation,
+> crashing immediately given the missing secret) to lazily constructed only
+> inside the non-cash branch, so a card-payment booking failing for a real
+> Stripe reason doesn't take cash bookings down with it.
+
 ---
 
 ## Component Architecture
@@ -524,26 +542,34 @@ _Added: 2026-03-19_
 ### Component tree
 
 ```
-app/(sender)/booking/index.tsx          ← wizard shell
+app/(sender)/booking/bookingCreation/index.tsx  ← wizard shell
   ├─ hooks/useRouteData.ts            ← parallel fetch: route + stops + services + payment methods
   ├─ hooks/useBookingForm.ts          ← useReducer + AsyncStorage draft, stepValidity, totalPrice
   ├─ hooks/useSavedRecipients.ts      ← fetch/upsert recipients
   ├─ stores/bookingStore.ts           ← submitBooking, isLoading, lastBooking
   │
-  ├─ components/booking/ItineraryStep.tsx    ← Step 0: pick collection + dropoff stop
-  ├─ components/booking/LogisticsStep.tsx    ← Step 1: collection/delivery service + date
-  ├─ components/booking/SenderStep.tsx       ← Step 2: sender details + conditional address
-  ├─ components/booking/RecipientStep.tsx    ← Step 3: recipient + address + notes
-  ├─ components/booking/PackageStep.tsx      ← Step 4: weight, types, photos (DO NOT MODIFY)
-  ├─ components/booking/PaymentStep.tsx      ← Step 5: payment method selection
-  ├─ components/booking/OrderSummary.tsx     ← sidebar (wide) / footer summary
+  ├─ components/booking/creation/ItineraryStep.tsx    ← Step 0: pick collection + dropoff stop
+  ├─ components/booking/creation/LogisticsStep.tsx    ← Step 1: collection/delivery service + date
+  ├─ components/booking/creation/SenderStep.tsx       ← Step 2: sender details + conditional address
+  ├─ components/booking/creation/RecipientStep.tsx    ← Step 3: recipient + address + notes
+  ├─ components/booking/creation/PackageStep.tsx      ← Step 4: weight, types, photos (uploads to
+  │                                                      `package-photos` on pick — see Driver
+  │                                                      Booking Detail § Package photos)
+  ├─ components/booking/creation/PaymentStep.tsx      ← Step 5: payment method selection
+  ├─ components/booking/creation/OrderSummary.tsx     ← sidebar (wide) / footer summary
   │
-  ├─ components/ui/ServiceOption.tsx    ← reusable radio card for route service
-  └─ components/ui/PaymentOption.tsx    ← reusable radio card for payment method
+  ├─ components/booking/PaymentOption.tsx    ← reusable radio card for payment method
 
 app/(sender)/booking/confirmation.tsx
   └─ bookingStore.lastBooking           ← data source (no re-fetch)
 ```
+
+> Note (2026-07-27): this diagram previously listed stale paths (pre-dating
+> the `components/booking/creation/` reorg) and flagged `PackageStep.tsx` as
+> "DO NOT MODIFY" with no rationale on record (checked git history — no
+> commit or doc explains it). It was modified to wire up real photo uploads,
+> which the multi-category/photo-gallery driver-detail work required —
+> flagging here in case there was undocumented context behind that note.
 
 ### State management
 
@@ -609,12 +635,19 @@ useEffect(() => {
 
 ### Price computation
 
+Shipping-price formula lives in `utils/pricing.ts` (`computeShippingPrice`) —
+extracted from what was previously an inline function in
+`hooks/useBookingForm.ts`, so both the sender's booking-creation wizard and
+the driver's mid-pickup weight adjustment (`driverBookingStore.adjustPackageWeight`,
+see Driver Booking Detail below) share one source of truth.
+`useBookingForm.ts` re-exports it as `computeTotalPrice` for existing callers.
+
 ```typescript
 effectiveRate = promotion_active
   ? price_per_kg_eur * (1 - promotion_percentage / 100)
   : price_per_kg_eur
 
-totalPrice = Math.round(
+shippingPrice = Math.round(
   (weightKg * effectiveRate + collectionServicePrice + deliveryServicePrice) * 100
 ) / 100
 ```
@@ -627,12 +660,23 @@ booking_draft_{routeId}   ← full BookingFormState, persisted on SET (debounced
 
 ### Payment step gating
 
-Two layers of enablement control which payment methods are shown:
+`constants/paymentMethods.ts` is the single catalogue for every payment
+type (`cash_on_collection`, `cash_on_delivery`, `credit_debit_card`,
+`paypal`, `bank_transfer`) — replaces the previously duplicated
+`ALL_PAYMENT_TYPES`/`PLATFORM_COMING_SOON` (sender's `PaymentStep.tsx`) and
+`MANUAL_PAYMENT_TYPES` (driver's booking detail screen) local constants.
+`resolvePaymentMethods(routePaymentMethods)` crosses it against a route's
+config to compute what's actually selectable. Two layers of enablement:
 
 | Layer | Owner | Mechanism |
 |---|---|---|
-| Platform | App code | `PLATFORM_COMING_SOON = Set(['credit_debit_card', 'paypal'])` — always shown but disabled with "Coming soon" badge |
+| Platform | `constants/paymentMethods.ts` `platformComingSoon` flag | `credit_debit_card`/`paypal`/`bank_transfer` always shown but disabled with "Coming soon" badge, regardless of driver config |
 | Driver | DB `route_payment_methods` table | `enabled` flag per route; falls back to `{ cash_on_collection: true, cash_on_delivery: true }` when no rows |
+
+The same catalogue backs the driver's booking-detail "Accepted payment
+methods" reference row (`components/driver/bookings/PaymentTrackingCard.tsx`)
+— informational only, since the booking's `payment_type` is locked in at
+booking time and isn't editable from that screen.
 
 ### Logistics step service labels
 
@@ -684,6 +728,122 @@ wasali://driver/bookings/{bookingId}
 ```
 
 Opens the Wasali driver app directly on the booking detail screen where the driver can confirm or decline.
+
+---
+
+## Driver Booking Detail
+
+`app/driver/bookings/[id].tsx` — split into the project's standard SoC layout, mirroring `app/(sender)/booking/bookingDetail/`.
+
+### File structure
+
+```
+app/driver/bookings/
+├── [id].tsx                       # screen shell — layout + composition only
+├── hooks/
+│   ├── useDriverBookingActions.ts # confirm/reject/deliver/mark-paid (ConfirmActionModal state, not Alert)
+│   └── useWeightAdjustment.ts     # weight-confirm modal state + adjustPackageWeight → markInTransit
+├── utils/routeCities.ts           # origin/destination city + flag derivation from route_stops
+└── types/index.ts                 # DriverBookingDetail view-model type
+
+components/driver/bookings/
+├── BookingNavBar.tsx, SenderInfoCard.tsx, RecipientInfoCard.tsx, TripInfoCard.tsx,
+├── PackageInfoCard.tsx, PackagePhotoGallery.tsx, LogisticsInfoCard.tsx, PayoutCard.tsx,
+├── PaymentTrackingCard.tsx, WeightConfirmModal.tsx, DisputedBanner.tsx,
+├── CancellationBanner.tsx, BookingActionsCard.tsx
+```
+
+### Data source
+
+`driverBookingStore.fetchBookings` — the `bookings` select was extended (additive,
+no breaking effect on existing callers) to also pull `route_stops` (+ `cities`),
+`route_payment_methods`, and the sender's `rating`/`completed_trips`, so the
+detail screen no longer needs a second fetch for trip cities or payment config.
+
+### Info parity with the sender's booking detail screen
+
+Previously the driver screen only showed sender name/phone, package
+category/weight/declared-value, and pickup/delivery type — recipient contact,
+trip dates/cities, the driver's actual payout, and cancellation reasons were
+all either missing or silently swallowed. Now surfaced:
+
+| Card | Data |
+|---|---|
+| `SenderInfoCard` | name, phone, rating + completed trips (or a "No rating yet" badge when `rating` is still its `0` default) |
+| `TripInfoCard` | origin/destination city + flag, departure/estimated-arrival dates |
+| `PackageInfoCard` | **all** selected categories as chips (`package_categories`, not just the first — see Booking Wizard Architecture below), weight, declared value, estimated collection date, requested-on date (`created_at`) |
+| `PackagePhotoGallery` | package photos, resolved to signed URLs on view (see below) |
+| `LogisticsInfoCard` | pickup/delivery type, addresses, note from sender (`driver_notes` — previously mislabeled "Sender notes") |
+| `RecipientInfoCard` | name, phone (call + WhatsApp), address |
+| `PayoutCard` | `driver_payout_eur` ("You'll receive") vs. `price_eur` ("Sender paid") — the two diverge once `driver_commission_rate_pct` > 0 |
+| `PaymentTrackingCard` | manual cash tracking + accepted-payment-methods reference row (see Payment step gating above) |
+| `DisputedBanner` / `CancellationBanner` | shown for `disputed`/`cancelled` statuses — previously an empty action area with no explanation |
+
+### Package photos — private bucket, signed URLs on view
+
+`package-photos` already existed as a storage bucket (created at initial
+project setup) but was never wired to any upload code — `PackageStep.tsx`
+stored raw local `file://` device URIs directly into `package_photos`,
+meaningless off the sender's own device. Now:
+
+- `PackageStep.tsx` uploads each photo immediately on picking (`uploadImage`,
+  `utils/imageUpload.ts`) while keeping the local URI for instant preview —
+  `photos` (preview) and `photoPaths` (uploaded storage paths, aligned by
+  index) are tracked separately in `BookingFormState` so the sender's own
+  preview never depends on upload completion.
+- The bucket is **private** (`public: false`, same privacy level as
+  `dispute-evidence` — deliberately not public like `avatars`), so
+  `bookings.package_photos` stores object **paths**, not URLs.
+  `PackagePhotoGallery` (driver detail) resolves fresh signed URLs via
+  `supabase.storage.from('package-photos').createSignedUrls(...)` each time
+  the screen is opened, rather than persisting a URL that would go stale.
+- RLS on `storage.objects` scopes uploads to a `{userId}/...` path prefix —
+  a user can only write into their own folder.
+
+### Confirm/Reject — Alert.alert is a no-op on web
+
+`useDriverBookingActions.ts` previously gated Confirm/Reject/Deliver/Mark-Paid
+behind `Alert.alert(...)`. `react-native-web`'s implementation is a literal
+`static alert() {}` — on a web build (this app ships one, per Web Deployment
+below), tapping any of those buttons showed no dialog and the action never
+ran. Same bug existed in `QrScannerModal`'s post-scan confirm step and
+`RecipientInfoCard`'s WhatsApp-unavailable fallback. Fixed by:
+- `ConfirmActionModal` (`components/shared/ui/modals/`) — a real `Modal`
+  (which react-native-web does implement), used by
+  `useDriverBookingActions` for all four actions, replacing the broken
+  Alert-based flow and fixing the previous toast text bug in the same pass
+  (`label.toLowerCase() + 'd'` produced "Booking confirmd"/"Booking
+  rejectd" — replaced with explicit, correctly-worded i18n toast strings).
+- `QrScannerModal`'s confirm-then-`onSuccess` step removed rather than
+  replaced — `WeightConfirmModal` (opened by `onSuccess`) already serves as
+  the real confirmation gate before `markInTransit` runs, making the
+  intermediate Alert redundant as well as broken.
+- `RecipientInfoCard`'s WhatsApp failure now uses `showToast` instead of
+  `Alert.alert`.
+
+### Mid-pickup weight adjustment
+
+While a booking is `confirmed`, tapping "Mark as In Transit" or completing a
+successful QR scan opens `WeightConfirmModal` (pre-filled with the booked
+weight, editable) before the transition proceeds:
+
+1. If unchanged, proceeds straight to `markInTransit`.
+2. If changed, `driverBookingStore.adjustPackageWeight(id, newWeightKg)` runs first:
+   - Validates against the route's `min_weight_kg`/`max_single_package_kg`.
+   - Recomputes shipping via `computeShippingPrice` (see Price computation
+     above) and the full money split via `splitBookingMoney`, using the rate
+     columns snapshotted on the booking row at creation time (not
+     re-fetched from `platform_config`).
+   - Adjusts the route's `available_weight_kg` by the signed delta via the
+     new `adjust_route_capacity(p_route_id, p_delta_kg)` DB function — a
+     weight increase that exceeds remaining capacity is rejected (surfaces
+     `decrement_route_capacity`'s existing exception) **before** the booking
+     row is touched, so there's no partial write.
+   - Only then updates `package_weight_kg`, `shipping_eur`, `service_fee_eur`,
+     `driver_commission_eur`, `driver_payout_eur`, `total_price`, `price_eur`.
+3. `notify-booking-event` detects the weight change (via `old_record`, ahead
+   of its status-based branching — the two are always separate UPDATEs) and
+   notifies the sender in-app, by push, and by email.
 
 ---
 

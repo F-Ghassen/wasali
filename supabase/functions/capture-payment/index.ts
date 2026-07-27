@@ -2,10 +2,19 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import Stripe from 'https://esm.sh/stripe@13.11.0?target=deno';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
-  apiVersion: '2023-10-16',
-  httpClient: Stripe.createFetchHttpClient(),
-});
+// Lazy — STRIPE_SECRET_KEY is not configured on this project (cash-only at
+// launch, see utils/validators.ts CASH_PAYMENT_TYPES). The Stripe SDK throws
+// synchronously on a missing/empty API key, so constructing this
+// unconditionally at module scope (as it was before) would crash every
+// invocation before request handling even started — including for cash
+// bookings, which never need Stripe at all. Only built when a non-cash
+// booking actually needs to capture a PaymentIntent.
+function getStripeClient(): Stripe {
+  return new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+    apiVersion: '2023-10-16',
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+}
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -35,7 +44,7 @@ serve(async (req) => {
     // Fetch the booking to verify state and get the payment intent ID
     const { data: booking, error: fetchError } = await supabase
       .from('bookings')
-      .select('id, status, stripe_payment_intent_id, route_id')
+      .select('id, status, stripe_payment_intent_id, payment_type, route_id')
       .eq('id', bookingId)
       .single();
 
@@ -53,15 +62,27 @@ serve(async (req) => {
       );
     }
 
-    if (!booking.stripe_payment_intent_id) {
-      return new Response(JSON.stringify({ error: 'No payment intent linked to this booking' }), {
-        status: 422,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Cash bookings (cash_on_collection / cash_on_delivery — the only types
+    // accepted at launch, see utils/validators.ts CASH_PAYMENT_TYPES) never
+    // get a Stripe PaymentIntent — create-payment-intent is only wired up
+    // for the future card-payment phase. Requiring stripe_payment_intent_id
+    // unconditionally meant "Mark as Delivered" 422'd for every booking that
+    // currently exists, since none of them have one. Cash has nothing to
+    // capture (funds already exchanged hands physically) — just deliver it.
+    const isCashPayment = booking.payment_type === 'cash_on_collection' || booking.payment_type === 'cash_on_delivery';
 
-    // Capture the PaymentIntent — releases funds from escrow to the driver
-    await stripe.paymentIntents.capture(booking.stripe_payment_intent_id);
+    if (!isCashPayment) {
+      if (!booking.stripe_payment_intent_id) {
+        return new Response(JSON.stringify({ error: 'No payment intent linked to this booking' }), {
+          status: 422,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Capture the PaymentIntent — releases funds from escrow to the driver
+      const stripe = getStripeClient();
+      await stripe.paymentIntents.capture(booking.stripe_payment_intent_id);
+    }
 
     // Update booking to delivered
     const { error: updateError } = await supabase

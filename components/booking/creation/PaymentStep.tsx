@@ -6,19 +6,8 @@ import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { PaymentOption } from '@/components/booking/PaymentOption';
+import { resolvePaymentMethods, type PaymentType } from '@/constants/paymentMethods';
 import type { FetchedPaymentMethod } from '@/hooks/useRouteData';
-
-// ─── All possible payment types (defines display order) ──────────────────────
-
-const ALL_PAYMENT_TYPES = [
-  'cash_on_collection',
-  'cash_on_delivery',
-  'credit_debit_card',
-  'paypal',
-] as const;
-
-// Platform-level gate: these types are not yet live regardless of driver config
-const PLATFORM_COMING_SOON = new Set(['credit_debit_card', 'paypal']);
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -26,7 +15,7 @@ export interface PaymentStepProps {
   paymentMethods: FetchedPaymentMethod[];
   selectedType: string;
   isSubmitting: boolean;
-  onSelectType: (type: typeof ALL_PAYMENT_TYPES[number]) => void;
+  onSelectType: (type: PaymentType) => void;
   onSubmit: () => void;
 }
 
@@ -37,26 +26,22 @@ export function PaymentStep({
 }: PaymentStepProps) {
   const { t } = useTranslation();
 
-  // Build enabled map from DB; fallback: both cash options enabled
-  const enabledMap: Record<string, boolean> = paymentMethods.length > 0
-    ? Object.fromEntries(paymentMethods.map((m) => [m.payment_type, m.enabled]))
-    : { cash_on_collection: true, cash_on_delivery: true };
+  // Canonical catalogue (constants/paymentMethods.ts) crossed against this
+  // route's driver-enabled flags — falls back to "both cash enabled" when
+  // the route has no route_payment_methods rows configured.
+  const resolved = resolvePaymentMethods(paymentMethods);
 
   return (
     <View>
-      {ALL_PAYMENT_TYPES.map((type) => {
-        const driverEnabled = enabledMap[type] ?? false;
-        const comingSoon = PLATFORM_COMING_SOON.has(type) || !driverEnabled;
-        return (
-          <PaymentOption
-            key={type}
-            type={type}
-            selected={selectedType === type}
-            comingSoon={comingSoon}
-            onPress={() => onSelectType(type)}
-          />
-        );
-      })}
+      {resolved.map(({ type, selectable }) => (
+        <PaymentOption
+          key={type}
+          type={type}
+          selected={selectedType === type}
+          comingSoon={!selectable}
+          onPress={() => onSelectType(type)}
+        />
+      ))}
 
       {/* Escrow info */}
       <View style={s.escrowRow}>

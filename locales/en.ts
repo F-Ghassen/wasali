@@ -157,8 +157,14 @@ export default {
     notFound: "Booking not found",
     sections: {
       sender: "Sender",
+      recipient: "Recipient",
+      trip: "Trip",
       package: "Package",
       logistics: "Logistics",
+      payout: "Your Payout",
+      payment: "Payment",
+      acceptedPayments: "Accepted payment methods",
+      photos: "Package Photos",
     },
     labels: {
       category: "Category",
@@ -170,6 +176,12 @@ export default {
       pickupAddress: "Pickup address",
       deliveryAddress: "Delivery address",
       senderNotes: "Sender notes",
+      noteFromSender: "Note from sender",
+      estimatedCollection: "Estimated collection",
+      requestedOn: "Requested on",
+      payout: "You'll receive",
+      senderPaid: "Sender paid",
+      noRatingYet: "No rating yet",
     },
     logisticsValues: {
       driverCollects: "Driver collects",
@@ -183,6 +195,7 @@ export default {
       scanQR: "Scan Sender's QR",
       markInTransit: "Mark as In Transit",
       markDelivered: "Mark as Delivered",
+      markAsPaid: "Mark as Paid",
     },
     alerts: {
       confirmTitle: "Confirm",
@@ -193,11 +206,35 @@ export default {
       inTransitMsg: "Confirm you have picked up this package?",
       deliveredTitle: "Mark Delivered",
       deliveredMsg: "Confirm this package has been delivered?",
+      markPaidMsg: "Confirm you have received the cash or bank transfer for this booking?",
+      weightAdjustErrorCapacity: "Not enough remaining capacity on this route for the corrected weight.",
+      whatsappUnavailableTitle: "WhatsApp not available",
+      whatsappUnavailableMsg: "Could not open WhatsApp.",
     },
     toast: {
       inTransit: "Package marked as in transit",
       failed: "Action failed. Please try again.",
       updateFailed: "Failed to update status",
+      confirmed: "Booking confirmed",
+      rejected: "Booking rejected",
+      delivered: "Booking marked as delivered",
+      markedPaid: "Booking marked as paid",
+    },
+    paymentHints: {
+      collectFromSender: "Collect cash from sender at pickup",
+      collectFromRecipient: "Collect cash from recipient at delivery",
+    },
+    paidLabel: "Cash received",
+    disputed: {
+      title: "Dispute in progress",
+      message: "A dispute has been raised on this booking. Our support team is reviewing it — no further action is needed from you right now.",
+    },
+    weightConfirm: {
+      title: "Confirm package weight",
+      subtitle: "Weigh the package and correct it here if it differs from what the sender booked. Price and payout will be recalculated.",
+      confirmBtn: "Confirm & Mark In Transit",
+      adjustedNotice: "Weight adjusted — the sender will be notified and the price recalculated.",
+      invalid: "Enter a valid weight greater than 0 kg.",
     },
   },
 
@@ -421,10 +458,38 @@ export default {
       mixed: "Mixed",
       other: "Other",
     },
+    package: {
+      uploadPartialError: "Some photos failed to upload and won't be shared with the driver.",
+    },
     payment: {
       card: "Credit / Debit card",
       paypal: "PayPal",
       cash: "Cash to driver",
+    },
+    // Canonical payment-method catalogue (constants/paymentMethods.ts) —
+    // used by PaymentOption.tsx for both the sender's picker and the
+    // driver's accepted-payment-methods display.
+    paymentTypes: {
+      cashOnCollection: {
+        label: "Cash on collection",
+        description: "Pay the driver when handing over your package.",
+      },
+      cashOnDelivery: {
+        label: "Cash on delivery",
+        description: "Recipient pays the driver on delivery.",
+      },
+      creditDebitCard: {
+        label: "Credit / Debit card",
+        description: "Secure card payment via Stripe.",
+      },
+      paypal: {
+        label: "PayPal",
+        description: "Pay via PayPal.",
+      },
+      bankTransfer: {
+        label: "Bank transfer",
+        description: "Transfer directly to the driver's bank account.",
+      },
     },
     confirmPay: "Confirm booking →",
     reviewPay: "Review booking →",

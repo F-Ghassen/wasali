@@ -1,22 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
-
-const PAYMENT_LABEL: Record<string, string> = {
-  cash_on_collection: 'Cash on collection',
-  cash_on_delivery:   'Cash on delivery',
-  credit_debit_card:  'Credit / Debit card',
-  paypal:             'PayPal',
-};
-
-const PAYMENT_DESC: Record<string, string> = {
-  cash_on_collection: 'Pay the driver when handing over your package.',
-  cash_on_delivery:   'Recipient pays the driver on delivery.',
-  credit_debit_card:  'Secure card payment via Stripe.',
-  paypal:             'Pay via PayPal.',
-};
+import { PAYMENT_METHODS, type PaymentType } from '@/constants/paymentMethods';
 
 interface PaymentOptionProps {
   type: string;
@@ -26,8 +14,10 @@ interface PaymentOptionProps {
 }
 
 export function PaymentOption({ type, selected, comingSoon, onPress }: PaymentOptionProps) {
-  const label = PAYMENT_LABEL[type] ?? type;
-  const desc  = PAYMENT_DESC[type] ?? '';
+  const { t } = useTranslation();
+  const meta = PAYMENT_METHODS[type as PaymentType];
+  const label = meta ? t(meta.labelKey) : type;
+  const desc  = meta ? t(meta.descriptionKey) : '';
   const disabled = !!comingSoon;
 
   return (

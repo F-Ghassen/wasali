@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Modal,
   TouchableOpacity,
-  Alert,
   SafeAreaView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -51,24 +50,15 @@ export function QrScannerModal({ visible, expectedBookingId, onSuccess, onClose 
       return;
     }
 
-    Alert.alert(
-      'QR Code Matched',
-      'Confirm you have collected this package?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-          onPress: () => { scannedRef.current = false; },
-        },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            onClose();
-            onSuccess();
-          },
-        },
-      ]
-    );
+    // Bug fix: this used to show an `Alert.alert(...)` confirm step before
+    // calling onSuccess — Alert.alert is a no-op on web (react-native-web's
+    // implementation is a literal `static alert() {}`), so a matched scan
+    // silently did nothing there. Removed rather than replaced: onSuccess
+    // (wired by the driver detail screen) already opens WeightConfirmModal,
+    // which is itself a real confirmation gate before markInTransit runs —
+    // this step was redundant as well as broken.
+    onClose();
+    onSuccess();
   };
 
   if (!visible) return null;

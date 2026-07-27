@@ -16,6 +16,13 @@ export async function pickImage(): Promise<ImagePicker.ImagePickerAsset | null> 
   return result.assets[0];
 }
 
+/**
+ * Uploads an image and returns its storage path (not a URL). The caller
+ * resolves a renderable URL at the point of use — `getPublicUrl(path)` for
+ * public buckets (e.g. `avatars`), or `createSignedUrl(path, ttl)` for
+ * private ones (e.g. `package-photos`) — since whether a bucket is public
+ * is a property of the bucket, not of this generic upload helper.
+ */
 export async function uploadImage(
   bucket: string,
   path: string,
@@ -37,14 +44,5 @@ export async function uploadImage(
     return null;
   }
 
-  if (bucket === 'avatars') {
-    const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
-    return urlData.publicUrl;
-  }
-
-  const { data: signedData } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(data.path, 3600);
-
-  return signedData?.signedUrl ?? null;
+  return data.path;
 }

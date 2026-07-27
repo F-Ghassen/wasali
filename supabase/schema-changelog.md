@@ -4,6 +4,63 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature/Bugfix — driver booking detail: sender rating, multi-category, photo uploads, confirm/reject fix (2026-07-27)
+
+- **055_package_photos_bucket.sql** — Creates the `package-photos` storage
+  bucket (already existed since initial project setup per `storage.buckets`,
+  but was never actually wired up to any upload code) plus RLS policies
+  scoped to `{userId}/...` path prefixes. Kept **private** (matching its
+  original `public: false` setting, same privacy level as
+  `dispute-evidence`) rather than flipped to public — `bookings.package_photos`
+  now stores storage **paths**, not URLs; the driver's `PackagePhotoGallery`
+  resolves fresh signed URLs on each view via `createSignedUrls`. Sender-side
+  upload wired into `PackageStep.tsx` (uploads immediately on picking, local
+  URI kept only for instant preview, storage path persisted to
+  `package_photos` at booking submit).
+- **054_bookings_multi_category.sql** — Adds `package_categories text[]`.
+  `hooks/useBookingForm.ts`'s `buildSubmitPayload` previously wrote
+  `package_category: state.packageTypes[0] ?? 'general'` — if a sender
+  selected multiple categories, every category after the first was silently
+  dropped. `package_category` (singular) is kept for existing consumers
+  (`BookingCard`, `DriverBookingCard`, shipping-requests); `package_categories`
+  is the new full-selection column, backfilled from the singular value for
+  pre-existing rows.
+
+## Bugfix — sender/driver profile info not loading in booking joins (2026-07-27)
+
+- **053_profiles_counterparty_select.sql** — `profiles` had exactly one SELECT
+  policy, `"Users can view own profile"` (`auth.uid() = id`, migration 038).
+  Every embedded join like `sender:profiles!sender_id(...)`
+  (`stores/driverBookingStore.ts`) or `driver:profiles!driver_id(...)`
+  (`app/(sender)/booking/bookingDetail/hooks/useBookingDetail.ts`) was
+  silently filtered by RLS *on the joined table* — the booking row loaded
+  fine, but the nested profile came back `null`, with no error surfaced to
+  the client. Root cause of "sender info not shown in driver booking
+  detail," and symmetrically affected the driver's name/phone on the
+  sender's booking detail. Fix adds a second, additive SELECT policy (RLS
+  policies OR together): a user can also view the profile of their booking
+  counterparty — driver → sender via `bookings.sender_id` on routes they
+  own, sender → driver via `routes.driver_id` on routes they've booked. No
+  other profile rows become visible.
+
+## Feature — Driver booking-detail parity: dynamic payment methods + mid-pickup weight adjustment (2026-07-27)
+
+- **052_adjust_route_capacity_fn.sql** — Adds `adjust_route_capacity(uuid, numeric)`,
+  a signed-delta dispatcher over the existing `decrement_route_capacity` (m013) /
+  `increment_route_capacity` (m045) functions. Used by the driver's mid-pickup
+  weight-correction flow (`driverBookingStore.adjustPackageWeight`) to move route
+  capacity by `(old_weight - new_weight)` without duplicating either guarded
+  function's logic. A weight increase that exceeds remaining capacity still
+  surfaces `decrement_route_capacity`'s `'Insufficient capacity on route %'`
+  exception unchanged.
+- **051_route_payment_methods_bank_transfer.sql** — Extends the
+  `route_payment_methods_payment_type_check` CHECK constraint (m014) to allow
+  `'bank_transfer'`, matching the payment catalogue now defined once in
+  `constants/paymentMethods.ts` (previously duplicated across
+  `PaymentOption.tsx`/`PaymentStep.tsx`/the driver detail screen). Still gated
+  "coming soon" at the platform level in the client — this only makes the
+  column able to store the value for when that gate lifts.
+
 ## Bugfix — handle_new_user() role cast (2026-07-26)
 
 - **050_fix_handle_new_user_role_cast.sql** — `038_convert_role_to_enum.sql`

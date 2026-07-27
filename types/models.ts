@@ -51,7 +51,9 @@ export type RouteTemplate = {
 };
 
 export type BookingWithSender = Booking & {
-  route?: RouteWithStops;
+  route?: RouteWithStops & {
+    route_payment_methods?: { payment_type: string; enabled: boolean }[];
+  };
   sender?: Partial<Profile>;
 };
 

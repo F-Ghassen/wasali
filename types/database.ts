@@ -32,6 +32,7 @@ export type Database = {
           dropoff_type: string
           estimated_collection_date: string | null
           id: string
+          package_categories: string[]
           package_category: string
           package_photos: string[] | null
           package_weight_kg: number
@@ -80,6 +81,7 @@ export type Database = {
           dropoff_type: string
           estimated_collection_date?: string | null
           id?: string
+          package_categories?: string[]
           package_category: string
           package_photos?: string[] | null
           package_weight_kg: number
@@ -128,6 +130,7 @@ export type Database = {
           dropoff_type?: string
           estimated_collection_date?: string | null
           id?: string
+          package_categories?: string[]
           package_category?: string
           package_photos?: string[] | null
           package_weight_kg?: number
@@ -1058,6 +1061,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_route_capacity: {
+        Args: { p_delta_kg: number; p_route_id: string }
+        Returns: undefined
+      }
       decrement_route_capacity: {
         Args: { p_route_id: string; p_weight_kg: number }
         Returns: number

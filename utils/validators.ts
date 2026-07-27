@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CASH_PAYMENT_TYPES } from '@/constants/paymentMethods';
 
 export const signUpSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -175,9 +176,9 @@ export const wizardStep4Schema = z
  * the fetched route, not here. See the blueprint §3b.
  *
  * Launch: only cash payment types are accepted; card/PayPal is "Coming soon".
+ * CASH_PAYMENT_TYPES lives in constants/paymentMethods.ts (single source of
+ * truth for the payment-method catalogue) — imported above.
  */
-export const CASH_PAYMENT_TYPES = ['cash_on_collection', 'cash_on_delivery'] as const;
-
 export const bookingSubmitSchema = z.object({
   route_id: z.string().min(1),
   collection_stop_id: z.string().min(1, 'Select a collection point'),
@@ -190,6 +191,9 @@ export const bookingSubmitSchema = z.object({
   recipient_phone: z.string().min(5, 'Valid phone required'),
   package_weight_kg: z.number().min(0.1, 'Weight must be at least 0.1 kg').max(200, 'Maximum 200 kg'),
   package_category: z.string().min(1, 'Select a package type'),
+  // Full multi-select category list — package_category (singular) only ever
+  // held the first selection, silently dropping the rest (migration 054).
+  package_categories: z.array(z.string()).min(1, 'Select a package type'),
   // Launch: cash only. Card/PayPal rejected until the future card phase.
   payment_type: z.enum(CASH_PAYMENT_TYPES, {
     message: 'Card and PayPal are coming soon — please choose a cash option',

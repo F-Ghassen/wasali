@@ -1,6 +1,8 @@
 import { useReducer, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FetchedRoute, FetchedService } from './useRouteData';
+import { computeShippingPrice } from '@/utils/pricing';
+import type { PaymentType } from '@/constants/paymentMethods';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -58,10 +60,18 @@ export interface BookingFormState {
   packageTypes: string[];
   otherDesc:    string;
   packageDesc:  string;
+  /** Local device URIs for instant preview — never persisted as-is (see photoPaths). */
   photos:       string[];
+  /**
+   * Storage paths for photos that finished uploading to the private
+   * `package-photos` bucket, aligned by index with `photos`. `null` at an
+   * index means that photo is still uploading or failed — buildSubmitPayload
+   * only includes the successfully-uploaded ones.
+   */
+  photoPaths:   (string | null)[];
 
   // ── Step 5: Payment ──────────────────────────────────────────────────────────
-  paymentType: 'cash_on_collection' | 'cash_on_delivery' | 'credit_debit_card' | 'paypal';
+  paymentType: PaymentType;
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -126,6 +136,7 @@ function makeInitial(profileName?: string, profilePhone?: string): BookingFormSt
     otherDesc:    '',
     packageDesc:  '',
     photos:       [],
+    photoPaths:   [],
 
     paymentType: 'cash_on_collection',
   };
@@ -307,7 +318,8 @@ export function useBookingForm(
       recipient_address_postal_code: state.recipientAddressPostalCode,
       package_weight_kg:             parseFloat(state.weight) || 0,
       package_category:              state.packageTypes[0] ?? 'general',
-      package_photos:                state.photos,
+      package_categories:            state.packageTypes.length > 0 ? state.packageTypes : ['general'],
+      package_photos:                state.photoPaths.filter((p): p is string => p != null),
       driver_notes:                  state.driverNotes || null,
       payment_type:                  state.paymentType,
       price_eur:                     totalPrice,
@@ -339,6 +351,9 @@ export function useBookingForm(
 }
 
 // ─── Re-export helper ─────────────────────────────────────────────────────────
+// computeTotalPrice is kept as a named re-export of the shared pricing
+// formula (utils/pricing.ts) for backward compatibility with existing
+// callers (OrderSummary.tsx, booking-form-validation.test.ts).
 
 export function computeTotalPrice(
   weightKg: number,
@@ -346,13 +361,7 @@ export function computeTotalPrice(
   collectionServicePrice: number,
   deliveryServicePrice: number,
 ): number {
-  const effectiveRate = route.promotion_active && route.promotion_percentage
-    ? route.price_per_kg_eur * (1 - route.promotion_percentage / 100)
-    : route.price_per_kg_eur;
-
-  return Math.round(
-    (weightKg * effectiveRate + collectionServicePrice + deliveryServicePrice) * 100,
-  ) / 100;
+  return computeShippingPrice(weightKg, route, collectionServicePrice, deliveryServicePrice);
 }
 
 // Need React for useState in the hook

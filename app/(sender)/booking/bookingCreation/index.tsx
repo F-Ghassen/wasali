@@ -369,6 +369,8 @@ export default function BookingScreen() {
           otherDesc={fs.otherDesc}
           packageDesc={fs.packageDesc}
           photos={fs.photos}
+          photoPaths={fs.photoPaths}
+          userId={profile?.id ?? ''}
           maxWeight={routeData?.max_single_package_kg}
           isValid={stepValidity[4]}
           onWeightChange={(v) => setField({ weight: v })}
@@ -381,7 +383,7 @@ export default function BookingScreen() {
           }
           onOtherDescChange={(v) => setField({ otherDesc: v })}
           onPackageDescChange={(v) => setField({ packageDesc: v })}
-          onPhotosChange={(uris) => setField({ photos: uris })}
+          onPhotosChange={(uris, paths) => setField({ photos: uris, photoPaths: paths })}
           onContinue={() => setCurrentStep(5)}
         />
       </StepCard>

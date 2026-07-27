@@ -13,6 +13,7 @@ const validCashBooking = {
   recipient_phone: '+21620123456',
   package_weight_kg: 5,
   package_category: 'general',
+  package_categories: ['general'],
   payment_type: 'cash_on_collection',
   total_price: 42.5,
 };

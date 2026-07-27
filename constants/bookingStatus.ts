@@ -1,4 +1,8 @@
 import type { RouteStatus } from '@/types/models';
+// Cash-payment helpers now live in constants/paymentMethods.ts (single source
+// of truth for the payment-method catalogue) — re-exported here so existing
+// importers of constants/bookingStatus.ts keep working unchanged.
+export { CASH_PAYMENT_TYPES, isCashPaymentType, type CashPaymentType } from './paymentMethods';
 
 export type BookingStatus =
   | 'pending'
@@ -131,10 +135,3 @@ export const SENDER_CANCELLATION_REASON_MESSAGES: Record<CancellationReason, str
   route_expired: 'This route expired before departure — your booking was cancelled.',
 };
 
-/** Cash payment types — the only methods that can be marked paid manually. */
-export const CASH_PAYMENT_TYPES = ['cash_on_collection', 'cash_on_delivery'] as const;
-export type CashPaymentType = (typeof CASH_PAYMENT_TYPES)[number];
-
-export function isCashPaymentType(paymentType: string | null | undefined): paymentType is CashPaymentType {
-  return paymentType === 'cash_on_collection' || paymentType === 'cash_on_delivery';
-}

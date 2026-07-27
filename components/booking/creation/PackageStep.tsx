@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
 } from 'react-native';
@@ -14,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
+import { uploadImage } from '@/utils/imageUpload';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,30 +24,38 @@ export interface PackageStepProps {
   packageTypes: string[];
   otherDesc: string;
   packageDesc: string;
+  /** Local device URIs for instant preview. */
   photos: string[];
+  /** Uploaded storage paths, aligned by index with `photos` (null = still uploading/failed). */
+  photoPaths: (string | null)[];
+  /** Uploads write to `package-photos/{userId}/...` — required to upload at all. */
+  userId: string;
   maxWeight?: number | null;
   isValid: boolean;
   onWeightChange: (v: string) => void;
   onTogglePackageType: (key: string) => void;
   onOtherDescChange: (v: string) => void;
   onPackageDescChange: (v: string) => void;
-  onPhotosChange: (uris: string[]) => void;
+  onPhotosChange: (uris: string[], paths: (string | null)[]) => void;
   onContinue: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const WEIGHT_CHIPS = [2, 7, 15, 25];
+const MAX_PHOTOS = 5;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function PackageStep({
-  weight, packageTypes, otherDesc, packageDesc, photos,
+  weight, packageTypes, otherDesc, packageDesc, photos, photoPaths, userId,
   maxWeight, isValid,
   onWeightChange, onTogglePackageType, onOtherDescChange,
   onPackageDescChange, onPhotosChange, onContinue,
 }: PackageStepProps) {
   const { t } = useTranslation();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const PACKAGE_TYPES = [
     { key: 'clothing',    label: t('booking.packageTypes.clothing') },
@@ -57,18 +67,45 @@ export function PackageStep({
   ];
 
   const handleAddPhoto = async () => {
-    if (photos.length >= 5) return;
+    if (photos.length >= MAX_PHOTOS || isUploading) return;
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.8,
+      base64: true,
     });
-    if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
-      onPhotosChange([...photos, ...uris].slice(0, 5));
+    if (result.canceled) return;
+
+    const assets = result.assets.slice(0, MAX_PHOTOS - photos.length);
+    const newUris = assets.map((a) => a.uri);
+    // Instant local preview — the sender sees their picked photos immediately,
+    // independent of upload progress.
+    onPhotosChange([...photos, ...newUris].slice(0, MAX_PHOTOS), [...photoPaths, ...newUris.map(() => null)].slice(0, MAX_PHOTOS));
+
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const uploaded = await Promise.all(
+        assets.map((a, i) => {
+          const ext = a.uri.split('.').pop()?.toLowerCase() ?? 'jpg';
+          const path = `${userId}/${Date.now()}-${photos.length + i}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          return uploadImage('package-photos', path, a.uri, a.base64);
+        }),
+      );
+      if (uploaded.some((p) => p == null)) {
+        setUploadError(t('booking.package.uploadPartialError'));
+      }
+      onPhotosChange([...photos, ...newUris].slice(0, MAX_PHOTOS), [...photoPaths, ...uploaded].slice(0, MAX_PHOTOS));
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    if (isUploading) return;
+    onPhotosChange(photos.filter((_, j) => j !== index), photoPaths.filter((_, j) => j !== index));
   };
 
   return (
@@ -154,28 +191,39 @@ export function PackageStep({
         {photos.map((uri, i) => (
           <View key={i} style={s.photoThumb}>
             <Image source={{ uri }} style={s.photoImg} />
+            {photoPaths[i] == null && (
+              <View style={s.photoUploadingOverlay}>
+                <ActivityIndicator size="small" color={Colors.white} />
+              </View>
+            )}
             <TouchableOpacity
               style={s.photoRemove}
-              onPress={() => onPhotosChange(photos.filter((_, j) => j !== i))}
+              onPress={() => handleRemovePhoto(i)}
+              disabled={isUploading}
             >
               <X size={10} color={Colors.white} strokeWidth={3} />
             </TouchableOpacity>
           </View>
         ))}
-        {photos.length < 5 && (
-          <TouchableOpacity style={s.photoAdd} onPress={handleAddPhoto} activeOpacity={0.75}>
-            <Plus size={20} color={Colors.text.tertiary} strokeWidth={2} />
+        {photos.length < MAX_PHOTOS && (
+          <TouchableOpacity style={s.photoAdd} onPress={handleAddPhoto} activeOpacity={0.75} disabled={isUploading}>
+            {isUploading ? (
+              <ActivityIndicator size="small" color={Colors.text.tertiary} />
+            ) : (
+              <Plus size={20} color={Colors.text.tertiary} strokeWidth={2} />
+            )}
           </TouchableOpacity>
         )}
       </View>
+      {uploadError && <Text style={s.weightError}>{uploadError}</Text>}
       <Text style={s.fieldNote}>Up to 5 photos. Shared with driver only after booking is confirmed.</Text>
 
       {/* Continue */}
       <TouchableOpacity
-        style={[s.continueBtn, !isValid && s.continueBtnDisabled]}
-        onPress={() => isValid && onContinue()}
+        style={[s.continueBtn, (!isValid || isUploading) && s.continueBtnDisabled]}
+        onPress={() => isValid && !isUploading && onContinue()}
         activeOpacity={0.85}
-        disabled={!isValid}
+        disabled={!isValid || isUploading}
       >
         <Text style={s.continueBtnText}>Continue →</Text>
       </TouchableOpacity>
@@ -244,6 +292,11 @@ const s = StyleSheet.create({
     width: 72, height: 72, borderRadius: BorderRadius.md, overflow: 'hidden', position: 'relative',
   },
   photoImg: { width: '100%', height: '100%' },
+  photoUploadingOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   photoRemove: {
     position: 'absolute', top: 4, right: 4,
     width: 18, height: 18, borderRadius: 9,

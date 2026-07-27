@@ -494,12 +494,27 @@ Prohibited items (red chips)
   filter: Pending | Confirmed | In Transit | Delivered
     ▼
   tap card  →  /driver/bookings/[id]
-    booking detail:
-      sender info, package details, photos, logistics
-      ├── status: pending   →  [Confirm] / [Reject]
-      ├── status: confirmed →  [Mark Collected]
-      ├── status: in_transit→  [Mark Delivered]
-      └── status: delivered →  awaiting sender rating → escrow release
+    booking detail (SoC-split — app/driver/bookings/{hooks,utils,types}/,
+    components/driver/bookings/*.tsx):
+      sender info (rating + trip count, or a "No rating yet" badge for a
+      first-time sender), trip (route cities + dates), package details (all
+      selected categories as chips — not just the first, see §6c below —
+      plus requested-on date), package photos (resolved to signed URLs from
+      the private `package-photos` bucket), logistics + note from sender,
+      recipient contact (call/WhatsApp), your payout (vs. what the sender
+      paid), accepted payment methods (dynamic, per-route — see §6a)
+      ├── status: pending    →  [Confirm] / [Reject]
+      │     → both now go through a real confirm dialog (`ConfirmActionModal`);
+      │       previously `Alert.alert(...)`, a no-op on web, so tapping either
+      │       button silently did nothing on a web build
+      ├── status: confirmed  →  [Scan QR] / [Mark In Transit]
+      │     → tapping either opens a weight-confirmation modal: driver
+      │       re-weighs the package and can correct package_weight_kg
+      │       before the transition proceeds (see §6b)
+      ├── status: in_transit →  [Mark Delivered]
+      ├── status: delivered  →  awaiting sender rating → escrow release
+      ├── status: disputed   →  dispute-in-progress banner, no action needed
+      └── status: cancelled  →  cancellation-reason banner
 ```
 
 **Driver Dashboard** `/(driver)/index`:
@@ -606,6 +621,53 @@ Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notif
   (`sender_cancelled` → notify driver; `rejected_by_driver`/`route_cancelled`/
   `route_expired` → notify sender). Before migration 049, no notification fired on
   cancellation at all — this closes that gap for all four cancellation paths.
+- Weight adjustment (`package_weight_kg` change, see §6b) is checked ahead of the
+  status branch using `old_record` — the two paths are mutually exclusive since a
+  weight adjustment is always a separate UPDATE from a status transition.
+
+### 6a. Dynamic payment methods
+
+`constants/paymentMethods.ts` is the single catalogue for every payment type
+(`cash_on_collection`, `cash_on_delivery`, `credit_debit_card`, `paypal`,
+`bank_transfer`) — labels, descriptions, and the platform-level "coming soon"
+gate. Per-route enablement still lives in `route_payment_methods`
+(driver-managed); `resolvePaymentMethods()` crosses the two to decide what's
+actually selectable right now. Both the sender's booking-creation payment
+picker (`PaymentStep.tsx`) and the driver's booking-detail "Accepted payment
+methods" reference row read from this one source — no more duplicated
+type lists. Cash is enabled by default on every route; card/PayPal/bank
+transfer are flagged "coming soon" platform-wide until an admin layer to
+manage per-driver integrations exists.
+
+### 6b. Mid-pickup weight adjustment
+
+While a booking is `confirmed` (before the driver marks it `in_transit`), the
+driver can correct `package_weight_kg` against the real weighed value at the
+weight-confirmation step. `driverBookingStore.adjustPackageWeight`:
+1. Recomputes the shipping price (`utils/pricing.ts`, shared with the
+   sender's booking-creation formula) and the full money split
+   (`utils/money.ts` `splitBookingMoney`) — preserving the platform rates
+   snapshotted on the booking row at creation time.
+2. Adjusts the route's `available_weight_kg` by the signed delta via the new
+   `adjust_route_capacity` DB function — a weight increase that exceeds
+   remaining capacity is rejected before any row is written.
+3. The sender is notified in-app, by push, and by email (via the existing
+   `notify-booking-event` pipeline — see above) with the old→new weight.
+
+### 6c. Multi-category packages + photo uploads
+
+- **Categories**: the sender's package step lets them multi-select
+  categories (Clothing, Electronics, etc.), but `bookings.package_category`
+  (singular) only ever stored the first selection — the rest were silently
+  dropped before ever reaching the driver. `package_categories text[]` (new
+  column) now carries the full selection; the driver's package card shows
+  every one as a chip.
+- **Photos**: the sender's photo picker uploads each photo to the
+  `package-photos` storage bucket immediately on picking (kept private, same
+  as `dispute-evidence` — not public like `avatars`), while still showing an
+  instant local preview independent of upload progress. The driver's detail
+  screen resolves fresh signed URLs to display them, and to open a
+  full-screen preview on tap.
 
 **In-app notification inbox:**
 - Profile tab gets a red dot badge when `unreadCount > 0`

@@ -1,12 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { format } from 'date-fns';
-import { ArrowRight, Package } from 'lucide-react-native';
+import { ArrowRight, Package, Star } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import type { FeaturedRoute } from '@/app/route-discovery/types/featured-route';
+
+const SERVICE_LABEL: Record<string, string> = {
+  sender_dropoff: 'Drop-off point',
+  driver_pickup: 'Home pickup',
+  recipient_collects: 'Self-collect',
+  driver_delivery: 'Door delivery',
+  local_post: 'Local post',
+};
 
 interface FeaturedRouteCardProps {
   route: FeaturedRoute;
@@ -23,9 +31,12 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
 
   const pickupStops  = r.stops.filter((s) => s.stopType === 'collection');
   const dropoffStops = r.stops.filter((s) => s.stopType === 'dropoff');
+  const capacityPct  = Math.round((r.capacityLeft / r.totalWeight) * 100);
+  const isLowStock   = capacityPct <= 20;
 
   return (
     <View style={s.card}>
+      <View style={s.featuredStrip} />
       <View style={s.content}>
         {/* Row 1: Driver + Price */}
         <View style={s.row1}>
@@ -34,105 +45,111 @@ export function FeaturedRouteCard({ route: r, onBook }: FeaturedRouteCardProps) 
             <Text style={s.avatarLetter}>{r.driverName[0]}</Text>
           </View>
           <View style={s.driverMeta}>
-            <Text style={s.driverName}>{r.driverName}</Text>
+            <Text style={s.driverName} numberOfLines={1}>{r.driverName}</Text>
             {r.driverRating !== null && r.driverRating > 0 ? (
-              <Text style={s.trustSignal}>⭐ {r.driverRating.toFixed(1)} • {r.driverTrips} trips</Text>
+              <View style={s.trustSignalRow}>
+                <Star size={11} color={Colors.gold} fill={Colors.gold} strokeWidth={0} />
+                <Text style={s.trustSignal}>{r.driverRating.toFixed(1)} · {r.driverTrips} trips</Text>
+              </View>
             ) : (
-              <Text style={s.trustSignal}>New driver</Text>
+              <View style={s.newDriverBadge}>
+                <Text style={s.newDriverText}>New driver</Text>
+              </View>
             )}
           </View>
         </View>
 
         <View style={s.priceHighlight}>
-          <View style={s.priceDisplay}>
-            <Text style={s.effectivePrice}>€{effectivePrice}</Text>
-            <Text style={s.priceUnit}>/kg</Text>
-          </View>
           {promotionLabel && (
             <View style={s.promotionBadge}>
               <Text style={s.promotionText}>{promotionLabel}</Text>
             </View>
           )}
+          <View style={s.priceDisplay}>
+            <Text style={s.effectivePrice}>€{effectivePrice}</Text>
+            <Text style={s.priceUnit}>/kg</Text>
+          </View>
         </View>
       </View>
 
       {/* Row 2: Route stops */}
       <View style={s.routeSummary}>
-        <View style={s.countrySection}>
-          <View style={s.countryHeader}>
-            <View style={s.labelWithCountry}>
-              <Text style={s.countrySectionLabel}>From</Text>
-              <Text style={s.countryFlagSmall}>{r.fromFlag}</Text>
-              <Text style={s.countryNameSmall}>{r.fromCountry}</Text>
-            </View>
+        <View style={s.countryHeaderRow}>
+          <View style={s.labelWithCountry}>
+            <Text style={s.countryFlagSmall}>{r.fromFlag}</Text>
+            <Text style={s.countryNameSmall}>{r.fromCountry}</Text>
           </View>
-          <View style={s.stopsList}>
+          <ArrowRight size={16} color={Colors.text.tertiary} strokeWidth={2.5} />
+          <View style={s.labelWithCountry}>
+            <Text style={s.countryFlagSmall}>{r.toFlag}</Text>
+            <Text style={s.countryNameSmall}>{r.toCountry}</Text>
+          </View>
+        </View>
+
+        <View style={s.stopsColumns}>
+          <View style={s.countrySection}>
             <View style={s.stopsLabelRow}>
               <Text style={s.stopsLabelIcon}>📍</Text>
-              <Text style={s.stopsSubLabel}>Pickup Locations</Text>
+              <Text style={s.stopsSubLabel}>Pickup</Text>
             </View>
-            {pickupStops.map((stop) => (
-              <View key={`${stop.city_id}-${stop.stopOrder}`} style={s.stopChip}>
-                <Text style={s.stopChipText}>
-                  {stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <View style={s.routeArrow}>
-          <ArrowRight size={20} color={Colors.primary} strokeWidth={2} />
-        </View>
-
-        <View style={s.countrySection}>
-          <View style={s.countryHeader}>
-            <View style={s.labelWithCountry}>
-              <Text style={s.countrySectionLabel}>To</Text>
-              <Text style={s.countryFlagSmall}>{r.toFlag}</Text>
-              <Text style={s.countryNameSmall}>{r.toCountry}</Text>
+            <View style={s.stopsList}>
+              {pickupStops.map((stop) => (
+                <View key={`${stop.city_id}-${stop.stopOrder}`} style={s.stopChip}>
+                  <Text style={s.stopChipText} numberOfLines={1}>
+                    {stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
-          <View style={s.stopsList}>
+
+          <View style={s.stopsDivider} />
+
+          <View style={s.countrySection}>
             <View style={s.stopsLabelRow}>
               <Text style={s.stopsLabelIcon}>🎯</Text>
-              <Text style={s.stopsSubLabel}>Delivery Locations</Text>
+              <Text style={s.stopsSubLabel}>Delivery</Text>
             </View>
-            {dropoffStops.map((stop) => (
-              <View key={`${stop.city_id}-${stop.stopOrder}`} style={s.stopChip}>
-                <Text style={s.stopChipText}>
-                  {stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}
-                </Text>
-              </View>
-            ))}
+            <View style={s.stopsList}>
+              {dropoffStops.map((stop) => (
+                <View key={`${stop.city_id}-${stop.stopOrder}`} style={s.stopChip}>
+                  <Text style={s.stopChipText} numberOfLines={1}>
+                    {stop.cityName} • {stop.arrivalDate ? format(new Date(stop.arrivalDate), 'MMM d') : 'TBD'}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </View>
 
-      {/* Row 3: Services + Capacity */}
+      {/* Row 3: Capacity */}
+      <View style={s.capacityRow}>
+        <View style={s.capacityLabelRow}>
+          <Package size={13} color={isLowStock ? Colors.error : Colors.text.secondary} strokeWidth={2} />
+          <Text style={[s.capacityLabel, isLowStock && s.capacityLabelLow]}>
+            {r.capacityLeft} / {r.totalWeight} kg available
+          </Text>
+        </View>
+        <View style={s.progressTrack}>
+          <View
+            style={[
+              s.progressFill,
+              isLowStock && s.progressFillLow,
+              { width: `${capacityPct}%` as any },
+            ]}
+          />
+        </View>
+      </View>
+
+      {/* Row 4: Services */}
       {r.services.length > 0 && (
         <View style={s.servicesRow}>
-          <View style={s.servicesTopRow}>
-            <Text style={s.servicesLabel}>Driver Offered Services</Text>
-            <View style={s.capacityHighlight}>
-              <View style={s.capacityLabelRow}>
-                <Package size={12} color={Colors.text.secondary} strokeWidth={2} />
-                <Text style={s.capacityLabel}>{r.capacityLeft} / {r.totalWeight} kg</Text>
-              </View>
-              <View style={s.progressTrack}>
-                <View
-                  style={[
-                    s.progressFill,
-                    { width: `${Math.round((r.capacityLeft / r.totalWeight) * 100)}%` as any },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
+          <Text style={s.servicesLabel}>Driver Offered Services</Text>
           <View style={s.servicesList}>
             {r.services.map((svc, idx) => (
               <View key={idx} style={s.serviceBadge}>
-                <Text style={s.serviceName}>{svc}</Text>
+                <Text style={s.serviceName}>{SERVICE_LABEL[svc] ?? svc}</Text>
               </View>
             ))}
           </View>
@@ -159,47 +176,59 @@ const s = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 14,
     elevation: 5,
     borderWidth: 1,
-    borderColor: Colors.primaryLight,
+    borderColor: Colors.border.light,
     overflow: 'hidden',
-    gap: Spacing.md,
     flexDirection: 'column',
+  },
+  featuredStrip: {
+    height: 3,
+    backgroundColor: Colors.gold,
   },
   content: {
     flex: 1,
-    gap: Spacing.md,
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   row1: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
   },
-  driverHighlight: { flex: 0.85, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  driverHighlight: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   avatar: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   avatarLetter: { fontSize: FontSize.sm, fontWeight: '800', color: Colors.white },
-  driverMeta: { flex: 1 },
-  driverName: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.primary },
-  trustSignal: { fontSize: FontSize.xs, fontWeight: '500', color: Colors.text.secondary, marginTop: 2 },
-  priceHighlight: { flex: 0.6, alignItems: 'flex-end', gap: 2 },
+  driverMeta: { flex: 1, gap: 2 },
+  driverName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
+  trustSignalRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trustSignal: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary },
+  newDriverBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.secondaryLight,
+    borderRadius: BorderRadius.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  newDriverText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.secondary },
+  priceHighlight: { alignItems: 'flex-end', gap: 2 },
   priceDisplay: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
   effectivePrice: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.primary },
   priceUnit: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary },
   promotionBadge: {
-    marginTop: 4,
     backgroundColor: Colors.gold,
     borderRadius: BorderRadius.sm,
     paddingHorizontal: 6,
@@ -208,25 +237,29 @@ const s = StyleSheet.create({
   },
   promotionText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
   routeSummary: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: Spacing.md,
+    gap: Spacing.sm,
     backgroundColor: Colors.background.secondary,
     borderRadius: BorderRadius.lg,
     padding: Spacing.md,
   },
-  countrySection: { flex: 1, gap: Spacing.md },
-  countryHeader: { paddingBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border.light },
-  labelWithCountry: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  countrySectionLabel: {
-    fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.secondary,
-    textTransform: 'uppercase', letterSpacing: 0.5,
+  countryHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
   },
-  countryFlagSmall: { fontSize: 18 },
+  labelWithCountry: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  countryFlagSmall: { fontSize: 16 },
   countryNameSmall: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary },
-  stopsList: { gap: Spacing.sm },
-  stopsLabelRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginBottom: Spacing.xs },
-  stopsLabelIcon: { fontSize: 16 },
+  stopsColumns: { flexDirection: 'row', alignItems: 'stretch', gap: Spacing.sm },
+  stopsDivider: { width: 1, backgroundColor: Colors.border.light },
+  countrySection: { flex: 1, gap: Spacing.sm },
+  stopsList: { gap: Spacing.xs },
+  stopsLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
+  stopsLabelIcon: { fontSize: 12 },
   stopsSubLabel: {
     fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.secondary,
     textTransform: 'uppercase', letterSpacing: 0.5,
@@ -234,25 +267,25 @@ const s = StyleSheet.create({
   stopChip: {
     backgroundColor: Colors.white,
     borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.primaryLight,
   },
   stopChipText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.primary },
-  routeArrow: { justifyContent: 'center', alignItems: 'center', paddingHorizontal: Spacing.sm },
-  capacityHighlight: { gap: 4 },
+  capacityRow: { gap: 6 },
   capacityLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   capacityLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.text.secondary },
+  capacityLabelLow: { color: Colors.error, fontWeight: '700' },
   progressTrack: {
-    height: 6, width: 80,
+    height: 6, width: '100%',
     backgroundColor: Colors.border.light,
     borderRadius: BorderRadius.full,
     overflow: 'hidden',
   },
-  progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: BorderRadius.full },
+  progressFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: BorderRadius.full },
+  progressFillLow: { backgroundColor: Colors.error },
   servicesRow: { gap: Spacing.sm },
-  servicesTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   servicesLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.text.secondary },
   servicesList: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   serviceBadge: {
@@ -277,8 +310,17 @@ const s = StyleSheet.create({
     paddingVertical: Spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
   },
   bookBtnText: { color: Colors.white, fontWeight: '700', fontSize: FontSize.base },
-  fullBox: { backgroundColor: Colors.background.secondary, borderRadius: BorderRadius.lg, padding: Spacing.md, alignItems: 'center' },
+  fullBox: {
+    backgroundColor: Colors.background.secondary,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: 'center',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+  },
   fullText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontWeight: '500', textAlign: 'center' },
 });

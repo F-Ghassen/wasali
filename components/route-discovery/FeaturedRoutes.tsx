@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { ArrowRight } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { Spacing } from '@/constants/spacing';
+import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { useFeaturedRoutes } from '@/app/route-discovery/hooks/useFeaturedRoutes';
 import { FeaturedRouteCard } from '@/components/route-discovery/FeaturedRouteCard';
@@ -54,6 +55,7 @@ export default function FeaturedRoutes() {
 
       <TouchableOpacity style={s.seeAllBtn} onPress={handleSeeAll} activeOpacity={0.7}>
         <Text style={s.seeAllBtnText}>{t('home.whereFrom.seeAll')}</Text>
+        <ArrowRight size={16} color={Colors.text.primary} strokeWidth={2.5} />
       </TouchableOpacity>
 
       {selectedRouteId && (
@@ -83,8 +85,12 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.white,
   },
-  seeAllBtnText: { color: Colors.text.secondary, fontWeight: '600', fontSize: FontSize.sm },
+  seeAllBtnText: { color: Colors.text.primary, fontWeight: '700', fontSize: FontSize.base },
 });

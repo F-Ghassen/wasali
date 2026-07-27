@@ -4,7 +4,7 @@ export interface RouteAlertModalProps {
   visible: boolean;
   initialFrom?: string;
   initialTo?: string;
-  profile: { id: string; email?: string } | null;
+  profile: { id: string } | null;
   onClose: () => void;
 }
 

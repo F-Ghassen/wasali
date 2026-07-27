@@ -4,6 +4,28 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Bugfix — route alert submission always failed with PGRST204 (2026-07-27)
+
+- **056_route_alerts_guest_email.sql** — `routeAlertService.ts` inserted
+  `origin_city`/`destination_city`/`email` into `route_alerts`, but migration
+  `023_remove_redundant_city_text_columns.sql` had already dropped the text
+  city columns (keeping only `origin_city_id`/`destination_city_id`), and
+  `email` never existed as a column at all — every alert submission 400'd,
+  for every user, signed in or not. `route_alerts.user_id` was also
+  `NOT NULL` since its original creation in `014_route_services_payment_methods.sql`,
+  so the guest-email UI already present in `RouteAlertModal.tsx` had never
+  actually been able to save a guest alert.
+  This migration makes `user_id` nullable, adds `email text`, adds a
+  `route_alerts_user_or_email_chk` CHECK requiring at least one of the two,
+  replaces the owner-only RLS policy with an owner policy plus a
+  guest-insert policy (`user_id IS NULL AND email IS NOT NULL`), and updates
+  `notify_route_alert_users()` to skip the `notifications` insert for
+  guest (`user_id IS NULL`) alerts, since `notifications.user_id` is itself
+  `NOT NULL`. `routeAlertService.ts`, `RouteAlertModal.tsx`,
+  `RouteAlertSheet.tsx`, and `useCreateRouteAlert.ts` updated to match —
+  `RouteAlertSheet` (previously sign-in-only) now also supports the same
+  guest email fallback as `RouteAlertModal`.
+
 ## Feature/Bugfix — driver booking detail: sender rating, multi-category, photo uploads, confirm/reject fix (2026-07-27)
 
 - **055_package_photos_bucket.sql** — Creates the `package-photos` storage

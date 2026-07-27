@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import type { CreateAlertPayload } from '@/app/route-alert/services/routeAlertService';
 
 describe('Route Alert Service - Unit Tests', () => {
@@ -7,17 +7,13 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: null,
         email: 'guest@example.com',
-        originCity: 'Paris',
         originCityId: null,
-        destinationCity: 'Tunis',
         destinationCityId: null,
         dateFrom: null,
       };
 
       expect(payload.userId).toBeNull();
       expect(payload.email).toBe('guest@example.com');
-      expect(payload.originCity).toBe('Paris');
-      expect(payload.destinationCity).toBe('Tunis');
       expect(payload.dateFrom).toBeNull();
     });
 
@@ -26,9 +22,7 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: null,
         email: 'guest@example.com',
-        originCity: 'London',
         originCityId: null,
-        destinationCity: 'Casablanca',
         destinationCityId: null,
         dateFrom: testDate,
       };
@@ -43,9 +37,7 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: testUserId,
         email: 'user@example.com',
-        originCity: 'Berlin',
         originCityId: 'berlin-id',
-        destinationCity: 'Rabat',
         destinationCityId: 'rabat-id',
         dateFrom: null,
       };
@@ -62,9 +54,7 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: null,
         email: 'guest@example.com',
-        originCity: 'Amsterdam',
         originCityId: null,
-        destinationCity: 'Sousse',
         destinationCityId: null,
         dateFrom: null,
       };
@@ -77,9 +67,7 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: null,
         email: 'test@example.com',
-        originCity: 'Paris',
         originCityId: null,
-        destinationCity: 'Tunis',
         destinationCityId: null,
         dateFrom: null,
       };
@@ -92,9 +80,7 @@ describe('Route Alert Service - Unit Tests', () => {
       const payload: CreateAlertPayload = {
         userId: '123',
         email: 'user@example.com',
-        originCity: 'Paris',
         originCityId: 'paris-id',
-        destinationCity: 'Tunis',
         destinationCityId: 'tunis-id',
         dateFrom: '2026-06-15',
       };

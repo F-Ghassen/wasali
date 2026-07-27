@@ -32,7 +32,7 @@ export function RouteAlertModal({
   const [fromCityId, setFromCityId] = useState('');
   const [toCity, setToCity] = useState(initialTo);
   const [toCityId, setToCityId] = useState('');
-  const [email, setEmail] = useState(profile?.email || '');
+  const [email, setEmail] = useState('');
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
@@ -44,13 +44,13 @@ export function RouteAlertModal({
     if (visible) {
       setFromCity(initialFrom);
       setToCity(initialTo);
-      setEmail(profile?.email || '');
+      setEmail('');
       setSubmitted(false);
       setError(null);
     }
-  }, [visible, initialFrom, initialTo, profile?.email]);
+  }, [visible, initialFrom, initialTo]);
 
-  const canSubmit = !!fromCity && !!toCity && !!email && (!!profile || !!email);
+  const canSubmit = !!fromCity && !!toCity && (!!profile || !!email);
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -60,9 +60,7 @@ export function RouteAlertModal({
       await createRouteAlert({
         userId: profile?.id || null,
         email: email || '',
-        originCity: fromCity,
         originCityId: fromCityId || null,
-        destinationCity: toCity,
         destinationCityId: toCityId || null,
         dateFrom: dateFrom ? format(dateFrom, 'yyyy-MM-dd') : null,
       });

@@ -8,6 +8,12 @@ import { supabase } from '@/lib/supabase';
  */
 describe('Route Alert Service - Integration Tests', () => {
   const testEmail = `test-${Date.now()}@example.com`;
+  const parisId = '00000000-0000-0000-0000-0000000000a1';
+  const tunisId = '00000000-0000-0000-0000-0000000000a2';
+  const londonId = '00000000-0000-0000-0000-0000000000a3';
+  const casablancaId = '00000000-0000-0000-0000-0000000000a4';
+  const berlinId = '00000000-0000-0000-0000-0000000000a5';
+  const rabatId = '00000000-0000-0000-0000-0000000000a6';
 
   afterAll(async () => {
     // Cleanup: remove test alerts
@@ -19,10 +25,8 @@ describe('Route Alert Service - Integration Tests', () => {
       await createRouteAlert({
         userId: null,
         email: testEmail,
-        originCity: 'Paris',
-        originCityId: null,
-        destinationCity: 'Tunis',
-        destinationCityId: null,
+        originCityId: parisId,
+        destinationCityId: tunisId,
         dateFrom: null,
       });
 
@@ -31,15 +35,15 @@ describe('Route Alert Service - Integration Tests', () => {
         .from('route_alerts')
         .select('*')
         .eq('email', testEmail)
-        .eq('origin_city', 'Paris')
+        .eq('origin_city_id', parisId)
         .single();
 
       expect(error).toBeNull();
       expect(data).toBeDefined();
       expect(data?.user_id).toBeNull();
       expect(data?.email).toBe(testEmail);
-      expect(data?.origin_city).toBe('Paris');
-      expect(data?.destination_city).toBe('Tunis');
+      expect(data?.origin_city_id).toBe(parisId);
+      expect(data?.destination_city_id).toBe(tunisId);
     });
 
     it('should create alert with optional date', async () => {
@@ -48,10 +52,8 @@ describe('Route Alert Service - Integration Tests', () => {
       await createRouteAlert({
         userId: null,
         email: testEmail,
-        originCity: 'London',
-        originCityId: null,
-        destinationCity: 'Casablanca',
-        destinationCityId: null,
+        originCityId: londonId,
+        destinationCityId: casablancaId,
         dateFrom: testDate,
       });
 
@@ -60,7 +62,7 @@ describe('Route Alert Service - Integration Tests', () => {
         .from('route_alerts')
         .select('*')
         .eq('email', testEmail)
-        .eq('origin_city', 'London')
+        .eq('origin_city_id', londonId)
         .single();
 
       expect(data?.date_from).toBe(testDate);
@@ -74,10 +76,8 @@ describe('Route Alert Service - Integration Tests', () => {
       await createRouteAlert({
         userId: testUserId,
         email: testEmail,
-        originCity: 'Berlin',
-        originCityId: null,
-        destinationCity: 'Rabat',
-        destinationCityId: null,
+        originCityId: berlinId,
+        destinationCityId: rabatId,
         dateFrom: null,
       });
 
@@ -85,7 +85,7 @@ describe('Route Alert Service - Integration Tests', () => {
         .from('route_alerts')
         .select('*')
         .eq('user_id', testUserId)
-        .eq('origin_city', 'Berlin')
+        .eq('origin_city_id', berlinId)
         .single();
 
       expect(data?.user_id).toBe(testUserId);
@@ -124,9 +124,7 @@ describe('Route Alert Service - Integration Tests', () => {
       await createRouteAlert({
         userId: null,
         email: testEmail,
-        originCity: 'Amsterdam',
         originCityId: null,
-        destinationCity: 'Sousse',
         destinationCityId: null,
         dateFrom: null,
       });
@@ -135,7 +133,8 @@ describe('Route Alert Service - Integration Tests', () => {
         .from('route_alerts')
         .select('*')
         .eq('email', testEmail)
-        .eq('origin_city', 'Amsterdam')
+        .is('origin_city_id', null)
+        .limit(1)
         .single();
 
       expect(data?.origin_city_id).toBeNull();

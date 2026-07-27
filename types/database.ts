@@ -519,30 +519,33 @@ export type Database = {
           date_from: string | null
           date_to: string | null
           destination_city_id: string | null
+          email: string | null
           id: string
           min_weight_kg: number | null
           origin_city_id: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           date_from?: string | null
           date_to?: string | null
           destination_city_id?: string | null
+          email?: string | null
           id?: string
           min_weight_kg?: number | null
           origin_city_id?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           date_from?: string | null
           date_to?: string | null
           destination_city_id?: string | null
+          email?: string | null
           id?: string
           min_weight_kg?: number | null
           origin_city_id?: string | null
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

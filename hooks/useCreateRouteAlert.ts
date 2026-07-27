@@ -3,7 +3,8 @@ import { format } from 'date-fns';
 import { createRouteAlert, createAlertNotification } from '@/app/route-alert/services/routeAlertService';
 
 interface CreateAlertParams {
-  userId: string;
+  userId: string | null;
+  email?: string;
   fromCity: string;
   fromCityId: string | null;
   toCity: string;
@@ -22,18 +23,18 @@ export function useCreateRouteAlert() {
     try {
       await createRouteAlert({
         userId: params.userId,
-        email: '',
-        originCity: params.fromCity,
+        email: params.email || '',
         originCityId: params.fromCityId,
-        destinationCity: params.toCity,
         destinationCityId: params.toCityId,
         dateFrom: params.dateFrom ? format(params.dateFrom, 'yyyy-MM-dd') : null,
       });
-      const dateLabel = params.dateFrom ? ` from ${format(params.dateFrom, 'MMM d, yyyy')}` : '';
-      await createAlertNotification({
-        userId: params.userId,
-        message: `Alert saved: you'll be notified when a ${params.fromCity} → ${params.toCity} route is published${dateLabel}.`,
-      });
+      if (params.userId) {
+        const dateLabel = params.dateFrom ? ` from ${format(params.dateFrom, 'MMM d, yyyy')}` : '';
+        await createAlertNotification({
+          userId: params.userId,
+          message: `Alert saved: you'll be notified when a ${params.fromCity} → ${params.toCity} route is published${dateLabel}.`,
+        });
+      }
       setSubmitted(true);
     } catch {
       setError('Could not save alert. Please try again.');

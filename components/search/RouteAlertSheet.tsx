@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, SafeAreaView,
+  View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, SafeAreaView, TextInput,
 } from 'react-native';
 import { format } from 'date-fns';
-import { Bell, BellOff, X, Check } from 'lucide-react-native';
+import { Bell, X, Check } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
@@ -29,6 +29,7 @@ export function RouteAlertSheet({ visible, initialFrom, initialTo, profile, onCl
   const [toCity, setToCity]         = useState(initialTo);
   const [toCityId, setToCityId]     = useState('');
   const [dateFrom, setDateFrom]     = useState<Date | null>(null);
+  const [email, setEmail]           = useState('');
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker]     = useState(false);
 
@@ -37,16 +38,18 @@ export function RouteAlertSheet({ visible, initialFrom, initialTo, profile, onCl
       setFromCity(initialFrom);
       setToCity(initialTo);
       setDateFrom(null);
+      setEmail('');
       alert.reset();
     }
   }, [visible, initialFrom, initialTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const canSubmit = !!fromCity && !!toCity && !!profile;
+  const canSubmit = !!fromCity && !!toCity && (!!profile || !!email);
 
   const handleSubmit = () => {
     if (!canSubmit) return;
     alert.submit({
-      userId: profile!.id,
+      userId: profile?.id ?? null,
+      email: profile ? undefined : email,
       fromCity,
       fromCityId: fromCityId || null,
       toCity,
@@ -114,10 +117,18 @@ export function RouteAlertSheet({ visible, initialFrom, initialTo, profile, onCl
               <InlineDatePicker selected={dateFrom} onSelect={setDateFrom} />
 
               {!profile && (
-                <View style={s.loginNotice}>
-                  <BellOff size={14} color={Colors.text.tertiary} strokeWidth={2} />
-                  <Text style={s.loginNoticeText}>Sign in to save alerts</Text>
-                </View>
+                <>
+                  <Text style={[s.label, { marginTop: Spacing.lg }]}>EMAIL</Text>
+                  <TextInput
+                    style={s.emailInput}
+                    placeholder="Enter your email"
+                    placeholderTextColor={Colors.text.tertiary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </>
               )}
 
               {alert.error && (
@@ -181,8 +192,11 @@ const s = StyleSheet.create({
   fieldValue: { fontSize: FontSize.base, fontWeight: '600', color: Colors.text.primary },
   fieldPlaceholder: { fontSize: FontSize.base, color: Colors.text.tertiary },
   fieldChevron: { fontSize: 22, color: Colors.text.tertiary },
-  loginNotice: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: Spacing.md },
-  loginNoticeText: { fontSize: FontSize.sm, color: Colors.text.tertiary },
+  emailInput: {
+    borderWidth: 1, borderColor: Colors.border.light, borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.base, paddingVertical: Spacing.base,
+    marginTop: Spacing.sm, fontSize: FontSize.base, color: Colors.text.primary,
+  },
   dateHint: { fontSize: FontSize.xs, color: Colors.text.secondary, marginBottom: Spacing.sm, fontStyle: 'italic' },
   errorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.md },
   errorText: { fontSize: FontSize.sm, color: Colors.error, fontWeight: '600' },

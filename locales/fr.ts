@@ -375,7 +375,7 @@ export default {
       title: "D'où viennent vos colis ?",
       subtitle:
         "Choisissez votre pays de départ pour trouver des trajets d'expédition disponibles",
-      seeAll: "Voir tous les trajets disponibles →",
+      seeAll: "Trouver d'autres chauffeurs",
     },
     searchFrom: "De (ville)",
     searchTo: "Vers (ville)",

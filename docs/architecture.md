@@ -336,7 +336,11 @@ profiles ───────────────────────�
 > mounted in `app/_layout.tsx`. Writes go through `hooks/useConsentSettings.ts`
 > (analytics and marketing). Language changes go through
 > `hooks/useLanguagePreference.ts`, which saves `profiles.preferred_locale`.
-> No API key means the SDK is never created.
+> The SDK is constructed only on opt-in, so no PostHog request (config, flags,
+> events, identity or JS error reports) is made until consent. Identity is the Supabase user id only (no email or name).
+> Store events (booking, dispute, route, shipping request) are sent with `track()`
+> after the successful write, with no free text. Keys come from `EXPO_PUBLIC_POSTHOG_KEY`
+> and `EXPO_PUBLIC_POSTHOG_HOST` in `.env.local`; with no key the SDK is never created.
 > Plan: `docs/plans/user-data-and-analytics.md`.
 >
 > Migration 060 (2026-11-27). `profiles` and `contacts` store the phone as

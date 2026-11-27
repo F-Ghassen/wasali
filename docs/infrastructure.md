@@ -66,13 +66,16 @@ Wasali is a serverless-first stack. There are no VMs or containers to manage. Al
 | `create-payment-intent` | HTTP POST (client) | Creates Stripe PaymentIntent (escrow) |
 | `capture-payment` | HTTP POST (client) | Captures authorized payment on delivery |
 | `stripe-webhook` | HTTP POST (Stripe) | Updates booking payment status |
-| `notify-booking-event` | DB webhook on `bookings.UPDATE` | Push + email on status change |
-| `accept-offer` | HTTP POST (client) | Accepts an offer, creates booking |
+| `notify-booking-event` | DB webhook on `bookings.UPDATE` | Push + email + in-app on status change |
+| `notify-route-alert` | HTTP POST (client, on route publish) | Email + in-app for matching route alerts |
+| `accept-offer` | HTTP POST (client) | Accepts an offer, declines siblings, notifies requester (push + email + in-app) |
+| `auth-send-email-hook` | Supabase Auth `send_email` Hook | Routes signup/reset emails through React Email templates + `email_log` (local/staging only — see `docs/email-service.md`) |
 
 **Secrets (set via Supabase CLI, not stored in Terraform state):**
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+- `SEND_EMAIL_HOOK_SECRET` — Standard Webhooks signing secret for the Auth `send_email` hook (format `v1,whsec_<base64>`), independent of `RESEND_API_KEY`
 
 ---
 
@@ -109,7 +112,9 @@ Wasali is a serverless-first stack. There are no VMs or containers to manage. Al
 
 ### Resend (email)
 
-Transactional email for OTP delivery and booking notifications. API key set as Supabase Edge Function secret.
+Transactional email for OTP delivery, booking/route-alert/offer notifications, and (local/staging only) signup/reset confirmation. API key set as Supabase Edge Function secret and, separately, as the Auth SMTP password (`terraform/supabase.tf`).
+
+Consolidated into a shared `supabase/functions/_shared/email/` module (Resend `fetch()` wrapper + React Email templates) with a dedicated `email_log` observability table (migration `057_email_log.sql`) tracking every send attempt (`queued` → `sent`/`failed`, provider message id, error detail). Still on Resend's shared sandbox sending domain — a custom domain (SPF/DKIM/DMARC) is a near-term follow-up before production auth emails can be safely enabled. See `docs/email-service.md` for the full architecture.
 
 ---
 
@@ -136,6 +141,7 @@ All cloud resources are defined in [`terraform/`](../terraform/). See [terraform
 - Supabase Edge Function secrets (deploy via `supabase secrets set`)
 - GitHub Actions secrets (set manually in GitHub repo settings)
 - DNS records (if using a custom domain — add `vercel_dns_record` to `vercel.tf`)
+- `SEND_EMAIL_HOOK_SECRET` — self-invented (not issued by Supabase), and needed in two places that can silently drift apart: GoTrue's copy (pushed via `supabase config push`, used to *sign* webhook calls) and `auth-send-email-hook`'s runtime copy (`supabase secrets set`, used to *verify* that signature). Always change it via `./scripts/sync-hook-secret.sh`, never by running either command alone — a mismatch surfaces only as a generic signature-verification failure with no indication two copies even exist.
 
 ---
 

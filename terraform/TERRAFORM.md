@@ -82,7 +82,9 @@ supabase functions deploy create-payment-intent   --project-ref $PROJECT_REF
 supabase functions deploy capture-payment         --project-ref $PROJECT_REF
 supabase functions deploy stripe-webhook          --project-ref $PROJECT_REF
 supabase functions deploy notify-booking-event    --project-ref $PROJECT_REF
+supabase functions deploy notify-route-alert      --project-ref $PROJECT_REF
 supabase functions deploy accept-offer            --project-ref $PROJECT_REF
+supabase functions deploy auth-send-email-hook    --project-ref $PROJECT_REF
 ```
 
 ### 7. Set Edge Function secrets
@@ -91,8 +93,16 @@ supabase functions deploy accept-offer            --project-ref $PROJECT_REF
 supabase secrets set --project-ref $PROJECT_REF \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
-  RESEND_API_KEY="re_..."
+  RESEND_API_KEY="re_..." \
+  SEND_EMAIL_HOOK_SECRET="v1,whsec_..."
 ```
+
+`SEND_EMAIL_HOOK_SECRET` is generated when the `send_email` Auth Hook is
+registered (Dashboard → Authentication → Hooks, or via
+`supabase_settings.auth` once the provider supports it) — see
+`docs/email-service.md`. As of this build, `auth.hook.send_email` is only
+enabled in local/staging `config.toml`; do **not** register it in
+production until the custom-domain follow-up lands (see that same doc).
 
 ### 8. Configure Stripe webhook
 

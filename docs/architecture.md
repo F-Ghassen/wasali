@@ -103,6 +103,7 @@ playwright.config.ts      # Web E2E config — boots `expo start --web`, drives 
           │  │  cities · profiles · routes · route_stops · bookings│ │
           │  │  shipping_requests · offers · ratings · disputes   │ │
           │  │  saved_addresses · route_templates · p2p_*         │ │
+          │  │  notifications · email_log · route_alerts          │ │
           │  └────────────────────────────────────────────────────┘ │
           │                                                          │
           │  ┌─────────────────────┐   ┌───────────────────────┐    │
@@ -112,6 +113,8 @@ playwright.config.ts      # Web E2E config — boots `expo start --web`, drives 
           │  │  dispute-evidence   │   │  capture-payment      │    │
           │  │  flags              │   │  accept-offer         │    │
           │  └─────────────────────┘   │  notify-booking-event │    │
+          │                            │  notify-route-alert   │    │
+          │                            │  auth-send-email-hook │    │
           │                            └───────────┬───────────┘    │
           └────────────────────────────────────────┼────────────────┘
                                                    │
@@ -357,7 +360,10 @@ profiles ───────────────────────�
 signUp(email, password, { full_name, role })
   └─▶ Supabase creates auth.users row
   └─▶ handle_new_user trigger → INSERT profiles (role from metadata)
-  └─▶ confirmation email sent via Resend SMTP
+  └─▶ confirmation email sent via auth-send-email-hook (React Email template
+      + email_log), routed through Resend — enabled in local/staging only;
+      production stays enable_confirmations=false until a custom domain is
+      verified (see docs/email-service.md)
 
 verifyOtp(email, token)  OR  detectSessionInUrl (web)
   └─▶ JWT created → stored in SecureStore (native) / AsyncStorage (web)

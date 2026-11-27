@@ -115,6 +115,7 @@ components/
 ```
 
 **Import patterns:**
+
 - From primitives: `import { Button, Input } from '@/components/shared/ui/primitives'`
 - From a feature: `import { DriverRouteCard } from '@/components/driver/routes'`
 - Re-exported at folder level: `import { EarningsSummary } from '@/components/driver'`
@@ -141,6 +142,11 @@ components/
 - Maintain Infrastructure in `terraform/TERRAFORM.md` and
 - Documented Infrastructure in `docs/infrastructure.md`
 - Scheduled/`pg_cron` jobs: register every job in `docs/cron-jobs.md` (source of truth) and change jobs only via a migration — keep the doc in sync in the same commit
+
+## No Docker
+
+- Docker do not exist locally or in prod.
+- Developing against production integrations.
 
 # Architecture Principles (STRICT)
 

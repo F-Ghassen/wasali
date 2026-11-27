@@ -42,7 +42,8 @@ Supabase signUp()
   ├── email already exists?
   │     ├── __DEV__  →  auto signIn()  →  SIGNED_IN  →  /(sender)/index
   │     └── prod     →  toast "account already exists"  →  (auth)/login
-  └── new email  →  confirmation email sent (Resend SMTP)
+  └── new email  →  confirmation email sent (auth-send-email-hook → Resend;
+                     local/staging only, see docs/email-service.md)
         ▼
 (auth)/verify-otp
   enter 6-digit code  OR  click email link
@@ -608,22 +609,46 @@ Push notifications (via `lib/notifications.ts`) + email (Resend) + in-app (notif
 | Package delivered | Sender | push + email + in-app |
 | Booking cancelled (any reason, m049) | Driver (if sender cancelled) or Sender (if driver rejected / route cancelled / route expired) | push + email + in-app |
 | New offer on shipping request | Sender | push + in-app |
-| Offer accepted | Driver | push + in-app |
+| Offer accepted | Sender (requester whose offer was accepted) | push + email + in-app |
 | New P2P carry offer | Document sender | push + in-app |
+| New route matching a saved route alert | Alert owner (signed-in or guest) | email (+ in-app if signed in) |
 
-**Notification delivery pipeline** (`notify-booking-event` Edge Function):
-- Triggered by Supabase DB Webhook on `bookings` UPDATE
-- Fetches route + recipient profile
-- Sends Expo push (native), Resend email (web / notification_email set), inserts notifications row
-- `notificationStore` subscribes via Supabase Realtime to receive live inserts
-- Cancellation is reason-routed, not status-routed: `status='cancelled'` alone doesn't
-  pick a recipient/message — the function reads `cancellation_reason` and branches
-  (`sender_cancelled` → notify driver; `rejected_by_driver`/`route_cancelled`/
-  `route_expired` → notify sender). Before migration 049, no notification fired on
-  cancellation at all — this closes that gap for all four cancellation paths.
-- Weight adjustment (`package_weight_kg` change, see §6b) is checked ahead of the
-  status branch using `old_record` — the two paths are mutually exclusive since a
-  weight adjustment is always a separate UPDATE from a status transition.
+**Notification delivery pipeline** — all four channels below share the
+consolidated email core in `supabase/functions/_shared/email/` (React Email
+templates, `sendEmail()`, `email_log` observability table). See
+`docs/email-service.md` for the full architecture.
+
+- **`notify-booking-event`**: triggered by Supabase DB Webhook on `bookings`
+  UPDATE. Fetches route + recipient profile. Sends Expo push (native),
+  Resend email (web / `notification_email` set), inserts `notifications`
+  row — each of the three is independently soft-failed and the handler
+  always returns 200 once event/route/profile resolve, so a failed email
+  send can never cause Supabase to retry the webhook and double-insert a
+  notification.
+  - Cancellation is reason-routed, not status-routed: `status='cancelled'`
+    alone doesn't pick a recipient/message — the function reads
+    `cancellation_reason` and branches (`sender_cancelled` → notify driver;
+    `rejected_by_driver`/`route_cancelled`/`route_expired` → notify
+    sender). Before migration 049, no notification fired on cancellation
+    at all — this closes that gap for all four cancellation paths.
+  - Weight adjustment (`package_weight_kg` change, see §6b) is checked
+    ahead of the status branch using `old_record` — the two paths are
+    mutually exclusive since a weight adjustment is always a separate
+    UPDATE from a status transition.
+- **`notify-route-alert`**: invoked directly by `driverRouteStore.publishRoute()`
+  after a route is set `active` (not a DB webhook, despite an earlier doc's
+  claim). Matches `route_alerts` by city + date, emails every match
+  (per-recipient try/catch — one bad address doesn't block the batch), and
+  inserts in-app notifications for signed-in alert owners only (guest
+  alerts have no `user_id` to notify in-app).
+- **`accept-offer`**: previously sent no notification of any kind when a
+  driver's offer was accepted. Now notifies the requester (push + email +
+  in-app) synchronously after the offer/request status mutations commit.
+- **`auth-send-email-hook`**: Supabase Auth `send_email` Hook — routes
+  signup confirmation + password reset through the same templates +
+  `email_log` instead of Supabase's default unstyled/unobserved send.
+  Enabled in local/staging only; production stays on Supabase's default
+  behavior until a custom domain is verified (see `docs/email-service.md`).
 
 ### 6a. Dynamic payment methods
 

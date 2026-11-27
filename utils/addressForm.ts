@@ -23,7 +23,8 @@ export function toAddressFormValues(address: SavedAddress): SavedAddressData {
 /** Maps form values to the column shape `addressService` writes. */
 export function toAddressRecord(values: SavedAddressData) {
   return {
-    label: values.label.trim(),
+    // The column is NOT NULL, so a place without a label is stored as ''.
+    label: values.label?.trim() ?? '',
     street: values.street.trim(),
     city: values.city.trim(),
     country: values.country.trim(),

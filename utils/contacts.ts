@@ -1,9 +1,19 @@
-import type { ContactInput, ContactRow, SavedRecipient } from '@/types/contacts';
+import type { ContactAddressRow, ContactInput, ContactRow, PersonAddress, SavedRecipient } from '@/types/contacts';
 import { DEFAULT_PHONE_COUNTRY_CODE } from '@/utils/phoneCountries';
 import { normalizePhoneNumber, splitPhone } from '@/utils/phone';
 import type { ContactFormData } from '@/utils/validators';
 
-/** Maps a contact row onto the edit form. Empty address fields stay empty strings. */
+/**
+ * PostgREST returns an embed as an array for a to-many relation and as one object
+ * (or null) for a to-one relation. Until migration 062 is applied, the database
+ * still links a contact to a single address, so the embed can arrive as an object.
+ */
+export function toAddressList(embed: PersonAddress | PersonAddress[] | null | undefined): PersonAddress[] {
+  if (Array.isArray(embed)) return embed;
+  return embed ? [embed] : [];
+}
+
+/** Maps a contact row onto the person form. Addresses are not part of this form. */
 export function toContactFormValues(contact: ContactRow): ContactFormData {
   // Rows written before migration 060 have no parts; fall back to splitting the combined value.
   const fallback = splitPhone(contact.phone);
@@ -12,32 +22,64 @@ export function toContactFormValues(contact: ContactRow): ContactFormData {
     countryCode: contact.phone_country_code ?? fallback.countryCode ?? DEFAULT_PHONE_COUNTRY_CODE,
     phoneNumber: contact.phone_number ?? fallback.number,
     whatsappEnabled: contact.whatsapp_enabled,
-    street: contact.address?.street ?? '',
-    city: contact.address?.city ?? '',
-    postalCode: contact.address?.postal_code ?? '',
   };
 }
 
-/**
- * Maps validated form values to the write shape. An address is only written
- * when street and city are both present; otherwise the contact has none.
- */
+/** Maps validated person form values to the write shape. */
 export function toContactInput(values: ContactFormData): ContactInput {
-  const street = values.street?.trim() ?? '';
-  const city = values.city?.trim() ?? '';
-  const hasAddress = Boolean(street && city);
   return {
     name: values.name.trim(),
     phoneCountryCode: values.countryCode,
     phoneNumber: normalizePhoneNumber(values.phoneNumber),
     whatsappEnabled: values.whatsappEnabled,
-    address: hasAddress
-      ? { street, city, postal_code: values.postalCode?.trim() || null }
-      : null,
   };
 }
 
+/**
+ * The address used when a person is picked in booking: the default one, or the
+ * first one when none is marked. Null when the person has no addresses.
+ */
+export function pickDefaultAddress(addresses: PersonAddress[]): PersonAddress | null {
+  return addresses.find((a) => a.is_default) ?? addresses[0] ?? null;
+}
+
+/** True when a booking's address matches one the person already has (case and spacing ignored). */
+export function hasSameAddress(addresses: PersonAddress[], address: ContactAddressRow): boolean {
+  const key = (street: string, city: string) =>
+    `${street.trim().toLowerCase()}|${city.trim().toLowerCase()}`;
+  const target = key(address.street, address.city);
+  return addresses.some((a) => key(a.street, a.city) === target);
+}
+
+/**
+ * The country code and number of a saved recipient. Rows saved before migration
+ * 060 have no parts, so the combined phone is split instead.
+ */
+export function savedRecipientPhone(
+  r: Pick<SavedRecipient, 'phone' | 'phone_country_code' | 'phone_number'>,
+): { countryCode: string; number: string } {
+  const parts = splitPhone(r.phone);
+  return {
+    countryCode: r.phone_country_code ?? parts.countryCode ?? DEFAULT_PHONE_COUNTRY_CODE,
+    number: r.phone_number ?? parts.number,
+  };
+}
+
+/**
+ * Whether the booking's recipient fields belong to this saved recipient. Phone is
+ * unique per user (contacts_user_phone_key), so it identifies the person; a name
+ * can be shared by several people.
+ */
+export function isSavedRecipientSelected(
+  r: Pick<SavedRecipient, 'phone' | 'phone_country_code' | 'phone_number'>,
+  form: { countryCode: string; number: string },
+): boolean {
+  const phone = savedRecipientPhone(r);
+  return phone.countryCode === form.countryCode && phone.number === form.number;
+}
+
 export function toSavedRecipient(row: ContactRow): SavedRecipient {
+  const address = pickDefaultAddress(row.addresses);
   return {
     id: row.id,
     name: row.name,
@@ -45,20 +87,8 @@ export function toSavedRecipient(row: ContactRow): SavedRecipient {
     phone_country_code: row.phone_country_code,
     phone_number: row.phone_number,
     whatsapp_enabled: row.whatsapp_enabled,
-    address_street: row.address?.street ?? null,
-    address_city: row.address?.city ?? null,
-    address_postal_code: row.address?.postal_code ?? null,
+    address_street: address?.street ?? null,
+    address_city: address?.city ?? null,
+    address_postal_code: address?.postal_code ?? null,
   };
-}
-
-/**
- * Drops address rows that belong to a contact. Those are managed through the
- * contact, so they must not appear in the sender's address book.
- */
-export function withoutContactLinks<T extends { contacts: unknown[] }>(
-  rows: T[],
-): Array<Omit<T, 'contacts'>> {
-  return rows
-    .filter((row) => row.contacts.length === 0)
-    .map(({ contacts: _linkedContacts, ...address }) => address);
 }

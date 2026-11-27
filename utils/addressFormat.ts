@@ -11,3 +11,12 @@ export function isSameCity(a: string | null | undefined, b: string | null | unde
   const left = (a ?? '').trim().toLowerCase();
   return left.length > 0 && left === (b ?? '').trim().toLowerCase();
 }
+
+/** One line for an optional contact address, or null when the contact has none. */
+export function formatAddressLine(
+  address: Pick<SavedAddress, 'street' | 'city' | 'postal_code'> | null,
+): string | null {
+  if (!address) return null;
+  const line = formatAddress(address);
+  return line.length > 0 ? line : null;
+}

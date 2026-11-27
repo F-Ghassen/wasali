@@ -1,10 +1,19 @@
+import type { SavedAddress } from '@/types/models';
+
+/** An address as typed in by a sender or taken from a booking. */
 export interface ContactAddressRow {
   street: string;
   city: string;
   postal_code: string | null;
 }
 
-/** A contact row as read from `contacts`, with its linked address embedded. */
+/** One of a person's addresses, as embedded in a contact row. */
+export type PersonAddress = Pick<
+  SavedAddress,
+  'id' | 'label' | 'street' | 'city' | 'country' | 'postal_code' | 'is_default'
+>;
+
+/** A contact row as read from `contacts`, with all of its addresses embedded. */
 export interface ContactRow {
   id: string;
   name: string;
@@ -13,7 +22,7 @@ export interface ContactRow {
   phone_country_code: string | null;
   phone_number: string | null;
   whatsapp_enabled: boolean;
-  address: ContactAddressRow | null;
+  addresses: PersonAddress[];
 }
 
 /** Shape the booking flow uses to prefill a recipient. */
@@ -34,5 +43,6 @@ export interface ContactInput {
   phoneCountryCode: string;
   phoneNumber: string;
   whatsappEnabled: boolean;
-  address: ContactAddressRow | null;
+  /** Only set by a booking, which adds its recipient address to the person. */
+  address?: ContactAddressRow | null;
 }

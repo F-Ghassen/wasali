@@ -1,9 +1,7 @@
 import { supabase } from '@/lib/supabase';
-import type { ContactAddressRow } from '@/types/contacts';
 import type { SavedAddress } from '@/types/models';
-import { withoutContactLinks } from '@/utils/contacts';
 
-/** Recipient addresses are stored as Tunisian; the legacy data carried no country. */
+/** Booking addresses are stored as Tunisian; the legacy data carried no country. */
 export const CONTACT_ADDRESS_COUNTRY = 'Tunisia';
 
 export interface AddressRecord {
@@ -15,23 +13,37 @@ export interface AddressRecord {
 }
 
 /**
- * The sender's address book. Addresses that belong to a contact (recipient
- * addresses) are excluded, since they are managed through the contact.
+ * The sender's places: addresses that belong to no person. A person's own
+ * addresses are read through the contact (see contactService).
  */
 export async function fetchSavedAddresses(userId: string): Promise<SavedAddress[]> {
   const { data, error } = await supabase
     .from('addresses')
-    .select('*, contacts(id)')
+    .select('*')
     .eq('user_id', userId)
+    .is('contact_id', null)
     .order('is_default', { ascending: false });
   if (error) throw error;
-  return withoutContactLinks(data ?? []) as SavedAddress[];
+  return data ?? [];
 }
 
 export async function createAddress(userId: string, record: AddressRecord): Promise<void> {
   const { error } = await supabase
     .from('addresses')
-    .insert({ ...record, user_id: userId, is_default: false });
+    .insert({ ...record, user_id: userId, contact_id: null, is_default: false });
+  if (error) throw error;
+}
+
+/** Adds an address to a person. Only one of a person's addresses can be the default. */
+export async function createPersonAddress(
+  userId: string,
+  contactId: string,
+  record: AddressRecord,
+  isDefault: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('addresses')
+    .insert({ ...record, user_id: userId, contact_id: contactId, is_default: isDefault });
   if (error) throw error;
 }
 
@@ -45,41 +57,14 @@ export async function deleteAddress(addressId: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Atomically moves the default flag to the given address (see migration 058). */
+/** Atomically moves the place default flag to the given address (see migrations 058, 062). */
 export async function setDefaultAddress(addressId: string): Promise<void> {
   const { error } = await supabase.rpc('set_default_address', { p_address_id: addressId });
   if (error) throw error;
 }
 
-/**
- * Writes the address behind a contact. Updates the existing row when the
- * contact already has one, otherwise inserts. Returns the row id.
- */
-export async function upsertContactAddress(
-  userId: string,
-  label: string,
-  address: ContactAddressRow,
-  existingAddressId: string | null,
-): Promise<string> {
-  const record = {
-    label,
-    street: address.street,
-    city: address.city,
-    country: CONTACT_ADDRESS_COUNTRY,
-    postal_code: address.postal_code,
-  };
-
-  if (existingAddressId) {
-    const { error } = await supabase.from('addresses').update(record).eq('id', existingAddressId);
-    if (error) throw error;
-    return existingAddressId;
-  }
-
-  const { data, error } = await supabase
-    .from('addresses')
-    .insert({ ...record, user_id: userId, is_default: false })
-    .select('id')
-    .single();
+/** Atomically moves a person's default flag to the given address (see migration 062). */
+export async function setDefaultPersonAddress(addressId: string): Promise<void> {
+  const { error } = await supabase.rpc('set_default_person_address', { p_address_id: addressId });
   if (error) throw error;
-  return data.id;
 }

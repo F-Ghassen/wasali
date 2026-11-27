@@ -8,11 +8,12 @@ vi.mock('@/lib/supabase', async () => {
 
 import {
   createAddress,
+  createPersonAddress,
   deleteAddress,
   fetchSavedAddresses,
   setDefaultAddress,
+  setDefaultPersonAddress,
   updateAddress,
-  upsertContactAddress,
 } from '@/services/addressService';
 
 const USER = 'user-1';
@@ -21,18 +22,12 @@ const RECORD = { label: 'Home', street: '1 Main', city: 'Paris', country: 'Franc
 beforeEach(() => reset());
 
 describe('fetchSavedAddresses', () => {
-  it('drops addresses linked to a contact and strips the join key', async () => {
-    queueResult('addresses', {
-      data: [
-        { id: 'a1', label: 'Home', contacts: [] },
-        { id: 'a2', label: 'Sami', contacts: [{ id: 'c1' }] },
-      ],
-    });
+  it('reads the places only, filtering out person addresses in the query', async () => {
+    queueResult('addresses', { data: [{ id: 'a1', label: 'Home', contact_id: null }] });
 
-    const result = await fetchSavedAddresses(USER);
-
-    expect(result).toEqual([{ id: 'a1', label: 'Home' }]);
-    expect(result[0]).not.toHaveProperty('contacts');
+    await expect(fetchSavedAddresses(USER)).resolves.toEqual([{ id: 'a1', label: 'Home', contact_id: null }]);
+    expect(callsFor('addresses').find((c) => c.op === 'is')?.args).toEqual(['contact_id', null]);
+    expect(callsFor('addresses').find((c) => c.op === 'eq')?.args).toEqual(['user_id', USER]);
   });
 
   it('returns an empty list when there is no data', async () => {
@@ -49,11 +44,40 @@ describe('fetchSavedAddresses', () => {
 });
 
 describe('createAddress', () => {
-  it('inserts for the user as a non-default address', async () => {
+  it('inserts a place for the user as non-default, with no person', async () => {
     await createAddress(USER, RECORD);
 
-    const insert = callsFor('addresses').find((c) => c.op === 'insert');
-    expect(insert?.args[0]).toEqual({ ...RECORD, user_id: USER, is_default: false });
+    expect(callsFor('addresses').find((c) => c.op === 'insert')?.args[0]).toEqual({
+      ...RECORD,
+      user_id: USER,
+      contact_id: null,
+      is_default: false,
+    });
+  });
+});
+
+describe('createPersonAddress', () => {
+  it('inserts an address linked to the person', async () => {
+    await createPersonAddress(USER, 'c1', RECORD, false);
+
+    expect(callsFor('addresses').find((c) => c.op === 'insert')?.args[0]).toEqual({
+      ...RECORD,
+      user_id: USER,
+      contact_id: 'c1',
+      is_default: false,
+    });
+  });
+
+  it('inserts as the default when asked', async () => {
+    await createPersonAddress(USER, 'c1', RECORD, true);
+
+    expect(callsFor('addresses').find((c) => c.op === 'insert')?.args[0]).toMatchObject({ is_default: true });
+  });
+
+  it('throws on error', async () => {
+    queueResult('addresses', { error: new Error('denied') });
+
+    await expect(createPersonAddress(USER, 'c1', RECORD, false)).rejects.toThrow('denied');
   });
 });
 
@@ -95,25 +119,16 @@ describe('setDefaultAddress', () => {
   });
 });
 
-describe('upsertContactAddress', () => {
-  const ADDRESS = { street: '5 Rue', city: 'Sfax', postal_code: null };
+describe('setDefaultPersonAddress', () => {
+  it('calls the set_default_person_address RPC with the address id', async () => {
+    await setDefaultPersonAddress('a2');
 
-  it('inserts a Tunisian address when the contact has none yet', async () => {
-    queueResult('addresses', { data: { id: 'new-id' } });
-
-    await expect(upsertContactAddress(USER, 'Sami', ADDRESS, null)).resolves.toBe('new-id');
-
-    expect(callsFor('addresses').find((c) => c.op === 'insert')?.args[0]).toMatchObject({
-      user_id: USER,
-      label: 'Sami',
-      country: 'Tunisia',
-    });
+    expect(callsFor('rpc:set_default_person_address')[0]?.args).toEqual([{ p_address_id: 'a2' }]);
   });
 
-  it('updates the existing row and returns its id', async () => {
-    await expect(upsertContactAddress(USER, 'Sami', ADDRESS, 'existing-id')).resolves.toBe('existing-id');
+  it('throws when the RPC fails', async () => {
+    queueResult('rpc:set_default_person_address', { error: new Error('Address not found') });
 
-    expect(callsFor('addresses').some((c) => c.op === 'insert')).toBe(false);
-    expect(callsFor('addresses').find((c) => c.op === 'eq')?.args).toEqual(['id', 'existing-id']);
+    await expect(setDefaultPersonAddress('missing')).rejects.toThrow('Address not found');
   });
 });

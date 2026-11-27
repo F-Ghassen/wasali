@@ -113,16 +113,16 @@ export const logisticsSchema = z.object({
 });
 
 export const savedAddressSchema = z.object({
-  label: z.string().min(1, 'Label is required'),
-  street: z.string().min(1, 'Street is required'),
+  label: z.string().optional(),
+  street: z.string().trim().min(1, 'Street is required'),
   city: z.string().min(1, 'City is required'),
   country: z.string().min(1, 'Country is required'),
-  postalCode: z.string().optional(),
+  postalCode: z.string().trim().min(1, 'Postal code is required'),
 });
 
 /**
- * A contact is a person. The address is optional, but once any part of it is
- * typed the street and city are both required.
+ * A person is name and phone only. Addresses are added to a person separately,
+ * through savedAddressSchema.
  */
 export const contactSchema = z
   .object({
@@ -130,17 +130,10 @@ export const contactSchema = z
     countryCode: z.string(),
     phoneNumber: phoneNumberSchema,
     whatsappEnabled: z.boolean(),
-    street: z.string().trim().optional(),
-    city: z.string().trim().optional(),
-    postalCode: z.string().trim().optional(),
   })
   .refine((d) => isKnownCountryCode(d.countryCode), {
     message: 'Choose a country code',
     path: ['countryCode'],
-  })
-  .refine((d) => !(d.street || d.city || d.postalCode) || (d.street && d.city), {
-    message: 'Street and city are required for an address',
-    path: ['street'],
   });
 
 export const shippingRequestSchema = z.object({

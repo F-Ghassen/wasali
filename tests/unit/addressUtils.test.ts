@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatAddress, isSameCity } from '@/utils/addressFormat';
+import { formatAddress, formatAddressLine, isSameCity } from '@/utils/addressFormat';
 import { getPickupCandidates, pickPreferredAddress, toSenderPickupFields } from '@/utils/pickupAddress';
 import { toAddressFormValues, toAddressRecord, EMPTY_ADDRESS_FORM } from '@/utils/addressForm';
 import { savedAddressSchema } from '@/utils/validators';
@@ -9,6 +9,7 @@ function address(overrides: Partial<SavedAddress> = {}): SavedAddress {
   return {
     id: 'a1',
     user_id: 'u1',
+    contact_id: null,
     label: 'Home',
     street: '1 Main St',
     city: 'Paris',
@@ -107,22 +108,66 @@ describe('toAddressFormValues and toAddressRecord', () => {
 });
 
 describe('savedAddressSchema', () => {
-  it('requires label, street and city', () => {
+  it('requires street and city, but not label', () => {
     const result = savedAddressSchema.safeParse({ ...EMPTY_ADDRESS_FORM });
 
     expect(result.success).toBe(false);
     const fields = result.success ? [] : result.error.issues.map((i) => i.path[0]);
-    expect(fields).toEqual(expect.arrayContaining(['label', 'street', 'city']));
+    expect(fields).toEqual(expect.arrayContaining(['street', 'city']));
+    expect(fields).not.toContain('label');
   });
 
-  it('accepts a complete address without postal code', () => {
+  it('stores a missing label as an empty string', () => {
+    expect(toAddressRecord({ ...EMPTY_ADDRESS_FORM, label: undefined, street: 's', city: 'c' }).label).toBe('');
+  });
+
+  it('accepts a complete address with a postal code', () => {
     const result = savedAddressSchema.safeParse({
       label: 'Home',
       street: '1 Main',
       city: 'Paris',
       country: 'France',
+      postalCode: '75001',
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('requires a postal code', () => {
+    const result = savedAddressSchema.safeParse({
+      label: 'Home',
+      street: '1 Main',
+      city: 'Paris',
+      country: 'France',
+      postalCode: '  ',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('requires a street', () => {
+    const result = savedAddressSchema.safeParse({
+      street: '   ',
+      city: 'Paris',
+      country: 'France',
+      postalCode: '75001',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('formatAddressLine', () => {
+  it('returns null when a contact has no address', () => {
+    expect(formatAddressLine(null)).toBeNull();
+  });
+
+  it('formats a contact address the same way as a saved place', () => {
+    const addr = { street: '12 Rue X', city: 'Paris', postal_code: '75011' };
+    expect(formatAddressLine(addr)).toBe(formatAddress(addr));
+  });
+
+  it('returns null when every part is empty', () => {
+    expect(formatAddressLine({ street: '', city: '', postal_code: null })).toBeNull();
   });
 });

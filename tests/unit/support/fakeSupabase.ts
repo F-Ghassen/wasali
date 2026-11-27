@@ -38,7 +38,7 @@ function next(key: string): Promise<FakeResult> {
   return Promise.resolve({ data: result.data ?? null, error: result.error ?? null });
 }
 
-const CHAIN_OPS = ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'order', 'limit'] as const;
+const CHAIN_OPS = ['select', 'insert', 'update', 'upsert', 'delete', 'eq', 'is', 'order', 'limit', 'range'] as const;
 
 function builder(table: string) {
   const chain: Record<string, unknown> = {};

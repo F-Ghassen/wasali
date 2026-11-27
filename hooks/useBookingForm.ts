@@ -2,6 +2,9 @@ import { useReducer, useCallback, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FetchedRoute, FetchedService } from './useRouteData';
 import { computeShippingPrice } from '@/utils/pricing';
+import { joinPhone } from '@/utils/phone';
+import { prefillEmptySender, type SenderPrefill } from '@/utils/senderPrefill';
+import { migrateBookingDraft } from '@/utils/bookingDraft';
 import type { PaymentType } from '@/constants/paymentMethods';
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -29,17 +32,11 @@ export interface BookingFormState {
   estimatedCollectionDate: string;
 
   // ── Step 2: Sender ───────────────────────────────────────────────────────────
-  senderMode:              'own' | 'behalf';
   senderName:              string;
   senderCC:                string;
   senderPhone:             string;
   senderWhatsapp:          boolean;
   updateMyProfile:         boolean;
-  behalfName:              string;
-  behalfCC:                string;
-  behalfPhone:             string;
-  behalfWhatsapp:          boolean;
-  saveBehalfToContacts:    boolean;
   senderAddressStreet:     string;
   senderAddressCity:       string;
   senderAddressPostalCode: string;
@@ -81,11 +78,18 @@ type Action =
   | { type: 'RESET' }
   | { type: 'RESET_LOGISTICS' }
   | { type: 'RESET_SENDER_ADDRESS' }
-  | { type: 'LOAD_DRAFT';        state: BookingFormState };
+  | { type: 'LOAD_DRAFT';        state: BookingFormState; profile: SenderPrefill }
+  | { type: 'PREFILL_SENDER';    profile: SenderPrefill };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
 
-function makeInitial(profileName?: string, profilePhone?: string): BookingFormState {
+/** Stored phone parts of the signed-in sender. A number without a country code is not prefilled. */
+export interface ProfilePhoneParts {
+  countryCode: string | null;
+  number: string | null;
+}
+
+function makeInitial(profileName?: string, profilePhone?: ProfilePhoneParts | null): BookingFormState {
   return {
     collectionStopId:              null,
     collectionStopCity:            '',
@@ -106,17 +110,11 @@ function makeInitial(profileName?: string, profilePhone?: string): BookingFormSt
     deliveryServicePrice:   0,
     estimatedCollectionDate: '',
 
-    senderMode:              'own',
     senderName:              profileName ?? '',
-    senderCC:                '+49',
-    senderPhone:             profilePhone ?? '',
+    senderCC:                profilePhone?.countryCode ?? '+49',
+    senderPhone:             profilePhone?.countryCode ? (profilePhone.number ?? '') : '',
     senderWhatsapp:          false,
     updateMyProfile:         true,
-    behalfName:              '',
-    behalfCC:                '+49',
-    behalfPhone:             '',
-    behalfWhatsapp:          false,
-    saveBehalfToContacts:    true,
     senderAddressStreet:     '',
     senderAddressCity:       '',
     senderAddressPostalCode: '',
@@ -171,7 +169,10 @@ function reducer(state: BookingFormState, action: Action): BookingFormState {
       };
 
     case 'LOAD_DRAFT':
-      return action.state;
+      return prefillEmptySender(action.state, action.profile);
+
+    case 'PREFILL_SENDER':
+      return prefillEmptySender(state, action.profile);
 
     default:
       return state;
@@ -189,13 +190,26 @@ function draftKey(routeId: string) {
 export function useBookingForm(
   routeId: string | null,
   profileName?: string,
-  profilePhone?: string,
+  profilePhone?: ProfilePhoneParts | null,
   maxPackageWeightKg?: number | null,
 ) {
   const [state, dispatch] = useReducer(reducer, makeInitial(profileName, profilePhone));
+  const profilePrefill: SenderPrefill = {
+    name: profileName ?? '',
+    countryCode: profilePhone?.countryCode ?? null,
+    number: profilePhone?.number ?? null,
+  };
+  // The draft loader runs asynchronously after mount, so it reads the latest value from here.
+  const profilePrefillRef = useRef(profilePrefill);
+  profilePrefillRef.current = profilePrefill;
   const [hasDraft, setHasDraft] = React.useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialised = useRef(false);
+
+  // The profile can arrive after mount. Fill the empty sender fields once it does.
+  useEffect(() => {
+    dispatch({ type: 'PREFILL_SENDER', profile: profilePrefillRef.current });
+  }, [profilePrefill.name, profilePrefill.countryCode, profilePrefill.number]);
 
   // ── Load draft on mount ───────────────────────────────────────────────────
 
@@ -206,8 +220,8 @@ export function useBookingForm(
     AsyncStorage.getItem(draftKey(routeId)).then((raw) => {
       if (!raw) return;
       try {
-        const draft: BookingFormState = JSON.parse(raw);
-        dispatch({ type: 'LOAD_DRAFT', state: draft });
+        const draft = migrateBookingDraft(JSON.parse(raw)) as unknown as BookingFormState;
+        dispatch({ type: 'LOAD_DRAFT', state: draft, profile: profilePrefillRef.current });
         setHasDraft(true);
       } catch {
         // corrupted draft — ignore
@@ -260,9 +274,7 @@ export function useBookingForm(
     1: !!state.collectionServiceId
       && !!state.deliveryServiceId,
 
-    2: (state.senderMode === 'own'
-        ? state.senderName.trim().length > 0 && state.senderPhone.trim().length >= 5
-        : state.behalfName.trim().length > 0 && state.behalfPhone.trim().length >= 5)
+    2: (state.senderName.trim().length > 0 && state.senderPhone.trim().length >= 5)
       && (state.collectionServiceType !== 'driver_pickup'
         || (state.senderAddressStreet.trim().length > 0
           && state.senderAddressCity.trim().length > 0
@@ -289,12 +301,7 @@ export function useBookingForm(
     route: FetchedRoute,
     totalPrice: number,
   ) {
-    const senderFullPhone = state.senderMode === 'own'
-      ? `${state.senderCC}${state.senderPhone}`
-      : `${state.behalfCC}${state.behalfPhone}`;
-
-    const activeName = state.senderMode === 'own' ? state.senderName : state.behalfName;
-    const activeWhatsapp = state.senderMode === 'own' ? state.senderWhatsapp : state.behalfWhatsapp;
+    const senderFullPhone = joinPhone(state.senderCC, state.senderPhone);
 
     return {
       route_id:                      route.id,
@@ -304,14 +311,14 @@ export function useBookingForm(
       collection_service_id:         state.collectionServiceId,
       delivery_service_id:           state.deliveryServiceId,
       estimated_collection_date:     state.estimatedCollectionDate || null,
-      sender_name:                   activeName,
+      sender_name:                   state.senderName,
       sender_phone:                  senderFullPhone,
-      sender_whatsapp:               activeWhatsapp,
+      sender_whatsapp:               state.senderWhatsapp,
       sender_address_street:         state.senderAddressStreet || null,
       sender_address_city:           state.senderAddressCity || null,
       sender_address_postal_code:    state.senderAddressPostalCode || null,
       recipient_name:                state.recipientName,
-      recipient_phone:               `${state.recipientCC}${state.recipientPhone}`,
+      recipient_phone:               joinPhone(state.recipientCC, state.recipientPhone),
       recipient_whatsapp:            state.recipientWhatsapp,
       recipient_address_street:      state.recipientAddressStreet,
       recipient_address_city:        state.recipientAddressCity,

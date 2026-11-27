@@ -20,19 +20,14 @@ function step4Valid(
 }
 
 function step2Valid(
-  senderMode: 'own' | 'behalf',
   senderName: string,
   senderPhone: string,
-  behalfName: string,
-  behalfPhone: string,
   collectionServiceType: ServiceType,
   senderAddressStreet: string,
   senderAddressCity: string,
   senderAddressPostalCode: string,
 ): boolean {
-  const nameOk = senderMode === 'own'
-    ? senderName.trim().length > 0 && senderPhone.trim().length >= 5
-    : behalfName.trim().length > 0 && behalfPhone.trim().length >= 5;
+  const nameOk = senderName.trim().length > 0 && senderPhone.trim().length >= 5;
   const addressOk = collectionServiceType !== 'driver_pickup' ||
     (senderAddressStreet.trim().length > 0 &&
      senderAddressCity.trim().length > 0 &&
@@ -94,38 +89,30 @@ describe('step4Valid', () => {
 // ─── Step 2: sender details ───────────────────────────────────────────────────
 
 describe('step2Valid', () => {
-  it('valid in own mode with name + phone', () => {
-    expect(step2Valid('own', 'Alice', '12345', '', '', null, '', '', '')).toBe(true);
+  it('valid with name + phone', () => {
+    expect(step2Valid('Alice', '12345', null, '', '', '')).toBe(true);
   });
 
-  it('invalid in own mode with empty name', () => {
-    expect(step2Valid('own', '', '12345', '', '', null, '', '', '')).toBe(false);
+  it('invalid with empty name', () => {
+    expect(step2Valid('', '12345', null, '', '', '')).toBe(false);
   });
 
-  it('invalid in own mode with short phone', () => {
-    expect(step2Valid('own', 'Alice', '123', '', '', null, '', '', '')).toBe(false);
-  });
-
-  it('valid in behalf mode with behalf name + phone', () => {
-    expect(step2Valid('behalf', '', '', 'Bob', '67890', null, '', '', '')).toBe(true);
-  });
-
-  it('invalid in behalf mode with empty behalf name', () => {
-    expect(step2Valid('behalf', '', '', '', '67890', null, '', '', '')).toBe(false);
+  it('invalid with short phone', () => {
+    expect(step2Valid('Alice', '123', null, '', '', '')).toBe(false);
   });
 
   it('invalid when driver_pickup but no sender address', () => {
-    expect(step2Valid('own', 'Alice', '12345', '', '', 'driver_pickup', '', '', '')).toBe(false);
+    expect(step2Valid('Alice', '12345', 'driver_pickup', '', '', '')).toBe(false);
   });
 
   it('valid when driver_pickup and full sender address provided', () => {
     expect(
-      step2Valid('own', 'Alice', '12345', '', '', 'driver_pickup', '12 Main St', 'Berlin', '10115'),
+      step2Valid('Alice', '12345', 'driver_pickup', '12 Main St', 'Berlin', '10115'),
     ).toBe(true);
   });
 
   it('valid when sender_dropoff and no address (address not required)', () => {
-    expect(step2Valid('own', 'Alice', '12345', '', '', 'sender_dropoff', '', '', '')).toBe(true);
+    expect(step2Valid('Alice', '12345', 'sender_dropoff', '', '', '')).toBe(true);
   });
 });
 

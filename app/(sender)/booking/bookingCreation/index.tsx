@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import { FontSize } from '@/constants/typography';
 import { useRouteData } from '@/hooks/useRouteData';
 import { useBookingForm, computeTotalPrice } from '@/hooks/useBookingForm';
 import { useSavedRecipients } from '@/hooks/useSavedRecipients';
+import { useSavedAddresses } from '@/hooks/useSavedAddresses';
+import { usePickupAddressPrefill } from '@/hooks/usePickupAddressPrefill';
+import { getPickupCandidates, toSenderPickupFields } from '@/utils/pickupAddress';
+import type { SavedAddress } from '@/types/models';
 
 import { ItineraryStep } from '@/components/booking/creation/ItineraryStep';
 import { LogisticsStep } from '@/components/booking/creation/LogisticsStep';
@@ -74,7 +78,7 @@ export default function BookingScreen() {
   const form = useBookingForm(
     routeId,
     profile?.full_name ?? '',
-    profile?.phone ?? '',
+    profile ? { countryCode: profile.phone_country_code, number: profile.phone_number } : null,
     routeData?.max_single_package_kg,
   );
   const {
@@ -91,6 +95,23 @@ export default function BookingScreen() {
   const { recipients: savedRecipients, upsertRecipient } = useSavedRecipients(
     profile?.id ?? null,
   );
+
+  // Pickup address: saved addresses in the collection city, default prefilled.
+  const { addresses: savedAddresses } = useSavedAddresses(profile?.id ?? null);
+  const pickupCandidates = useMemo(
+    () => getPickupCandidates(savedAddresses, fs.collectionStopCity),
+    [savedAddresses, fs.collectionStopCity],
+  );
+  const applyPickupAddress = useCallback(
+    (address: SavedAddress) => setField(toSenderPickupFields(address)),
+    [setField],
+  );
+  usePickupAddressPrefill({
+    enabled: fs.collectionServiceType === 'driver_pickup',
+    candidates: pickupCandidates,
+    currentStreet: fs.senderAddressStreet,
+    onPrefill: applyPickupAddress,
+  });
 
   const {
     currentStep,
@@ -206,15 +227,7 @@ export default function BookingScreen() {
     fs.collectionServiceId,
     fs.deliveryServiceId,
   );
-  const senderSummary = getSenderSummary(
-    fs.senderMode,
-    fs.senderName,
-    fs.senderCC,
-    fs.senderPhone,
-    fs.behalfName,
-    fs.behalfCC,
-    fs.behalfPhone,
-  );
+  const senderSummary = getSenderSummary(fs.senderName, fs.senderCC, fs.senderPhone);
   const packageSummary = getPackageSummary(fs.weight, fs.packageTypes);
   const recipientSummary = getRecipientSummary(
     fs.recipientName,
@@ -302,22 +315,17 @@ export default function BookingScreen() {
         onEdit={() => setCurrentStep(2)}
       >
         <SenderStep
-          senderMode={fs.senderMode}
           senderName={fs.senderName}
           senderCC={fs.senderCC}
           senderPhone={fs.senderPhone}
           senderWhatsapp={fs.senderWhatsapp}
           updateMyProfile={fs.updateMyProfile}
-          behalfName={fs.behalfName}
-          behalfCC={fs.behalfCC}
-          behalfPhone={fs.behalfPhone}
-          behalfWhatsapp={fs.behalfWhatsapp}
-          saveBehalfToContacts={fs.saveBehalfToContacts}
           collectionServiceType={fs.collectionServiceType}
           collectionStopLocationName={fs.collectionStopLocationName}
           addressStreet={fs.senderAddressStreet}
           addressCity={fs.senderAddressCity}
           addressPostalCode={fs.senderAddressPostalCode}
+          pickupCandidates={pickupCandidates}
           isValid={stepValidity[2]}
           onSet={setField}
           onContinue={() => setCurrentStep(3)}

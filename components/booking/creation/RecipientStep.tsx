@@ -9,6 +9,8 @@ import { FontSize } from '@/constants/typography';
 import { PhoneInput } from '@/components/shared/ui/forms/PhoneInput';
 import { AddressFields } from '@/components/shared/ui/forms/AddressFields';
 import type { SavedRecipient } from '@/hooks/useSavedRecipients';
+import { splitPhone } from '@/utils/phone';
+import { DEFAULT_PHONE_COUNTRY_CODE } from '@/utils/phoneCountries';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -50,9 +52,12 @@ export function RecipientStep({
     : "Recipient's address (optional)";
 
   function fillFromRecipient(r: SavedRecipient) {
+    // Rows saved before migration 060 have no parts yet, so fall back to splitting the combined phone.
+    const parts = splitPhone(r.phone);
     onSet({
       recipientName:               r.name,
-      recipientPhone:              r.phone.replace(/^\+\d+/, ''),
+      recipientCC:                 r.phone_country_code ?? parts.countryCode ?? DEFAULT_PHONE_COUNTRY_CODE,
+      recipientPhone:              r.phone_number ?? parts.number,
       recipientWhatsapp:           r.whatsapp_enabled,
       recipientAddressStreet:      r.address_street ?? '',
       recipientAddressCity:        r.address_city ?? '',

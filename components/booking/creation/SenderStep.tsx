@@ -2,34 +2,32 @@ import React from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Switch, StyleSheet,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import { MapPin } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { PhoneInput } from '@/components/shared/ui/forms/PhoneInput';
 import { AddressFields } from '@/components/shared/ui/forms/AddressFields';
+import { SavedPickupChips } from '@/components/booking/creation/SavedPickupChips';
+import type { SavedAddress } from '@/types/models';
+import { toSenderPickupFields } from '@/utils/pickupAddress';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface SenderStepProps {
-  senderMode: 'own' | 'behalf';
   senderName: string;
   senderCC: string;
   senderPhone: string;
   senderWhatsapp: boolean;
   updateMyProfile: boolean;
-  behalfName: string;
-  behalfCC: string;
-  behalfPhone: string;
-  behalfWhatsapp: boolean;
-  saveBehalfToContacts: boolean;
   // Address — only required when driver_pickup
   collectionServiceType: string | null;
   collectionStopLocationName: string | null;
   addressStreet: string;
   addressCity: string;
   addressPostalCode: string;
+  /** Saved addresses in the collection city, offered as one-tap pickup choices. */
+  pickupCandidates: SavedAddress[];
   isValid: boolean;
   onSet: (fields: Record<string, any>) => void;
   onContinue: () => void;
@@ -38,15 +36,12 @@ export interface SenderStepProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SenderStep({
-  senderMode,
   senderName, senderCC, senderPhone, senderWhatsapp, updateMyProfile,
-  behalfName, behalfCC, behalfPhone, behalfWhatsapp, saveBehalfToContacts,
   collectionServiceType, collectionStopLocationName,
   addressStreet, addressCity, addressPostalCode,
+  pickupCandidates,
   isValid, onSet, onContinue,
 }: SenderStepProps) {
-  const { t } = useTranslation();
-
   const isDriverPickup = collectionServiceType === 'driver_pickup';
   const isSenderDropoff = collectionServiceType === 'sender_dropoff';
 
@@ -59,75 +54,23 @@ export function SenderStep({
         </Text>
       </View>
 
-      {/* Mode tabs */}
-      <View style={s.tabRow}>
-        {(['own', 'behalf'] as const).map((mode) => (
-          <TouchableOpacity
-            key={mode}
-            style={[s.tab, senderMode === mode && s.tabActive]}
-            onPress={() => onSet({ senderMode: mode })}
-            activeOpacity={0.75}
-          >
-            <Text style={[s.tabText, senderMode === mode && s.tabTextActive]}>
-              {mode === 'own' ? t('booking.senderMode.own') : t('booking.senderMode.behalf')}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {senderMode === 'own' ? (
-        <>
-          <Text style={s.fieldLabel}>Full name</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Your full name"
-            placeholderTextColor={Colors.text.tertiary}
-            value={senderName}
-            onChangeText={(v) => onSet({ senderName: v })}
-          />
-          <PhoneInput
-            label="Phone number"
-            countryCode={senderCC}
-            onCountryCodeChange={(v) => onSet({ senderCC: v })}
-            phone={senderPhone}
-            onPhoneChange={(v) => onSet({ senderPhone: v })}
-            isWhatsapp={senderWhatsapp}
-            onWhatsappChange={(v) => onSet({ senderWhatsapp: v })}
-          />
-        </>
-      ) : (
-        <>
-          <Text style={s.fieldLabel}>Full name</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Full name"
-            placeholderTextColor={Colors.text.tertiary}
-            value={behalfName}
-            onChangeText={(v) => onSet({ behalfName: v })}
-          />
-          <PhoneInput
-            label="Phone number"
-            countryCode={behalfCC}
-            onCountryCodeChange={(v) => onSet({ behalfCC: v })}
-            phone={behalfPhone}
-            onPhoneChange={(v) => onSet({ behalfPhone: v })}
-            isWhatsapp={behalfWhatsapp}
-            onWhatsappChange={(v) => onSet({ behalfWhatsapp: v })}
-          />
-          <View style={s.toggleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.toggleLabel}>Save to my recipients list</Text>
-              <Text style={s.toggleDesc}>Quickly reuse this person for future shipments</Text>
-            </View>
-            <Switch
-              value={saveBehalfToContacts}
-              onValueChange={(v) => onSet({ saveBehalfToContacts: v })}
-              trackColor={{ false: Colors.border.medium, true: Colors.primary }}
-              thumbColor={Colors.white}
-            />
-          </View>
-        </>
-      )}
+      <Text style={s.fieldLabel}>Full name</Text>
+      <TextInput
+        style={s.input}
+        placeholder="Your full name"
+        placeholderTextColor={Colors.text.tertiary}
+        value={senderName}
+        onChangeText={(v) => onSet({ senderName: v })}
+      />
+      <PhoneInput
+        label="Phone number"
+        countryCode={senderCC}
+        onCountryCodeChange={(v) => onSet({ senderCC: v })}
+        phone={senderPhone}
+        onPhoneChange={(v) => onSet({ senderPhone: v })}
+        isWhatsapp={senderWhatsapp}
+        onWhatsappChange={(v) => onSet({ senderWhatsapp: v })}
+      />
 
       {/* Collection method context */}
       {isSenderDropoff && collectionStopLocationName ? (
@@ -145,6 +88,11 @@ export function SenderStep({
         <>
           <Text style={[s.fieldLabel, { marginTop: Spacing.base }]}>Your pickup address</Text>
           <Text style={s.addressHint}>The driver will come to this address to collect your package.</Text>
+          <SavedPickupChips
+            addresses={pickupCandidates}
+            selectedStreet={addressStreet}
+            onSelect={(address) => onSet(toSenderPickupFields(address))}
+          />
           <AddressFields
             label=""
             street={addressStreet}
@@ -160,20 +108,18 @@ export function SenderStep({
       )}
 
       {/* Update profile toggle */}
-      {senderMode === 'own' && (
-        <View style={[s.toggleRow, { marginTop: Spacing.base }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.toggleLabel}>Update my profile</Text>
-            <Text style={s.toggleDesc}>Save phone & name changes to your account</Text>
-          </View>
-          <Switch
-            value={updateMyProfile}
-            onValueChange={(v) => onSet({ updateMyProfile: v })}
-            trackColor={{ false: Colors.border.medium, true: Colors.primary }}
-            thumbColor={Colors.white}
-          />
+      <View style={[s.toggleRow, { marginTop: Spacing.base }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.toggleLabel}>Update my profile</Text>
+          <Text style={s.toggleDesc}>Save phone & name changes to your account</Text>
         </View>
-      )}
+        <Switch
+          value={updateMyProfile}
+          onValueChange={(v) => onSet({ updateMyProfile: v })}
+          trackColor={{ false: Colors.border.medium, true: Colors.primary }}
+          thumbColor={Colors.white}
+        />
+      </View>
 
       <Text style={s.privacyNote}>
         🔒 Your contact details are only shared directly with the driver.
@@ -202,20 +148,6 @@ const s = StyleSheet.create({
   },
   tooltipText: { fontSize: FontSize.sm, color: Colors.text.secondary, lineHeight: 20 },
   tooltipBold: { fontWeight: '700', color: Colors.text.primary },
-
-  tabRow: {
-    flexDirection: 'row',
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.xl,
-    padding: 4,
-    marginBottom: Spacing.base,
-  },
-  tab: {
-    flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: BorderRadius.lg,
-  },
-  tabActive: { backgroundColor: Colors.white, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.text.secondary },
-  tabTextActive: { color: Colors.text.primary, fontWeight: '700' },
 
   fieldLabel: {
     fontSize: FontSize.sm, fontWeight: '700', color: Colors.text.primary,

@@ -27,18 +27,8 @@ export function getLogisticsSummary(
     .join(' · ');
 }
 
-export function getSenderSummary(
-  senderMode: string,
-  senderName: string,
-  senderCC: string,
-  senderPhone: string,
-  behalfName: string,
-  behalfCC: string,
-  behalfPhone: string,
-): string {
-  return senderMode === 'own'
-    ? `${senderName || '—'} · ${senderCC} ${senderPhone || ''}`
-    : `${behalfName} · ${behalfCC} ${behalfPhone}`;
+export function getSenderSummary(senderName: string, senderCC: string, senderPhone: string): string {
+  return `${senderName || '—'} · ${senderCC} ${senderPhone || ''}`;
 }
 
 export function getPackageSummary(weight: string, packageTypes: string[]): string {

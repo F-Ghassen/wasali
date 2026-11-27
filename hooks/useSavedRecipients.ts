@@ -1,65 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useMemo, useCallback } from 'react';
+import { useContacts } from '@/hooks/useContacts';
+import type { SavedRecipient } from '@/types/contacts';
+import { toSavedRecipient } from '@/utils/contacts';
 
-export interface SavedRecipient {
-  id: string;
-  name: string;
-  phone: string;
-  whatsapp_enabled: boolean;
-  address_street: string | null;
-  address_city: string | null;
-  address_postal_code: string | null;
-}
+export type { SavedRecipient } from '@/types/contacts';
 
-interface RecipientUpsert {
+export interface RecipientUpsert {
   user_id: string;
   name: string;
-  phone: string;
+  phone_country_code: string;
+  phone_number: string;
   whatsapp_enabled: boolean;
   address_street?: string | null;
   address_city?: string | null;
   address_postal_code?: string | null;
 }
 
+/** Booking-facing view of the contacts: prefill candidates plus a save-on-submit. */
 export function useSavedRecipients(userId: string | null): {
   recipients: SavedRecipient[];
   isLoading: boolean;
   upsertRecipient: (data: RecipientUpsert) => Promise<void>;
 } {
-  const [recipients, setRecipients] = useState<SavedRecipient[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const { contacts, isLoading, saveFromBooking } = useContacts(userId);
 
-  useEffect(() => {
-    if (!userId) return;
+  const recipients = useMemo(() => contacts.map(toSavedRecipient), [contacts]);
 
-    setIsLoading(true);
-    supabase
-      .from('recipients')
-      .select('id, name, phone, whatsapp_enabled, address_street, address_city, address_postal_code')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        setIsLoading(false);
-        if (data) setRecipients(data as SavedRecipient[]);
+  const upsertRecipient = useCallback(
+    async (data: RecipientUpsert) => {
+      const hasAddress = Boolean(data.address_street || data.address_city);
+      await saveFromBooking({
+        name: data.name,
+        phoneCountryCode: data.phone_country_code,
+        phoneNumber: data.phone_number,
+        whatsappEnabled: data.whatsapp_enabled,
+        address: hasAddress
+          ? {
+              street: data.address_street ?? '',
+              city: data.address_city ?? '',
+              postal_code: data.address_postal_code ?? null,
+            }
+          : null,
       });
-  }, [userId]);
-
-  const upsertRecipient = useCallback(async (data: RecipientUpsert) => {
-    await supabase
-      .from('recipients')
-      .upsert(data, { onConflict: 'user_id,phone' });
-
-    // Refresh list
-    if (!data.user_id) return;
-    const { data: updated } = await supabase
-      .from('recipients')
-      .select('id, name, phone, whatsapp_enabled, address_street, address_city, address_postal_code')
-      .eq('user_id', data.user_id)
-      .order('created_at', { ascending: false })
-      .limit(20);
-    if (updated) setRecipients(updated as SavedRecipient[]);
-  }, []);
+    },
+    [saveFromBooking],
+  );
 
   return { recipients, isLoading, upsertRecipient };
 }

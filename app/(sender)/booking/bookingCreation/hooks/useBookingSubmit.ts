@@ -56,7 +56,8 @@ export function useBookingSubmit({
           await upsertRecipient({
             user_id: profile.id,
             name: fs.recipientName,
-            phone: `${fs.recipientCC}${fs.recipientPhone}`,
+            phone_country_code: fs.recipientCC,
+            phone_number: fs.recipientPhone,
             whatsapp_enabled: fs.recipientWhatsapp,
             address_street: fs.recipientAddressStreet || null,
             address_city: fs.recipientAddressCity || null,
@@ -67,12 +68,11 @@ export function useBookingSubmit({
         }
       }
 
-      if (fs.senderMode === 'own' && fs.updateMyProfile) {
-        await updateProfileNamePhone(
-          profile.id,
-          fs.senderName,
-          `${fs.senderCC}${fs.senderPhone}`,
-        );
+      if (fs.updateMyProfile) {
+        await updateProfileNamePhone(profile.id, fs.senderName, {
+          countryCode: fs.senderCC,
+          number: fs.senderPhone,
+        });
       }
 
       bookingStore.setLastBooking({
@@ -84,7 +84,7 @@ export function useBookingSubmit({
         dropoffStopDate: fs.dropoffStopDate,
         collectionServiceType: fs.collectionServiceType,
         deliveryServiceType: fs.deliveryServiceType,
-        senderName: fs.senderMode === 'own' ? fs.senderName : fs.behalfName,
+        senderName: fs.senderName,
         recipientName: fs.recipientName,
         recipientPhone: `${fs.recipientCC}${fs.recipientPhone}`,
         packageWeightKg: weightNum,

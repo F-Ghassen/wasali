@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAuthStore } from '@/stores/authStore';
 import { useCitiesStore } from '@/stores/citiesStore';
+import { useAnalyticsConsent } from '@/hooks/useAnalyticsConsent';
 import { ToastContainer } from '@/components/shared/ui/primitives/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
@@ -29,6 +30,8 @@ function roleRoute(role?: string) {
 export default function RootLayout() {
   const { initSession, subscribeToAuthChanges, isInitialized, profile, session } = useAuthStore();
   const { fetchCities } = useCitiesStore();
+  // Applies the stored analytics consent on every start. Opt-in only.
+  useAnalyticsConsent();
   const router = useRouter();
   const [i18nReady, setI18nReady] = useState(false);
   const hasRedirected = useRef(false);

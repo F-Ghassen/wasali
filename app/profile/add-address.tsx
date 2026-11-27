@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,8 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Colors } from '@/constants/colors';
@@ -18,31 +17,42 @@ import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/shared/ui/primitives/Button';
 import { Input } from '@/components/shared/ui/primitives/Input';
+import { useSavedAddresses } from '@/hooks/useSavedAddresses';
 import { useAuthStore } from '@/stores/authStore';
+import { useUIStore } from '@/stores/uiStore';
+import { EMPTY_ADDRESS_FORM, toAddressFormValues } from '@/utils/addressForm';
 import { savedAddressSchema, type SavedAddressData } from '@/utils/validators';
 
 export default function AddAddressScreen() {
   const router = useRouter();
-  const { saveAddress } = useAuthStore();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const addressId = typeof id === 'string' ? id : undefined;
+  const userId = useAuthStore((s) => s.session?.user.id ?? null);
+  const showToast = useUIStore((s) => s.showToast);
+  const { addresses, saveAddress } = useSavedAddresses(userId);
 
-  const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm<SavedAddressData>({
+  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<SavedAddressData>({
     resolver: zodResolver(savedAddressSchema),
+    defaultValues: EMPTY_ADDRESS_FORM,
   });
+
+  // Edit mode: prefill once the address is in the list.
+  const existing = addressId ? addresses.find((a) => a.id === addressId) : undefined;
+  useEffect(() => {
+    if (existing) reset(toAddressFormValues(existing));
+  }, [existing, reset]);
 
   const onSave = async (data: SavedAddressData) => {
     try {
-      await saveAddress({
-        label: data.label,
-        street: data.street,
-        city: data.city,
-        country: data.country,
-        postalCode: data.postalCode,
-      });
+      await saveAddress(data, addressId);
+      showToast(addressId ? 'Address updated' : 'Address saved', 'success');
       router.back();
     } catch {
-      Alert.alert('Error', 'Failed to save address. Please try again.');
+      showToast('Could not save the address. Please try again.', 'error');
     }
   };
+
+  const title = addressId ? 'Edit Address' : 'Add Address';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -50,7 +60,7 @@ export default function AddAddressScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backText}>‹ Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Address</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
       </View>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -67,7 +77,7 @@ export default function AddAddressScreen() {
             <Input label="Country *" placeholder="France" onChangeText={onChange} onBlur={onBlur} value={value ?? ''} error={errors.country?.message} />
           )} />
           <Controller control={control} name="postalCode" render={({ field: { onChange, onBlur, value } }) => (
-            <Input label="Postal Code" placeholder="75001" onChangeText={onChange} onBlur={onBlur} value={value ?? ''} keyboardType="number-pad" />
+            <Input label="Postal Code" placeholder="75001" onChangeText={onChange} onBlur={onBlur} value={value ?? ''} autoCapitalize="characters" />
           )} />
           <Button label="Save Address" onPress={handleSubmit(onSave)} isLoading={isSubmitting} size="lg" />
         </ScrollView>

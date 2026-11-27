@@ -33,6 +33,7 @@ export default {
     support: "Assistance",
     editProfile: "Modifier le profil",
     savedAddresses: "Adresses enregistrées",
+    contacts: "Contacts",
   },
 
   // ── Driver profile ───────────────────────────────────────────────────────────
@@ -434,10 +435,6 @@ export default {
       package: "Colis",
       recipient: "Destinataire",
       payment: "Paiement",
-    },
-    senderMode: {
-      own: "J'envoie pour moi-même",
-      behalf: "Au nom de quelqu'un",
     },
     collection: {
       dropoff: "Point de dépôt",

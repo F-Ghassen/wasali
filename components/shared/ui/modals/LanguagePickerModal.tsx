@@ -8,14 +8,12 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { setLanguage } from '@/lib/i18n';
+import { useLanguagePreference, type AppLanguage } from '@/hooks/useLanguagePreference';
 import { Colors } from '@/constants/colors';
 import { BorderRadius, Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 
-type Language = 'en' | 'fr';
-
-const LANGUAGES: { code: Language; flag: string }[] = [
+const LANGUAGES: { code: AppLanguage; flag: string }[] = [
   { code: 'en', flag: '🇬🇧' },
   { code: 'fr', flag: '🇫🇷' },
 ];
@@ -26,11 +24,11 @@ interface Props {
 }
 
 export function LanguagePickerModal({ visible, onClose }: Props) {
-  const { t, i18n } = useTranslation();
-  const current = i18n.language as Language;
+  const { t } = useTranslation();
+  const { current, changeLanguage } = useLanguagePreference();
 
-  const handleSelect = async (lang: Language) => {
-    await setLanguage(lang);
+  const handleSelect = async (lang: AppLanguage) => {
+    await changeLanguage(lang);
     onClose();
   };
 

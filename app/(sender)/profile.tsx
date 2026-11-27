@@ -17,6 +17,8 @@ import { useUIStore } from '@/stores/uiStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { RouteAlertList } from '@/components/notifications/RouteAlertList';
 import { LanguagePickerModal } from '@/components/shared/ui/modals/LanguagePickerModal';
+import { AnalyticsConsentPrompt } from '@/components/profile/AnalyticsConsentPrompt';
+import { useConsentSettings } from '@/hooks/useConsentSettings';
 
 function ProfileRow({
   icon,
@@ -53,6 +55,10 @@ export default function ProfileScreen() {
   const { fetchNotifications, subscribeRealtime } = useNotificationStore();
   const [alertsVisible, setAlertsVisible] = useState(false);
   const [langVisible, setLangVisible] = useState(false);
+  const [consentPromptHidden, setConsentPromptHidden] = useState(false);
+  const [isSavingConsent, setIsSavingConsent] = useState(false);
+  const { analyticsEnabled, setAnalytics } = useConsentSettings();
+  const showConsentPrompt = !!profile && !analyticsEnabled && !consentPromptHidden;
 
   useEffect(() => {
     if (!profile) return;
@@ -69,6 +75,17 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleAllowAnalytics = async () => {
+    setIsSavingConsent(true);
+    try {
+      await setAnalytics(true);
+    } catch {
+      showToast('Could not save your choice', 'error');
+    } finally {
+      setIsSavingConsent(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -79,12 +96,22 @@ export default function ProfileScreen() {
         </View>
         <Text style={styles.name}>{profile?.full_name ?? 'User'}</Text>
 
+        {showConsentPrompt && (
+          <AnalyticsConsentPrompt
+            onAccept={handleAllowAnalytics}
+            onDismiss={() => setConsentPromptHidden(true)}
+            isSaving={isSavingConsent}
+          />
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('senderProfile.account')}</Text>
           <View style={styles.card}>
             <ProfileRow icon="✏️" label={t('senderProfile.editProfile')} onPress={() => router.push('/profile/edit')} />
             <View style={styles.separator} />
             <ProfileRow icon="📍" label={t('senderProfile.savedAddresses')} onPress={() => router.push('/profile/addresses')} />
+            <View style={styles.separator} />
+            <ProfileRow icon="👥" label={t('senderProfile.contacts')} onPress={() => router.push('/profile/contacts' as any)} />
             <View style={styles.separator} />
             <ProfileRow
               icon="🛎️"
@@ -93,6 +120,8 @@ export default function ProfileScreen() {
             />
             <View style={styles.separator} />
             <ProfileRow icon="🌐" label={t('profile.language')} onPress={() => setLangVisible(true)} />
+            <View style={styles.separator} />
+            <ProfileRow icon="🔒" label="Privacy" onPress={() => router.push('/profile/privacy' as any)} />
           </View>
         </View>
 

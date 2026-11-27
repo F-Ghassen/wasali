@@ -6,14 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
 import type { Profile, UserRole } from '@/types/models';
 
-export interface SavedAddressInput {
-  label: string;
-  street: string;
-  city: string;
-  country: string;
-  postalCode?: string | null;
-}
-
 interface AuthState {
   session: Session | null;
   profile: Profile | null;
@@ -37,8 +29,6 @@ interface AuthActions {
   resetPassword: (email: string) => Promise<void>;
   /** Update the authenticated user's password. Throws on failure. */
   updatePassword: (newPassword: string) => Promise<{ userId: string }>;
-  /** Persist a new saved address for the current user. Throws on failure. */
-  saveAddress: (address: SavedAddressInput) => Promise<void>;
   /** Bootstrap session from storage. Resolves when done (max 5 s). */
   initSession: () => Promise<void>;
   /** Subscribe to Supabase auth state changes. Returns the unsubscribe fn. */
@@ -204,21 +194,6 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
     return { userId: data.user.id };
-  },
-
-  saveAddress: async (address) => {
-    const { session } = get();
-    if (!session) throw new Error('Not authenticated');
-    const { error } = await supabase.from('saved_addresses').insert({
-      user_id: session.user.id,
-      label: address.label,
-      street: address.street,
-      city: address.city,
-      country: address.country,
-      postal_code: address.postalCode ?? null,
-      is_default: false,
-    });
-    if (error) throw error;
   },
 
   initSession: async () => {

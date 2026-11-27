@@ -1,36 +1,55 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  SafeAreaView,
-  TouchableOpacity,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
-import { BorderRadius, Spacing } from '@/constants/spacing';
+import { Spacing } from '@/constants/spacing';
 import { FontSize } from '@/constants/typography';
 import { Button } from '@/components/shared/ui/primitives/Button';
 import { EmptyState } from '@/components/shared/ui/layouts/EmptyState';
-import { supabase } from '@/lib/supabase';
+import { AddressCard } from '@/components/profile/AddressCard';
+import { useSavedAddresses } from '@/hooks/useSavedAddresses';
 import { useAuthStore } from '@/stores/authStore';
-import type { SavedAddress } from '@/types/models';
+import { useUIStore } from '@/stores/uiStore';
 
 export default function AddressesScreen() {
   const router = useRouter();
-  const { session } = useAuthStore();
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const userId = useAuthStore((s) => s.session?.user.id ?? null);
+  const showToast = useUIStore((s) => s.showToast);
+  const { addresses, isLoading, refresh, setDefault, removeAddress } = useSavedAddresses(userId);
 
-  useEffect(() => {
-    if (!session) return;
-    supabase
-      .from('saved_addresses')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('is_default', { ascending: false })
-      .then(({ data }) => setAddresses((data as SavedAddress[]) ?? []));
-  }, [session]);
+  // Refetch when returning from the add/edit screen.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
+
+  const handleSetDefault = async (addressId: string) => {
+    try {
+      await setDefault(addressId);
+      showToast('Default address updated', 'success');
+    } catch {
+      showToast('Could not update the default address', 'error');
+    }
+  };
+
+  const handleDelete = (addressId: string) => {
+    Alert.alert('Delete address?', 'This address will be removed from your address book.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await removeAddress(addressId);
+            showToast('Address deleted', 'success');
+          } catch {
+            showToast('Could not delete the address', 'error');
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -54,25 +73,21 @@ export default function AddressesScreen() {
           />
         }
         renderItem={({ item }) => (
-          <View style={styles.addressCard}>
-            <View style={styles.addressRow}>
-              <Text style={styles.label}>{item.label}</Text>
-              {item.is_default && (
-                <View style={styles.defaultBadge}>
-                  <Text style={styles.defaultText}>Default</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.street}>{item.street}</Text>
-            <Text style={styles.city}>{item.city}, {item.country}</Text>
-          </View>
+          <AddressCard
+            address={item}
+            onSetDefault={handleSetDefault}
+            onEdit={(id) => router.push({ pathname: '/profile/add-address', params: { id } })}
+            onDelete={handleDelete}
+          />
         )}
         ListEmptyComponent={
-          <EmptyState
-            icon="📍"
-            title="No saved addresses"
-            description="Save addresses for quicker booking"
-          />
+          isLoading ? null : (
+            <EmptyState
+              icon="📍"
+              title="No saved addresses"
+              description="Save addresses for quicker booking"
+            />
+          )
         }
       />
     </SafeAreaView>
@@ -94,16 +109,4 @@ const styles = StyleSheet.create({
   backText: { fontSize: FontSize.lg, color: Colors.primary, fontWeight: '600' },
   headerTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.text.primary },
   list: { padding: Spacing.base, flexGrow: 1 },
-  addressCard: {
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
-    marginBottom: Spacing.md,
-  },
-  addressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  label: { fontSize: FontSize.base, fontWeight: '700', color: Colors.text.primary },
-  defaultBadge: { backgroundColor: Colors.primaryLight, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  defaultText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary },
-  street: { fontSize: FontSize.sm, color: Colors.text.secondary },
-  city: { fontSize: FontSize.sm, color: Colors.text.tertiary },
 });

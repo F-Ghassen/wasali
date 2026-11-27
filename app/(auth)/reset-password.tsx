@@ -19,18 +19,9 @@ import { Input } from '@/components/shared/ui/primitives/Input';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
 import { getAuthErrorMessage } from '@/utils/errorMessages';
+import { resetPasswordSchema } from '@/utils/validators';
 
-const schema = z
-  .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string().min(1, 'Please confirm your password'),
-  })
-  .refine((d) => d.password === d.confirmPassword, {
-    message: 'Passwords do not match',
-    path: ['confirmPassword'],
-  });
-
-type ResetData = z.infer<typeof schema>;
+type ResetData = z.infer<typeof resetPasswordSchema>;
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -42,7 +33,7 @@ export default function ResetPasswordScreen() {
     control,
     handleSubmit,
     formState: { errors },
-  } = useForm<ResetData>({ resolver: zodResolver(schema), defaultValues: { password: '', confirmPassword: '' } });
+  } = useForm<ResetData>({ resolver: zodResolver(resetPasswordSchema), defaultValues: { password: '', confirmPassword: '' } });
 
   const onSubmit = async (data: ResetData) => {
     setIsLoading(true);

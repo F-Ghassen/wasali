@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { CASH_PAYMENT_TYPES } from '@/constants/paymentMethods';
+import { normalizePhoneNumber } from '@/utils/phone';
+import { isKnownCountryCode, isKnownCountryIso } from '@/utils/phoneCountries';
 
 export const signUpSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters'),
@@ -15,6 +17,70 @@ export const loginSchema = z.object({
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
 });
+
+const passwordField = z.string().min(8, 'Password must be at least 8 characters');
+
+export const resetPasswordSchema = z
+  .object({
+    password: passwordField,
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: passwordField,
+    confirmPassword: z.string().min(1, 'Please confirm your new password'),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  })
+  .refine((d) => d.newPassword !== d.currentPassword, {
+    message: 'New password must be different from the current one',
+    path: ['newPassword'],
+  });
+
+export const changeEmailSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
+/**
+ * A national number, typed without the country code (that is picked separately).
+ * 6–12 digits once spaces, dashes and brackets are dropped.
+ */
+export const phoneNumberSchema = z
+  .string()
+  .trim()
+  .refine((v) => !v.startsWith('+'), 'Leave out the country code, pick it on the left')
+  .refine((v) => /^[0-9 ()-]+$/.test(v), 'Invalid phone number')
+  .refine((v) => {
+    const digits = normalizePhoneNumber(v).length;
+    return digits >= 6 && digits <= 12;
+  }, 'Invalid phone number');
+
+export const profileSchema = z
+  .object({
+    fullName: z.string().min(2, 'Name must be at least 2 characters'),
+    countryCode: z.string(),
+    phoneNumber: z.union([z.literal(''), phoneNumberSchema]),
+    /** Residence country (ISO alpha-2). Empty means not set yet. */
+    countryIso: z.union([z.literal(''), z.string()]),
+  })
+  .refine((d) => d.phoneNumber === '' || isKnownCountryCode(d.countryCode), {
+    message: 'Choose a country code',
+    path: ['countryCode'],
+  })
+  .refine((d) => d.countryIso === '' || isKnownCountryIso(d.countryIso), {
+    message: 'Choose a country',
+    path: ['countryIso'],
+  });
+
+export type ProfileFormData = z.infer<typeof profileSchema>;
 
 export const phoneSchema = z.object({
   phone: z.string().min(8, 'Invalid phone number'),
@@ -53,6 +119,29 @@ export const savedAddressSchema = z.object({
   country: z.string().min(1, 'Country is required'),
   postalCode: z.string().optional(),
 });
+
+/**
+ * A contact is a person. The address is optional, but once any part of it is
+ * typed the street and city are both required.
+ */
+export const contactSchema = z
+  .object({
+    name: z.string().trim().min(2, 'Name must be at least 2 characters'),
+    countryCode: z.string(),
+    phoneNumber: phoneNumberSchema,
+    whatsappEnabled: z.boolean(),
+    street: z.string().trim().optional(),
+    city: z.string().trim().optional(),
+    postalCode: z.string().trim().optional(),
+  })
+  .refine((d) => isKnownCountryCode(d.countryCode), {
+    message: 'Choose a country code',
+    path: ['countryCode'],
+  })
+  .refine((d) => !(d.street || d.city || d.postalCode) || (d.street && d.city), {
+    message: 'Street and city are required for an address',
+    path: ['street'],
+  });
 
 export const shippingRequestSchema = z.object({
   originCity: z.string().min(1, 'Origin city is required'),
@@ -213,6 +302,7 @@ export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 export type PackageDetailsData = z.infer<typeof packageDetailsSchema>;
 export type LogisticsData = z.infer<typeof logisticsSchema>;
 export type SavedAddressData = z.infer<typeof savedAddressSchema>;
+export type ContactFormData = z.infer<typeof contactSchema>;
 export type ShippingRequestData = z.infer<typeof shippingRequestSchema>;
 export type RatingData = z.infer<typeof ratingSchema>;
 export type DisputeData = z.infer<typeof disputeSchema>;

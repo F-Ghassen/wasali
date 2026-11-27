@@ -10,7 +10,8 @@ export type ShippingRequest = Tables<'shipping_requests'>;
 export type ShippingRequestOffer = Tables<'shipping_request_offers'>;
 export type Rating = Tables<'ratings'>;
 export type Dispute = Tables<'disputes'>;
-export type SavedAddress = Tables<'saved_addresses'>;
+export type SavedAddress = Tables<'addresses'>;
+export type Contact = Tables<'contacts'>;
 
 // Joined types
 export type RouteWithStops = Route & {

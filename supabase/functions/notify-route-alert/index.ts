@@ -1,17 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendEmail } from "../_shared/email/client.ts";
+import { renderTemplate } from "../_shared/email/render.ts";
+import { insertEmailLog, updateEmailLog } from "../_shared/email/log.ts";
+import { SENDERS } from "../_shared/email/senders.ts";
+import { logError, logEvent } from "../_shared/log.ts";
+
+const FN_NAME = "notify-route-alert";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-);
-
-interface RouteInfo {
+export interface RouteInfo {
   id: string;
   originCityId: string;
   destinationCityId: string;
@@ -22,7 +24,7 @@ interface RouteInfo {
   driver_id: string;
 }
 
-interface AlertMatch {
+export interface AlertMatch {
   id: string;
   email: string | null;
   user_id: string | null;
@@ -32,6 +34,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
 
   try {
     if (req.method !== "POST") {
@@ -50,32 +57,36 @@ serve(async (req) => {
       );
     }
 
-    const route = await loadRouteInfo(routeId);
+    const route = await loadRouteInfo(supabase, routeId);
 
     if (!route) {
-      console.log("Route not found, not active, or missing stops:", routeId);
+      logEvent(FN_NAME, "route_not_found_or_inactive", { routeId });
       return new Response(
         JSON.stringify({ error: "Route not found or not active" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Found route: ${route.originCityName} → ${route.destinationCityName}`);
+    logEvent(FN_NAME, "route_loaded", {
+      routeId,
+      origin: route.originCityName,
+      destination: route.destinationCityName,
+    });
 
-    const matchedAlerts = await findMatchingAlerts(route);
+    const matchedAlerts = await findMatchingAlerts(supabase, route);
 
     if (matchedAlerts.length === 0) {
-      console.log("No matching alerts found");
+      logEvent(FN_NAME, "no_matching_alerts", { routeId });
       return new Response(
         JSON.stringify({ message: "No matching alerts found" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Found ${matchedAlerts.length} matching alerts`);
+    logEvent(FN_NAME, "alerts_matched", { routeId, count: matchedAlerts.length });
 
-    const emailsSent = await sendAlertsEmails(route, matchedAlerts);
-    await createUserNotifications(route, matchedAlerts);
+    const emailsSent = await sendAlertsEmails(supabase, route, matchedAlerts);
+    await createUserNotifications(supabase, route, matchedAlerts);
 
     return new Response(
       JSON.stringify({
@@ -86,7 +97,7 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Error in notify-route-alert:", error);
+    logError(FN_NAME, "unhandled_error", error);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
@@ -96,11 +107,12 @@ serve(async (req) => {
   }
 });
 
-/**
- * Load the published route plus its origin/destination city IDs and names,
- * derived from route_stops (routes itself has no city columns).
- */
-async function loadRouteInfo(routeId: string): Promise<RouteInfo | null> {
+// Load the published route plus its origin/destination city IDs and names,
+// derived from route_stops (routes itself has no city columns).
+export async function loadRouteInfo(
+  supabase: SupabaseClient,
+  routeId: string
+): Promise<RouteInfo | null> {
   const { data: route, error: routeError } = await supabase
     .from("routes")
     .select("id, price_per_kg_eur, departure_date, driver_id, status")
@@ -148,10 +160,11 @@ async function loadRouteInfo(routeId: string): Promise<RouteInfo | null> {
   };
 }
 
-/**
- * Find all route alerts matching the published route
- */
-async function findMatchingAlerts(route: RouteInfo): Promise<AlertMatch[]> {
+// Find all route alerts matching the published route
+export async function findMatchingAlerts(
+  supabase: SupabaseClient,
+  route: RouteInfo
+): Promise<AlertMatch[]> {
   let query = supabase
     .from("route_alerts")
     .select("id, email, user_id")
@@ -172,17 +185,18 @@ async function findMatchingAlerts(route: RouteInfo): Promise<AlertMatch[]> {
   const { data: alerts, error } = await query;
 
   if (error) {
-    console.error("Error fetching matching alerts:", error);
+    logError(FN_NAME, "find_matching_alerts_failed", error);
     throw error;
   }
 
   return alerts || [];
 }
 
-/**
- * Send emails to matched alerts that have an email on file
- */
-async function sendAlertsEmails(
+// Send emails to matched alerts that have an email on file. Each recipient
+// is isolated in its own try/catch and gets its own email_log row, so one
+// bad address/send failure never blocks the rest of the batch.
+export async function sendAlertsEmails(
+  supabase: SupabaseClient,
   route: RouteInfo,
   alerts: AlertMatch[]
 ): Promise<number> {
@@ -192,52 +206,60 @@ async function sendAlertsEmails(
     return 0;
   }
 
-  const resendApiKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendApiKey) {
-    console.error("RESEND_API_KEY not set");
-    return 0;
-  }
-
   let emailsSent = 0;
 
   for (const alert of emailAlerts) {
+    const recipientEmail = alert.email!;
+    let logId: string | null = null;
     try {
-      const emailContent = formatEmailContent(route);
-
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${resendApiKey}`,
+      const { subject, html } = await renderTemplate({
+        type: "route_alert",
+        subject: `🚚 New Route: ${route.originCityName} → ${route.destinationCityName}`,
+        props: {
+          originCityName: route.originCityName,
+          destinationCityName: route.destinationCityName,
+          pricePerKgEur: route.price_per_kg_eur,
+          departureDate: route.departure_date,
+          routeUrl: `https://wasali.app/routes?from=${encodeURIComponent(route.originCityName)}&to=${encodeURIComponent(route.destinationCityName)}`,
         },
-        body: JSON.stringify({
-          from: "alerts@wasali.app",
-          to: alert.email,
-          subject: `🚚 New Route: ${route.originCityName} → ${route.destinationCityName}`,
-          html: emailContent,
-          replyTo: "support@wasali.app",
-        }),
       });
 
-      if (response.ok) {
+      logId = await insertEmailLog(supabase, {
+        emailType: "route_alert",
+        recipientEmail,
+        userId: alert.user_id,
+        routeAlertId: alert.id,
+      });
+
+      const result = await sendEmail({
+        from: SENDERS.route_alert.from,
+        replyTo: SENDERS.route_alert.replyTo,
+        to: recipientEmail,
+        subject,
+        html,
+      });
+
+      await updateEmailLog(supabase, logId, result);
+
+      if (result.ok) {
         emailsSent++;
-        console.log(`Email sent to ${alert.email}`);
+        logEvent(FN_NAME, "email_sent", { recipientEmail });
       } else {
-        const error = await response.text();
-        console.error(`Failed to send email to ${alert.email}:`, error);
+        logError(FN_NAME, "email_send_failed", new Error(result.errorDetail ?? "unknown"), {
+          recipientEmail,
+        });
       }
     } catch (error) {
-      console.error(`Error sending email to ${alert.email}:`, error);
+      logError(FN_NAME, "email_attempt_threw", error, { recipientEmail });
     }
   }
 
   return emailsSent;
 }
 
-/**
- * Create in-app notifications for signed-in users (notifications.user_id is NOT NULL)
- */
-async function createUserNotifications(
+// Create in-app notifications for signed-in users (notifications.user_id is NOT NULL)
+export async function createUserNotifications(
+  supabase: SupabaseClient,
   route: RouteInfo,
   alerts: AlertMatch[]
 ): Promise<void> {
@@ -260,69 +282,8 @@ async function createUserNotifications(
     .insert(notifications);
 
   if (error) {
-    console.error("Error creating notifications:", error);
+    logError(FN_NAME, "create_notifications_failed", error);
   } else {
-    console.log(`Created ${notifications.length} notifications`);
+    logEvent(FN_NAME, "notifications_created", { count: notifications.length });
   }
-}
-
-/**
- * Format email HTML content
- */
-function formatEmailContent(route: RouteInfo): string {
-  const priceText = route.price_per_kg_eur
-    ? `<p style="font-size: 16px; color: #22c55e;"><strong>€${route.price_per_kg_eur.toFixed(2)}/kg</strong></p>`
-    : "";
-
-  const dateText = route.departure_date
-    ? `<p><strong>Departure:</strong> ${new Date(route.departure_date).toLocaleDateString()}</p>`
-    : "";
-
-  return `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      </head>
-      <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #f5f5f5; padding: 20px;">
-        <div style="max-width: 600px; margin: 0 auto; background-color: white; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-
-          <div style="text-align: center; margin-bottom: 24px;">
-            <h1 style="color: #1f2937; margin: 0; font-size: 24px;">🚚 New Route Available!</h1>
-          </div>
-
-          <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <div style="font-size: 18px; margin-bottom: 12px;">
-              <span style="font-weight: 600;">${route.originCityName}</span>
-              <span style="margin: 0 8px;">→</span>
-              <span style="font-weight: 600;">${route.destinationCityName}</span>
-            </div>
-            ${priceText}
-            ${dateText}
-          </div>
-
-          <p style="color: #6b7280; margin-bottom: 24px;">
-            A driver just published a matching route for your saved alert. Check it out now and book if interested!
-          </p>
-
-          <div style="text-align: center; margin-bottom: 24px;">
-            <a href="https://wasali.app/routes?from=${encodeURIComponent(route.originCityName)}&to=${encodeURIComponent(route.destinationCityName)}"
-               style="display: inline-block; background-color: #3b82f6; color: white; padding: 12px 32px; text-decoration: none; border-radius: 8px; font-weight: 600;">
-              View Route
-            </a>
-          </div>
-
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-
-          <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">
-            You received this email because you subscribed to route alerts on Wasali.
-            <br>
-            <a href="https://wasali.app/settings/alerts" style="color: #3b82f6; text-decoration: none;">Manage your alerts</a>
-          </p>
-
-        </div>
-      </body>
-    </html>
-  `;
 }

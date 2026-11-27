@@ -1,9 +1,16 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendEmail } from '../_shared/email/client.ts';
+import { renderTemplate } from '../_shared/email/render.ts';
+import type { BookingEmailVariant } from '../_shared/email/templates/BookingEmail.ts';
+import { insertEmailLog, updateEmailLog } from '../_shared/email/log.ts';
+import { SENDERS } from '../_shared/email/senders.ts';
+import { logError, logEvent } from '../_shared/log.ts';
 
+const FN_NAME = 'notify-booking-event';
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-interface BookingRecord {
+export interface BookingRecord {
   id: string;
   status: string;
   route_id: string;
@@ -28,7 +35,7 @@ type NotificationType =
   | 'booking_cancelled'
   | 'weight_adjusted';
 
-interface BookingEvent {
+export interface BookingEvent {
   type: NotificationType;
   recipientRole: 'driver' | 'sender';
   message: string;
@@ -89,7 +96,7 @@ const CANCELLATION_EVENT_MAP: Record<string, BookingEvent> = {
 // separate UPDATE from a status transition — never combined in one write —
 // so checking it ahead of the status branch stays unambiguous: a row can
 // match at most one of these two paths per webhook invocation.
-function resolveEvent(record: BookingRecord, oldRecord: BookingRecord): BookingEvent | undefined {
+export function resolveEvent(record: BookingRecord, oldRecord: BookingRecord): BookingEvent | undefined {
   if (record.package_weight_kg !== oldRecord.package_weight_kg) {
     return {
       type: 'weight_adjusted',
@@ -130,6 +137,7 @@ serve(async (req) => {
       .single();
 
     if (routeError || !route) {
+      logEvent(FN_NAME, 'route_not_found', { bookingId: record.id, routeId: record.route_id });
       return new Response(JSON.stringify({ error: 'Route not found' }), { status: 200 });
     }
 
@@ -143,66 +151,133 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
+      logEvent(FN_NAME, 'profile_not_found', { bookingId: record.id, recipientId });
       return new Response(JSON.stringify({ error: 'Profile not found' }), { status: 200 });
     }
 
     const routeSummary = buildRouteSummary(route.route_stops);
 
-    // Insert in-app notification
-    await supabase.from('notifications').insert({
+    // Every side effect below is independently isolated: Supabase retries
+    // this webhook on any non-2xx response, and the notification insert
+    // already happened before a thrown error used to bubble to the outer
+    // catch — turning one failed email/push into a 500 risked a duplicate
+    // `notifications` row on retry. Each step is soft-failed and logged
+    // instead, and the handler always returns 200 once event/route/profile
+    // resolution succeeds.
+    const result = {
+      notification: await tryInsertNotification(supabase, record, recipientId, event),
+      push: await trySendPush(profile.push_token, event, record.id),
+      email: await tryEmailSend(supabase, profile, event, routeSummary, record.id),
+    };
+
+    return new Response(JSON.stringify({ ok: true, ...result }), { status: 200 });
+  } catch (err) {
+    logError(FN_NAME, 'unhandled_error', err);
+    return new Response(JSON.stringify({ error: String(err) }), { status: 200 });
+  }
+});
+
+export async function tryInsertNotification(
+  supabase: SupabaseClient,
+  record: BookingRecord,
+  recipientId: string,
+  event: BookingEvent
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('notifications').insert({
       user_id: recipientId,
       booking_id: record.id,
       type: event.type,
       message: event.message,
     });
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    logError(FN_NAME, 'notification_insert_failed', err, { bookingId: record.id, recipientId });
+    return false;
+  }
+}
 
-    // Send push notification (native users)
-    if (profile.push_token) {
-      await fetch(EXPO_PUSH_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: profile.push_token,
-          title: 'Wasali',
-          body: event.message,
-          data: { bookingId: record.id },
-        }),
-      });
-    }
+export async function trySendPush(
+  pushToken: string | null,
+  event: BookingEvent,
+  bookingId: string
+): Promise<boolean> {
+  if (!pushToken) return false;
+  try {
+    const res = await fetch(EXPO_PUSH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: pushToken,
+        title: 'Wasali',
+        body: event.message,
+        data: { bookingId },
+      }),
+    });
+    if (!res.ok) throw new Error(`Expo push responded ${res.status}`);
+    return true;
+  } catch (err) {
+    logError(FN_NAME, 'push_send_failed', err, { bookingId });
+    return false;
+  }
+}
 
-    // Send email (web users or those with notification_email)
-    const resendKey = Deno.env.get('RESEND_API_KEY');
-    const emailTo = profile.notification_email;
-    if (resendKey && emailTo) {
-      const bookingUrl = `https://wasali.app/booking/bookingDetail/${record.id}`;
-      const html = buildEmailHtml({
+export interface RecipientProfile {
+  notification_email: string | null;
+  full_name: string | null;
+}
+
+export async function tryEmailSend(
+  supabase: SupabaseClient,
+  profile: RecipientProfile,
+  event: BookingEvent,
+  routeSummary: string,
+  bookingId: string
+): Promise<boolean> {
+  const emailTo = profile.notification_email;
+  if (!emailTo) return false;
+
+  let logId: string | null = null;
+  try {
+    const bookingUrl = `https://wasali.app/booking/bookingDetail/${bookingId}`;
+    const variant: BookingEmailVariant = event.type;
+    const { subject, html } = await renderTemplate({
+      type: 'booking_event',
+      subject: event.message,
+      props: {
+        variant,
         recipientName: profile.full_name ?? 'User',
         message: event.message,
         routeSummary,
         bookingUrl,
-      });
+      },
+    });
 
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${resendKey}`,
-        },
-        body: JSON.stringify({
-          from: 'Wasali <notifications@wasali.app>',
-          to: [emailTo],
-          subject: event.message,
-          html,
-        }),
-      });
+    logId = await insertEmailLog(supabase, {
+      emailType: 'booking_event',
+      recipientEmail: emailTo,
+      bookingId,
+    });
+
+    const result = await sendEmail({
+      from: SENDERS.booking_event.from,
+      to: emailTo,
+      subject,
+      html,
+    });
+
+    await updateEmailLog(supabase, logId, result);
+
+    if (!result.ok) {
+      logError(FN_NAME, 'email_send_failed', new Error(result.errorDetail ?? 'unknown'), { bookingId });
     }
-
-    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return result.ok;
   } catch (err) {
-    console.error('notify-booking-event error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    logError(FN_NAME, 'email_attempt_threw', err, { bookingId });
+    return false;
   }
-});
+}
 
 interface RouteStopCity {
   stop_type: string;
@@ -212,7 +287,7 @@ interface RouteStopCity {
 
 // Origin = earliest collection stop's city; destination = latest dropoff stop's city.
 // Returns a "Origin → Destination" label, gracefully degrading if stops are missing.
-function buildRouteSummary(stops: RouteStopCity[] | null): string {
+export function buildRouteSummary(stops: RouteStopCity[] | null): string {
   const cityName = (stop: RouteStopCity | undefined): string | null => {
     if (!stop || !stop.cities) return null;
     const c = Array.isArray(stop.cities) ? stop.cities[0] : stop.cities;
@@ -228,40 +303,4 @@ function buildRouteSummary(stops: RouteStopCity[] | null): string {
 
   if (origin && destination) return `${origin} → ${destination}`;
   return origin ?? destination ?? 'Your shipment';
-}
-
-function buildEmailHtml({
-  recipientName,
-  message,
-  routeSummary,
-  bookingUrl,
-}: {
-  recipientName: string;
-  message: string;
-  routeSummary: string;
-  bookingUrl: string;
-}): string {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f6f6f6;margin:0;padding:32px 16px;">
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)">
-    <div style="background:#000;padding:24px 32px;">
-      <span style="color:#fff;font-size:22px;font-weight:800;letter-spacing:-0.5px">Wasali</span>
-    </div>
-    <div style="padding:32px;">
-      <p style="margin:0 0 8px;font-size:16px;color:#545454">Hi ${recipientName},</p>
-      <h2 style="margin:0 0 16px;font-size:20px;font-weight:700;color:#000">${message}</h2>
-      <p style="margin:0 0 24px;font-size:14px;color:#545454">Route: <strong>${routeSummary}</strong></p>
-      <a href="${bookingUrl}"
-        style="display:inline-block;background:#000;color:#fff;padding:12px 28px;border-radius:100px;font-size:15px;font-weight:600;text-decoration:none">
-        View shipment →
-      </a>
-    </div>
-    <div style="padding:16px 32px;border-top:1px solid #e5e5e5">
-      <p style="margin:0;font-size:12px;color:#adadad">You're receiving this because you have an active shipment on Wasali.</p>
-    </div>
-  </div>
-</body>
-</html>`;
 }

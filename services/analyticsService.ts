@@ -2,8 +2,9 @@ import { PostHog } from 'posthog-react-native';
 import type { AnalyticsEventMap, AnalyticsEventName } from '@/utils/analyticsEvents';
 
 /**
- * The only module that talks to PostHog. Nothing is sent unless the user has
- * opted in (setConsent(true)), and nothing is created without an API key.
+ * The only module that talks to PostHog. The SDK is constructed only after the
+ * user opts in, so nothing leaves the device (SDK config, flags, events, identity
+ * or crash reports) before consent. Identity is the Supabase user id only.
  */
 
 let client: PostHog | null = null;
@@ -13,24 +14,35 @@ function getClient(): PostHog | null {
   const apiKey = process.env.EXPO_PUBLIC_POSTHOG_KEY;
   if (!apiKey) return null;
   if (!client) {
-    client = new PostHog(apiKey, { host: process.env.EXPO_PUBLIC_POSTHOG_HOST });
+    client = new PostHog(apiKey, {
+      host: process.env.EXPO_PUBLIC_POSTHOG_HOST,
+      captureAppLifecycleEvents: false,
+      preloadFeatureFlags: false,
+      errorTracking: {
+        autocapture: { uncaughtExceptions: true, unhandledRejections: true },
+      },
+    });
   }
   return client;
 }
 
-/** Applies the user's consent. Opting out also clears the identity on this device. */
+/**
+ * Applies the user's consent. Opting in starts the SDK. Opting out stops it and
+ * clears the identity. If the SDK was never started, there is nothing to stop.
+ */
 export async function setConsent(granted: boolean): Promise<void> {
   consented = granted;
-  const ph = getClient();
-  if (!ph) return;
   if (granted) {
-    await ph.optIn();
-  } else {
-    await ph.optOut();
-    ph.reset();
+    await getClient()?.optIn();
+    return;
+  }
+  if (client) {
+    await client.optOut();
+    client.reset();
   }
 }
 
+/** Identifies by Supabase user id. No email, name or role is sent. */
 export function identify(userId: string): void {
   if (!consented) return;
   getClient()?.identify(userId);
@@ -38,15 +50,10 @@ export function identify(userId: string): void {
 
 export function track<E extends AnalyticsEventName>(
   event: E,
-  properties: AnalyticsEventMap[E],
+  properties?: AnalyticsEventMap[E],
 ): void {
   if (!consented) return;
   getClient()?.capture(event, properties);
-}
-
-/** Forgets the device identity, for example on sign-out. */
-export function resetAnalytics(): void {
-  client?.reset();
 }
 
 /** Test hook: lets unit tests reset module state between cases. */

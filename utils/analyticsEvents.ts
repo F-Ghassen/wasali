@@ -1,24 +1,33 @@
 /**
  * Typed PostHog events. Every event name and its properties are declared here,
  * so a typo or a missing property fails at compile time.
- * Properties must never contain PII: no names, phones, emails or addresses.
+ * Properties must never contain PII: no names, phones, emails, addresses or free text.
  */
 export interface AnalyticsEventMap {
-  user_signed_up: { role: 'sender' | 'driver'; acquisition_source?: string };
-  email_verified: Record<string, never>;
-  search_performed: { origin_country: string; destination_country: string; has_date: boolean };
-  route_viewed: { route_id: string; origin_country: string; destination_country: string };
-  booking_started: { route_id: string };
-  booking_step_completed: { step: number };
-  booking_submitted: { route_id: string; weight_kg: number; payment_type: string };
-  booking_cancelled: { status_before: string; reason?: string };
-  payment_completed: { amount_bucket: string; payment_type: string };
-  delivery_confirmed: { route_id: string };
-  contact_saved: { has_address: boolean };
-  profile_completed: { fields_filled: number };
+  booking_created: { package_weight_kg: number; payment_type: string; total_price: number };
+  dispute_submitted: { reason: string };
+  booking_confirmed: { package_weight_kg: number };
+  booking_rejected: { was_previously_confirmed: boolean };
+  booking_marked_in_transit: Record<string, never>;
+  booking_delivered: Record<string, never>;
+  manual_payment_recorded: { payment_type: string };
+  package_weight_adjusted: { previous_weight_kg: number; package_weight_kg: number };
+  route_created: {
+    available_weight_kg: number;
+    has_promotion: boolean;
+    payment_type_count: number;
+    stop_count: number;
+  };
+  route_published: Record<string, never>;
+  route_cancelled: Record<string, never>;
+  shipping_request_created: {
+    has_max_budget: boolean;
+    package_category: string;
+    package_weight_kg: number;
+  };
+  shipping_offer_accepted: Record<string, never>;
+  shipping_offer_declined: Record<string, never>;
   language_changed: { from: string; to: string };
-  notification_permission: { granted: boolean };
-  nps_submitted: { score: number };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;

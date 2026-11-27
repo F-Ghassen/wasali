@@ -8,3 +8,7 @@ vi.mock('@/lib/supabase', () => ({
     auth: { getSession: vi.fn(), onAuthStateChange: vi.fn() },
   },
 }));
+
+// The PostHog SDK ships React Native source that Node can't parse; unit tests that
+// import stores reach it through analyticsService, so stub it everywhere.
+vi.mock('posthog-react-native', () => ({ PostHog: vi.fn() }));

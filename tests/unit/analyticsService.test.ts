@@ -16,7 +16,6 @@ vi.mock('posthog-react-native', () => ({ PostHog: PostHogCtor }));
 import {
   __resetAnalyticsForTests,
   identify,
-  resetAnalytics,
   setConsent,
   track,
 } from '@/services/analyticsService';
@@ -37,17 +36,24 @@ afterEach(() => {
 
 describe('analyticsService consent gate', () => {
   it('drops events until the user has opted in', () => {
-    track('search_performed', { origin_country: 'FR', destination_country: 'TN', has_date: true });
+    track('route_published');
 
     expect(ph.capture).not.toHaveBeenCalled();
   });
 
   it('sends events after opt-in', async () => {
     await setConsent(true);
-    track('booking_started', { route_id: 'r1' });
+    track('booking_delivered');
 
     expect(ph.optIn).toHaveBeenCalledTimes(1);
-    expect(ph.capture).toHaveBeenCalledWith('booking_started', { route_id: 'r1' });
+    expect(ph.capture).toHaveBeenCalledWith('booking_delivered', undefined);
+  });
+
+  it('sends typed properties unchanged', async () => {
+    await setConsent(true);
+    track('booking_confirmed', { package_weight_kg: 12 });
+
+    expect(ph.capture).toHaveBeenCalledWith('booking_confirmed', { package_weight_kg: 12 });
   });
 
   it('identifies only after opt-in', async () => {
@@ -62,11 +68,50 @@ describe('analyticsService consent gate', () => {
   it('stops sending and clears identity on opt-out', async () => {
     await setConsent(true);
     await setConsent(false);
-    track('booking_started', { route_id: 'r1' });
+    track('route_cancelled');
+
+    expect(ph.reset).toHaveBeenCalledTimes(1);
+    expect(ph.capture).not.toHaveBeenCalled();
+  });
+});
+
+describe('analyticsService client', () => {
+  it('does not start the SDK without opt-in, so nothing is sent before consent', async () => {
+    await setConsent(false);
+    track('route_published');
+    identify('user-1');
+
+    expect(PostHogCtor).not.toHaveBeenCalled();
+    expect(ph.optOut).not.toHaveBeenCalled();
+  });
+
+  it('starts the SDK on opt-in', async () => {
+    await setConsent(true);
+
+    expect(PostHogCtor).toHaveBeenCalledTimes(1);
+    expect(ph.optIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('opts out and clears identity when the user withdraws after opting in', async () => {
+    await setConsent(true);
+    vi.clearAllMocks();
+    await setConsent(false);
 
     expect(ph.optOut).toHaveBeenCalledTimes(1);
     expect(ph.reset).toHaveBeenCalledTimes(1);
-    expect(ph.capture).not.toHaveBeenCalled();
+  });
+
+  it('uses the EU host and enables error tracking without lifecycle events', async () => {
+    await setConsent(true);
+
+    expect(PostHogCtor).toHaveBeenCalledWith(KEY, {
+      host: 'https://eu.i.posthog.com',
+      captureAppLifecycleEvents: false,
+      preloadFeatureFlags: false,
+      errorTracking: {
+        autocapture: { uncaughtExceptions: true, unhandledRejections: true },
+      },
+    });
   });
 });
 
@@ -74,20 +119,9 @@ describe('analyticsService without an API key', () => {
   it('never creates the SDK client', async () => {
     delete process.env.EXPO_PUBLIC_POSTHOG_KEY;
     await setConsent(true);
-    track('booking_started', { route_id: 'r1' });
+    track('route_published');
     identify('user-1');
-    resetAnalytics();
 
     expect(PostHogCtor).not.toHaveBeenCalled();
-  });
-});
-
-describe('analyticsService client', () => {
-  it('creates one client with the EU host', async () => {
-    await setConsent(true);
-    track('booking_started', { route_id: 'r1' });
-
-    expect(PostHogCtor).toHaveBeenCalledTimes(1);
-    expect(PostHogCtor).toHaveBeenCalledWith(KEY, { host: 'https://eu.i.posthog.com' });
   });
 });

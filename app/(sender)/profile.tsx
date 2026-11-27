@@ -109,9 +109,9 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <ProfileRow icon="✏️" label={t('senderProfile.editProfile')} onPress={() => router.push('/profile/edit')} />
             <View style={styles.separator} />
-            <ProfileRow icon="📍" label={t('senderProfile.savedAddresses')} onPress={() => router.push('/profile/addresses')} />
+            <ProfileRow icon="📍" label={t('senderProfile.addressBook')} onPress={() => router.push('/profile/address-book' as any)} />
             <View style={styles.separator} />
-            <ProfileRow icon="👥" label={t('senderProfile.contacts')} onPress={() => router.push('/profile/contacts' as any)} />
+            <ProfileRow icon="🏠" label={t('senderProfile.myAddresses')} onPress={() => router.push('/profile/my-addresses' as any)} />
             <View style={styles.separator} />
             <ProfileRow
               icon="🛎️"

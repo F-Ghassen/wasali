@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wasali — UI/UX review and future concepts</title>
+<style>
+:root{
+  --ink:#0F2238; --ink2:#3C4F63; --mute:#7A8896;
+  --door:#1D5FD0; --door-d:#154A9F; --sea:#DCEAF8;
+  --wash:#F5F7F4; --paper:#FFFFFF; --line:#DDE3E8;
+  --jasmine:#F4C542; --olive:#2F7D5B; --alert:#C8372D;
+  --serif: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans: "Avenir Next","Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);color:var(--ink);background:var(--wash);line-height:1.55;font-size:16px}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--door);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+
+/* top nav */
+nav.top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;display:flex;gap:4px;align-items:center;padding:10px 24px;overflow-x:auto;white-space:nowrap}
+nav.top b{font-family:var(--serif);font-size:18px;margin-right:18px;letter-spacing:.2px}
+nav.top a{text-decoration:none;font-size:14px;padding:6px 12px;border-radius:99px;color:#C9D6E4}
+nav.top a:hover{background:rgba(255,255,255,.12);color:#fff}
+
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+section{padding:72px 0 8px}
+h2{font-family:var(--serif);font-weight:700;font-size:clamp(28px,4vw,42px);line-height:1.1;letter-spacing:-.5px;max-width:20ch}
+h3{font-size:18px;font-weight:700;margin-bottom:6px}
+.lede{font-size:18px;color:var(--ink2);max-width:62ch;margin:14px 0 36px}
+p.small,.small{font-size:14px;color:var(--ink2)}
+
+/* hero: baggage tag */
+.hero{background:var(--ink);color:#fff;padding:64px 0 72px;position:relative;overflow:hidden}
+.hero .wrap{display:grid;grid-template-columns:1.2fr .8fr;gap:48px;align-items:center}
+.hero h1{font-family:var(--serif);font-size:clamp(38px,6vw,68px);line-height:1.02;letter-spacing:-1.5px;font-weight:700}
+.hero p{color:#B9C8D8;font-size:18px;max-width:46ch;margin-top:20px}
+.tag{background:#fff;color:var(--ink);border-radius:18px 18px 18px 18px;padding:26px 26px 22px;position:relative;transform:rotate(2.5deg);box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.tag::before{content:"";position:absolute;left:50%;top:-14px;width:22px;height:22px;border-radius:50%;background:var(--ink);border:3px solid #fff;transform:translateX(-50%)}
+.tag .row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tag .iata{font-family:var(--serif);font-size:58px;font-weight:700;line-height:1;letter-spacing:-1px}
+.tag .arrow{flex:1;border-top:3px dashed var(--door);position:relative;margin:0 6px}
+.tag .arrow::after{content:"";position:absolute;right:-2px;top:-8px;border:7px solid transparent;border-left:11px solid var(--door)}
+.tag .meta{display:flex;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--ink2)}
+.tag .meta b{display:block;color:var(--ink);font-size:15px}
+.bars{height:34px;margin-top:14px;background:repeating-linear-gradient(90deg,var(--ink) 0 2px,#fff 2px 5px,var(--ink) 5px 6px,#fff 6px 10px,var(--ink) 10px 13px,#fff 13px 15px)}
+@media(max-width:860px){.hero .wrap{grid-template-columns:1fr}.tag{transform:none}}
+
+/* generic blocks */
+.grid{display:grid;gap:20px}
+.g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.g3,.g4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px}
+.panel.flat{background:transparent;border-style:dashed}
+.kv{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.chip{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--sea);color:var(--door-d)}
+.chip.y{background:#FBEFC4;color:#6B5200}.chip.g{background:#D9EEE3;color:#1E5A40}.chip.r{background:#F6DAD7;color:#8A241C}.chip.k{background:#E7EBEF;color:var(--ink2)}
+
+/* flow diagrams */
+.flow{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:20px}
+.flow h3{margin-bottom:14px}
+.chain{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;row-gap:12px}
+.node{background:var(--wash);border:1.5px solid var(--ink);border-radius:10px;padding:8px 12px;font-size:13px;line-height:1.3;min-width:104px;max-width:170px}
+.node b{display:block;font-size:13px}
+.node span{color:var(--ink2);font-size:12px}
+.node.hot{background:var(--jasmine);border-color:var(--ink)}
+.node.end{background:var(--ink);color:#fff}.node.end span{color:#B9C8D8}
+.node.warn{background:#F6DAD7;border-color:var(--alert)}
+.link{width:26px;align-self:center;border-top:2px solid var(--ink);position:relative;flex:none}
+.link::after{content:"";position:absolute;right:-1px;top:-6px;border:5px solid transparent;border-left:8px solid var(--ink)}
+.note{margin-top:12px;font-size:14px;color:var(--ink2)}
+
+/* sitemap */
+.sitemap{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.sitemap{grid-template-columns:1fr}}
+.tabs-mini{display:flex;gap:6px;margin:10px 0 14px;flex-wrap:wrap}
+.tabs-mini span{font-size:12px;font-weight:600;background:var(--ink);color:#fff;padding:4px 10px;border-radius:99px}
+.sitemap ul{list-style:none;font-size:14px;color:var(--ink2)}
+.sitemap li{padding:5px 0;border-top:1px solid var(--line)}
+.sitemap li code{font-size:12px;background:var(--wash);padding:1px 6px;border-radius:5px;color:var(--ink)}
+
+/* phones */
+.phones{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;justify-items:center}
+@media(max-width:1100px){.phones{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:620px){.phones{grid-template-columns:1fr}}
+figure.dev{width:100%;max-width:272px}
+figcaption{margin-top:14px;font-size:14px;color:var(--ink2)}
+figcaption b{display:block;color:var(--ink);font-size:15px;margin-bottom:2px}
+.phone{width:100%;aspect-ratio:9/18.2;border:7px solid var(--ink);border-radius:34px;background:#fff;overflow:hidden;position:relative;display:flex;flex-direction:column;font-size:11px;line-height:1.3}
+.phone .sb{height:22px;flex:none;display:flex;justify-content:space-between;padding:6px 16px 0;font-size:9px;font-weight:700}
+.phone .body{flex:1;overflow:hidden;padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.phone .tabbar{flex:none;height:42px;border-top:1px solid var(--line);display:flex;justify-content:space-around;align-items:center;font-size:9px;color:var(--mute)}
+.phone .tabbar i{font-style:normal;text-align:center}
+.phone .tabbar i.on{color:var(--ink);font-weight:700}
+.ph-h{font-weight:800;font-size:16px;letter-spacing:-.3px}
+.ph-s{color:var(--mute);font-size:10px}
+.box{border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff}
+.box.g{background:#F6F6F6}
+.btn-k{background:#000;color:#fff;text-align:center;border-radius:8px;padding:9px;font-weight:700}
+.btn-d{background:var(--door);color:#fff;text-align:center;border-radius:10px;padding:10px;font-weight:700}
+.btn-j{background:var(--jasmine);color:var(--ink);text-align:center;border-radius:10px;padding:10px;font-weight:800}
+.row2{display:flex;gap:6px}.row2>*{flex:1}
+.between{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.pill{font-size:9px;padding:2px 7px;border-radius:99px;background:#EBEBEB;font-weight:600}
+.pill.b{background:var(--sea);color:var(--door-d)}.pill.y{background:#FBEFC4;color:#6B5200}.pill.g{background:#D9EEE3;color:#1E5A40}
+.bar{height:5px;border-radius:9px;background:#E5E5E5;overflow:hidden}.bar i{display:block;height:100%;background:var(--door)}
+.acc{border:1px solid var(--line);border-radius:8px;padding:7px 9px;display:flex;justify-content:space-between;color:var(--ink2)}
+.acc.open{border-color:#000;color:#000;display:block}
+.acc.done{background:#F6F6F6}
+
+/* future phone skin */
+.phone.f{background:var(--wash);border-color:var(--ink)}
+.board{background:var(--ink);color:var(--jasmine);border-radius:12px;padding:10px 10px 6px;font-variant-numeric:tabular-nums}
+.board .bh{display:flex;justify-content:space-between;color:#8FA6BD;font-size:9px;margin-bottom:6px}
+.board .br{display:grid;grid-template-columns:34px 1fr 40px;gap:6px;padding:7px 0;border-top:1px solid rgba(255,255,255,.12);font-weight:700;font-size:11px;align-items:center}
+.board .br small{display:block;color:#8FA6BD;font-weight:500;font-size:9px}
+.board .br .kg{color:#fff;text-align:right}
+.board .br .kg.low{color:#FF9B8F}
+.stepper{display:flex;gap:4px}.stepper i{flex:1;height:4px;border-radius:9px;background:var(--line)}.stepper i.on{background:var(--door)}
+.tl{display:flex;flex-direction:column;gap:0}
+.tl div{display:flex;gap:9px;padding-bottom:10px;position:relative}
+.tl div::before{content:"";position:absolute;left:5px;top:12px;bottom:-2px;border-left:2px solid var(--line)}
+.tl div:last-child::before{display:none}
+.tl em{width:12px;height:12px;border-radius:50%;background:var(--line);flex:none;margin-top:2px;font-style:normal}
+.tl div.d em{background:var(--olive)}.tl div.d::before{border-color:var(--olive)}
+.tl div.a em{background:var(--door);box-shadow:0 0 0 4px var(--sea)}
+.qr{width:70px;height:70px;background:
+ conic-gradient(var(--ink) 25%,#fff 0 50%,var(--ink) 0 75%,#fff 0) 0 0/14px 14px;border:5px solid #fff;outline:1px solid var(--line);border-radius:4px}
+
+/* findings */
+.find{display:grid;grid-template-columns:44px 1fr;gap:14px;padding:16px 0;border-top:1px solid var(--line)}
+.find .sev{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:12px}
+.sev.h{background:#F6DAD7;color:#8A241C}.sev.m{background:#FBEFC4;color:#6B5200}.sev.l{background:var(--sea);color:var(--door-d)}
+.find p{color:var(--ink2);font-size:15px}
+.find .fix{color:var(--ink);font-size:14px;margin-top:4px}
+
+/* concept cards */
+.concept{display:grid;grid-template-columns:300px 1fr;gap:36px;align-items:start;padding:36px 0;border-top:1px solid var(--line)}
+.concept:nth-of-type(even){grid-template-columns:1fr 300px}
+.concept:nth-of-type(even) .cv{order:2}
+@media(max-width:820px){.concept,.concept:nth-of-type(even){grid-template-columns:1fr}.concept:nth-of-type(even) .cv{order:0}}
+.concept h3{font-family:var(--serif);font-size:28px;line-height:1.1;margin-bottom:10px}
+.concept ul{margin:12px 0 0 18px;color:var(--ink2);font-size:15px}.concept li{margin-bottom:6px}
+.concept .cv{max-width:272px}
+
+/* tokens */
+.sw{display:flex;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.sw div{flex:1;min-height:92px;padding:10px;font-size:12px;display:flex;flex-direction:column;justify-content:flex-end}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:700px){.cmp{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--ink);color:#fff;font-weight:600}
+td:first-child{font-weight:700;white-space:nowrap}
+footer{margin-top:80px;background:var(--ink);color:#B9C8D8;padding:40px 0;font-size:14px}
+</style>
+</head>
+<body>
+
+<nav class="top" aria-label="Sections">
+  <b>Wasali</b>
+  <a href="#current">Current map</a>
+  <a href="#flows">User flows</a>
+  <a href="#screens">Current screens</a>
+  <a href="#findings">Findings</a>
+  <a href="#future">Future UI/UX</a>
+  <a href="#system">Design system</a>
+  <a href="#roadmap">Roadmap</a>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <div>
+      <h1>Wasali UI/UX: where it stands, and where it goes next.</h1>
+      <p>A read-through of the app as built (Expo Router, two roles, 4 languages), the user flows behind it, and a set of future concepts that lean into what makes Wasali different: a trusted corridor between people, not a parcel carrier.</p>
+    </div>
+    <div class="tag" aria-hidden="true">
+      <div class="row"><span class="iata">PAR</span><span class="arrow"></span><span class="iata">TUN</span></div>
+      <div class="meta"><div><b>Senders</b>Europe</div><div><b>Drivers</b>Already travelling</div><div><b>Payment</b>Cash, direct</div></div>
+      <div class="bars"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 1. CURRENT MAP ============ -->
+<section id="current"><div class="wrap">
+  <h2>The app today, in one map</h2>
+  <p class="lede">Source: <code>app/</code>, <code>components/</code>, <code>constants/</code> and <code>docs/user-flows.md</code>. One login, two completely separate shells. The role chosen at sign-up decides which tab bar you ever see.</p>
+
+  <div class="sitemap">
+    <div class="panel">
+      <h3>Auth</h3>
+      <div class="tabs-mini"><span>(auth)</span></div>
+      <ul>
+        <li><code>welcome</code> choose Get Started or Become a Driver</li>
+        <li><code>sign-up</code> / <code>sign-up-driver</code></li>
+        <li><code>verify-otp</code> 6-digit code or email link</li>
+        <li><code>login</code>, <code>forgot-password</code>, <code>reset-password</code></li>
+        <li><code>index</code> gate: loads profile, redirects by role</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Sender shell</h3>
+      <div class="tabs-mini"><span>Search</span><span>Bookings</span><span>Ship Docs Fast</span><span>Notifications</span><span>Profile</span></div>
+      <ul>
+        <li><code>routes/results</code> two-tier results, sort and filter</li>
+        <li><code>routes/[id]</code> route detail (driver, capacity, rules, promo)</li>
+        <li><code>booking/</code> 6-step accordion, then booking detail with QR and label</li>
+        <li><code>requests</code>, <code>shipping-requests/new|[id]</code> post a request, receive offers</li>
+        <li><code>p2p/</code> send, carry, leaderboard (documents, points)</li>
+        <li><code>post-delivery/</code> rate and dispute</li>
+        <li><code>profile/</code> edit, addresses, contacts, privacy, notifications</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h3>Driver shell</h3>
+      <div class="tabs-mini"><span>Dashboard</span><span>Routes</span><span>Bookings</span><span>Profile</span></div>
+      <ul>
+        <li><code>driver/routes/new</code> 5-step route wizard with draft recovery</li>
+        <li><code>driver/routes/[id]</code> edit, mark full, cancel with cascade</li>
+        <li><code>driver/bookings/[id]</code> confirm, scan QR, re-weigh, mark paid, deliver</li>
+        <li><code>driver/rate/[bookingId]</code> rate the sender</li>
+        <li>Templates for repeat trips</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid g3" style="margin-top:20px">
+    <div class="panel"><h3>Visual language now</h3>
+      <p class="small">Uber-style: pure black primary (#000), blue accent (#276EF1), white and #F6F6F6 surfaces, system fonts, emoji icons in stat cards and tabs.</p>
+      <div class="kv"><span class="chip k">black</span><span class="chip">#276EF1</span><span class="chip g">#05944F</span><span class="chip y">#FFC043</span></div></div>
+    <div class="panel"><h3>Strengths</h3>
+      <p class="small">Clear role split, auto-filled booking fields, live price summary, draft recovery in the driver wizard, a fully documented state machine, and four locales including Darija.</p></div>
+    <div class="panel"><h3>Character gap</h3>
+      <p class="small">Nothing on screen says Tunisia, family, or travel. The look is borrowed from ride-hailing, so a trust-based diaspora product feels like a generic logistics app.</p></div>
+  </div>
+</div></section>
+
+<!-- ============ 2. FLOWS ============ -->
+<section id="flows"><div class="wrap">
+  <h2>Current user flows</h2>
+  <p class="lede">Yellow marks the moment of commitment. Dark nodes are end states. Red marks branches that currently dead-end or lack visibility.</p>
+
+  <div class="flow"><h3>Sender: find a driver and book</h3>
+    <div class="chain">
+      <div class="node"><b>Welcome</b><span>Get Started</span></div><div class="link"></div>
+      <div class="node"><b>Sign up</b><span>name, email, password</span></div><div class="link"></div>
+      <div class="node"><b>Verify OTP</b><span>6-digit code</span></div><div class="link"></div>
+      <div class="node"><b>Search home</b><span>country cards, origin, destination, date</span></div><div class="link"></div>
+      <div class="node"><b>Results</b><span>exact city, then region; sort, filter</span></div><div class="link"></div>
+      <div class="node"><b>Route detail</b><span>driver, rules, promo</span></div><div class="link"></div>
+      <div class="node hot"><b>6-step booking</b><span>itinerary, logistics, you, recipient, package, payment</span></div><div class="link"></div>
+      <div class="node"><b>Booking detail</b><span>QR, label, message driver</span></div>
+    </div>
+    <p class="note">Account creation happens before the sender sees a single driver. The sender fills 4 forms (you, recipient, package, logistics) before the booking exists.</p>
+  </div>
+
+  <div class="flow"><h3>Booking lifecycle (both roles)</h3>
+    <div class="chain">
+      <div class="node"><b>Pending</b><span>driver notified</span></div><div class="link"></div>
+      <div class="node hot"><b>Confirmed</b><span>driver accepts</span></div><div class="link"></div>
+      <div class="node"><b>In transit</b><span>QR scan + re-weigh; cash on collection</span></div><div class="link"></div>
+      <div class="node"><b>Delivered</b><span>cash on delivery</span></div><div class="link"></div>
+      <div class="node end"><b>Rated</b><span>both sides</span></div>
+    </div>
+    <div class="chain" style="margin-top:14px">
+      <div class="node warn"><b>Cancelled</b><span>4 reasons, from sender, driver or cascade</span></div>
+      <div style="width:14px"></div>
+      <div class="node warn"><b>Disputed</b><span>evidence photos, admin review, terminal</span></div>
+    </div>
+    <p class="note">Recipients are never in the loop. They hold the cash and the package but have no view, link or notification.</p>
+  </div>
+
+  <div class="flow"><h3>Driver: publish a trip and run it</h3>
+    <div class="chain">
+      <div class="node"><b>Sign up as driver</b><span>role in metadata</span></div><div class="link"></div>
+      <div class="node"><b>Dashboard</b><span>stats, pending, upcoming</span></div><div class="link"></div>
+      <div class="node"><b>New route wizard</b><span>stops, drop-offs, rules, services, price</span></div><div class="link"></div>
+      <div class="node hot"><b>Publish</b><span>active</span></div><div class="link"></div>
+      <div class="node"><b>Pending booking</b><span>confirm or reject</span></div><div class="link"></div>
+      <div class="node"><b>Collect</b><span>scan, re-weigh</span></div><div class="link"></div>
+      <div class="node"><b>Deliver</b><span>mark paid</span></div><div class="link"></div>
+      <div class="node end"><b>Rate sender</b></div>
+    </div>
+    <p class="note">Everything is organised around records (routes, bookings), not around the day of travel when drivers actually act.</p>
+  </div>
+
+  <div class="grid g2">
+    <div class="flow" style="margin:0"><h3>Shipping request (reverse marketplace)</h3>
+      <div class="chain">
+        <div class="node"><b>Requests tab</b><span>hidden from tab bar</span></div><div class="link"></div>
+        <div class="node"><b>New request</b><span>route, dates, kg, budget</span></div><div class="link"></div>
+        <div class="node hot"><b>Offers</b><span>7-day window</span></div><div class="link"></div>
+        <div class="node end"><b>Booking</b></div>
+      </div>
+      <p class="note">Valuable fallback when search finds nothing, but only reachable via a hidden route.</p></div>
+    <div class="flow" style="margin:0"><h3>P2P documents</h3>
+      <div class="chain">
+        <div class="node"><b>Hub</b><span>tab "Ship Docs Fast"</span></div><div class="link"></div>
+        <div class="node hot"><b>Send or Carry</b></div><div class="link"></div>
+        <div class="node"><b>Offer</b><span>free or fee</span></div><div class="link"></div>
+        <div class="node end"><b>Points</b></div>
+      </div>
+      <p class="note">A different product (favours and points) sharing the main tab bar with a paid marketplace.</p></div>
+  </div>
+</div></section>
+
+<!-- ============ 3. CURRENT SCREENS ============ -->
+<section id="screens"><div class="wrap">
+  <h2>Current screens, as wireframes</h2>
+  <p class="lede">Redrawn from the components and docs (not screenshots), in the existing black and white style, so the future concepts below have a fair before.</p>
+
+  <div class="phones">
+    <figure class="dev"><div class="phone" role="img" aria-label="Wireframe of sender home">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div><div class="ph-s">DESTINATIONS</div><div class="ph-h">Where are you sending to?</div></div>
+        <div class="row2"><div class="box">🇹🇳 Tunisia<br><span class="pill b">12 routes</span></div><div class="box">🇫🇷 France<br><span class="pill b">7 routes</span></div></div>
+        <div class="row2"><div class="box">🇩🇪 Germany<br><span class="pill b">4 routes</span></div><div class="box">🇮🇹 Italy<br><span class="pill b">3 routes</span></div></div>
+        <div class="box" style="text-align:center">See all</div>
+        <div class="box g">From: Paris</div><div class="box g">To: Tunis</div><div class="box g">Date: Today</div>
+        <div class="btn-k">Search</div>
+      </div>
+      <div class="tabbar"><i class="on">🔍<br>Search</i><i>📦<br>Bookings</i><i>📄<br>Docs</i><i>🔔<br>Alerts</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Sender home</b>Country cards first, then a three-field form. Five tabs, two of them off the core job.</figcaption></figure>
+
+    <figure class="dev"><div class="phone" role="img" aria-label="Wireframe of route results">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div class="ph-h">Paris → Tunis</div>
+        <div class="row2"><span class="pill">Earliest</span><span class="pill">Cheapest</span><span class="pill">Top rated</span><span class="pill b">Filter 1</span></div>
+        <div class="box"><div class="between"><b>Paris → Tunis</b><b>€8/kg</b></div><div class="ph-s">Fri 14 Mar → Sat 15 Mar</div><div class="between" style="margin-top:6px"><span>★ 4.8 · 23 trips</span><span class="pill g">Promo −15%</span></div></div>
+        <div class="box"><div class="between"><b>Lyon → Sfax</b><b>€9/kg</b></div><div class="ph-s">Sun 16 Mar → Mon 17 Mar</div><div class="between" style="margin-top:6px"><span>★ 5.0 · 4 trips</span></div></div>
+        <div class="ph-s" style="margin-top:4px">Other routes in region</div>
+        <div class="box"><div class="between"><b>Marseille → Sousse</b><b>€7/kg</b></div><div class="ph-s">Wed 19 Mar</div></div>
+        <div class="box"><div class="between"><b>Nice → Tunis</b><b>€10/kg</b></div></div>
+      </div>
+      <div class="tabbar"><i class="on">🔍<br>Search</i><i>📦<br>Bookings</i><i>📄<br>Docs</i><i>🔔<br>Alerts</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Results</b>Cards lead with cities and price. Trust signal is a single rating line.</figcaption></figure>
+
+    <figure class="dev"><div class="phone" role="img" aria-label="Wireframe of booking accordion">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div class="ph-h">Book shipment</div>
+        <div class="acc done"><span>✓ Itinerary</span><span>Paris, Tunis</span></div>
+        <div class="acc done"><span>✓ Logistics</span><span>Meeting point</span></div>
+        <div class="acc done"><span>✓ Your details</span><span>Amine</span></div>
+        <div class="acc open"><b>4 Recipient</b><div class="box g" style="margin-top:6px">Name</div><div class="box g" style="margin-top:4px">+216 phone</div><div class="box" style="margin-top:4px">Save recipient ◻</div></div>
+        <div class="acc"><span>5 Package</span><span>›</span></div>
+        <div class="acc"><span>6 Payment</span><span>›</span></div>
+        <div class="box g between"><span>Total</span><b>€48.00</b></div>
+      </div>
+      <div class="tabbar"><i>🔍<br>Search</i><i class="on">📦<br>Bookings</i><i>📄<br>Docs</i><i>🔔<br>Alerts</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Booking wizard</b>Six accordion steps. Price lives in a summary bar or sheet.</figcaption></figure>
+
+    <figure class="dev"><div class="phone" role="img" aria-label="Wireframe of driver dashboard">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div><div class="ph-h">Hello, Karim</div><div class="ph-s">Here is what needs you today</div></div>
+        <div class="row2"><div class="box">🗓️<br><b>2</b><br><span class="ph-s">Upcoming</span></div><div class="box">📦<br><b>3</b><br><span class="ph-s">Pending</span></div><div class="box">🚚<br><b>1</b><br><span class="ph-s">In transit</span></div></div>
+        <div class="between"><b>Pending bookings</b><span class="ph-s">See all</span></div>
+        <div class="box"><div class="between"><b>Amine B.</b><span class="pill y">Pending</span></div><div class="ph-s">12 kg · Paris → Tunis</div></div>
+        <div class="box"><div class="between"><b>Sana M.</b><span class="pill y">Pending</span></div><div class="ph-s">4 kg · Lyon → Sfax</div></div>
+        <div class="between"><b>Upcoming trips</b><span class="ph-s">See all</span></div>
+        <div class="box"><b>Paris → Tunis</b><div class="bar" style="margin-top:6px"><i style="width:62%"></i></div></div>
+      </div>
+      <div class="tabbar"><i class="on">🏠<br>Dashboard</i><i>🗺<br>Routes</i><i>📦<br>Bookings</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Driver dashboard</b>Counters and lists. Good inventory, no sense of "next action".</figcaption></figure>
+  </div>
+</div></section>
+
+<!-- ============ 4. FINDINGS ============ -->
+<section id="findings"><div class="wrap">
+  <h2>What the review found</h2>
+  <p class="lede">Ranked by effect on the two numbers that matter for a two-sided marketplace: senders reaching a confirmed booking, and drivers publishing a trip.</p>
+
+  <div class="find"><div class="sev h">High</div><div><h3>Sign-up comes before any value</h3><p>The welcome screen routes straight to account creation. A sender cannot see whether anyone is travelling to their city this month.</p><p class="fix">Fix: show live departures publicly; ask for an account at the booking step.</p></div></div>
+  <div class="find"><div class="sev h">High</div><div><h3>Booking asks for too much, in an accordion</h3><p>Six steps with four data-entry forms. Re-entry is reduced by saved contacts, but a first booking still means typing two people's details before the driver has said yes.</p><p class="fix">Fix: three steps (trip, package, hand-off). Collect recipient and address after confirmation when the driver has accepted.</p></div></div>
+  <div class="find"><div class="sev h">High</div><div><h3>Trust is thin for a cash, person-to-person deal</h3><p>Results show one rating line. Escrow is gone (ADR 0004), so identity, history and proof of hand-off must carry the trust. Docs and parts of the code still mention escrow banners.</p><p class="fix">Fix: a Trust Passport on every driver, plus photo proof at each hand-off.</p></div></div>
+  <div class="find"><div class="sev m">Med</div><div><h3>The recipient has no seat at the table</h3><p>Recipients are in Tunisia, often on WhatsApp, and never receive a link. The sender relays every update by hand.</p><p class="fix">Fix: tokenised tracking link and WhatsApp message, no account needed.</p></div></div>
+  <div class="find"><div class="sev m">Med</div><div><h3>Tab bar mixes the core job with side products</h3><p>"Ship Docs Fast" (a points-based favour network) shares top-level navigation with Bookings. Requests, the best fallback when search is empty, is hidden from the bar.</p><p class="fix">Fix: Home, Trips, Inbox, Profile. Requests and Docs become modes inside Home.</p></div></div>
+  <div class="find"><div class="sev m">Med</div><div><h3>Driver app is record-centric, not day-centric</h3><p>Dashboard counts things. On the day of travel the driver needs an ordered run sheet: where to collect, which weights, which cash to take.</p><p class="fix">Fix: a Trip Day mode that switches on 48 hours before departure.</p></div></div>
+  <div class="find"><div class="sev m">Med</div><div><h3>Brand and visual language are borrowed</h3><p>Black, Uber blue and emoji icons. No imagery, colour or type that belongs to the Tunisia–Europe corridor. Emoji render differently per platform and cannot be themed.</p><p class="fix">Fix: a Mediterranean palette, one display face, and a small custom icon set.</p></div></div>
+  <div class="find"><div class="sev l">Low</div><div><h3>RTL and Darija need first-class layouts</h3><p>Four locales exist, but the layouts (horizontal country cards, left accent borders, "→" arrows in cities) are written LTR.</p><p class="fix">Fix: logical properties and mirrored route arrows; review every card in Arabic.</p></div></div>
+  <div class="find"><div class="sev l">Low</div><div><h3>Doc drift</h3><p><code>user-flows.md</code> still lists escrow banners and a <code>/booking/review-pay</code> step that the blueprint says no longer exist.</p><p class="fix">Fix: reconcile in the same commit as any UI change (per CLAUDE.md).</p></div></div>
+</div></section>
+
+<!-- ============ 5. FUTURE ============ -->
+<section id="future"><div class="wrap">
+  <h2>Future UI/UX: send it with someone going there</h2>
+  <p class="lede">Design stance: Wasali is a corridor and a community, not a courier. The interface should feel like a departures hall and a trusted neighbour at once. Five concepts, each fixing one or more findings above. Mockups are illustrative; copy and numbers are placeholders.</p>
+
+  <div class="concept">
+    <div class="cv"><figure class="dev"><div class="phone f" role="img" aria-label="Concept: departures board home">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div><div class="ph-s">Europe → Tunisia</div><div class="ph-h">Who's going this week?</div></div>
+        <div class="board">
+          <div class="bh"><span>Departures</span><span>Free kg</span></div>
+          <div class="br"><span>Fri 14</span><span>Paris → Tunis<small>Karim · ★ 4.9 · ID verified</small></span><span class="kg">22 kg</span></div>
+          <div class="br"><span>Sat 15</span><span>Lyon → Sfax<small>Meriem · ★ 5.0 · 4 trips</small></span><span class="kg">9 kg</span></div>
+          <div class="br"><span>Sun 16</span><span>Marseille → Sousse<small>Walid · ★ 4.7 · ID verified</small></span><span class="kg low">3 kg</span></div>
+          <div class="br"><span>Wed 19</span><span>Brussels → Tunis<small>Ines · new driver</small></span><span class="kg">30 kg</span></div>
+        </div>
+        <div class="row2"><div class="box">From<br><b>Paris ▾</b></div><div class="box">To<br><b>Anywhere ▾</b></div></div>
+        <div class="btn-j">Nobody on your date? Ask the corridor</div>
+      </div>
+      <div class="tabbar"><i class="on">🏠<br>Home</i><i>🧳<br>Trips</i><i>💬<br>Inbox</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Concept A</b>Departures-board home</figcaption></figure></div>
+    <div>
+      <h3>A. Home is a live departures board</h3>
+      <p class="lede" style="margin:0 0 6px;font-size:16px">Replace the form-first home with the thing a sender actually wants to know: who is leaving, when, and how much room is left. Filtering is two soft chips, not three required fields.</p>
+      <ul>
+        <li>Public without sign-in. Account is requested when tapping Book.</li>
+        <li>Free kilos in plain numbers, red when almost full, so urgency is honest.</li>
+        <li>Empty state turns into the shipping request flow ("Ask the corridor") instead of a dead end.</li>
+        <li>Four tabs: Home, Trips, Inbox, Profile. Documents become a filter chip on the board.</li>
+        <li><b>Solves:</b> sign-up before value, empty results, tab bar clutter.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="cv"><figure class="dev"><div class="phone f" role="img" aria-label="Concept: three-step booking">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div class="between"><b>Paris → Tunis · Fri 14</b><span class="ph-s">✕</span></div>
+        <div class="stepper"><i class="on"></i><i class="on"></i><i></i></div>
+        <div class="ph-h">What are you sending?</div>
+        <div class="row2"><div class="box" style="border-color:var(--door);background:var(--sea)">👕<br>Clothes</div><div class="box">🍯<br>Food</div><div class="box">📄<br>Documents</div></div>
+        <div class="box"><div class="between"><span>Weight</span><b>− 12 kg +</b></div></div>
+        <div class="box g">+ Add up to 5 photos</div>
+        <div class="box" style="background:#FFF8DE;border-color:var(--jasmine)"><b>Karim doesn't carry</b><br>Alcohol, cash, perishable food</div>
+        <div style="flex:1"></div>
+        <div class="box between" style="border-color:var(--ink)"><span><b>€96</b><br><span class="ph-s">12 kg × €8 · pay cash to Karim</span></span><span class="btn-d" style="padding:8px 14px">Send request</span></div>
+      </div>
+    </div><figcaption><b>Concept B</b>Three-step request</figcaption></figure></div>
+    <div>
+      <h3>B. Book in three steps; details after "yes"</h3>
+      <p class="lede" style="margin:0 0 6px;font-size:16px">Trip, package, hand-off. The first booking is a request. Recipient details and addresses are collected after the driver confirms, when the sender has a reason to give them.</p>
+      <ul>
+        <li>The driver's prohibited items are shown beside the category picker, not buried in route detail.</li>
+        <li>Price sticks to the bottom and names who gets paid and when.</li>
+        <li>Saved recipients appear as one-tap chips after confirmation.</li>
+        <li>Hand-off (meeting point or door) is a single choice with a map, not two separate logistics blocks.</li>
+        <li><b>Solves:</b> booking length, abandoned first bookings.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="cv"><figure class="dev"><div class="phone f" role="img" aria-label="Concept: hand-off tracking">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div class="between"><b>WSL-4F29A1</b><span class="pill b">In transit</span></div>
+        <div class="box" style="background:var(--ink);color:#fff;border:0"><div class="ph-s" style="color:#8FA6BD">Karim has your parcel</div><b style="font-size:14px">Arrives Sat 15, Tunis</b></div>
+        <div class="tl">
+          <div class="d"><em></em><span><b>Confirmed</b><br><span class="ph-s">Karim accepted · Mar 10</span></span></div>
+          <div class="d"><em></em><span><b>Handed to Karim</b><br><span class="ph-s">12.4 kg re-weighed · photo proof</span></span></div>
+          <div class="a"><em></em><span><b>On the road</b><br><span class="ph-s">Ferry Marseille → Tunis</span></span></div>
+          <div><em></em><span><b>Handed to Olfa</b><br><span class="ph-s">Cash €96 collected on delivery</span></span></div>
+        </div>
+        <div class="box between"><span><b>Olfa (recipient)</b><br><span class="ph-s">Gets a link on WhatsApp</span></span><span class="pill g">Sent</span></div>
+        <div class="row2"><div class="btn-d" style="font-size:10px">Message Karim</div><div class="box" style="text-align:center">Report issue</div></div>
+      </div>
+    </div><figcaption><b>Concept C</b>Hand-off timeline</figcaption></figure></div>
+    <div>
+      <h3>C. Hand-off moments are the product</h3>
+      <p class="lede" style="margin:0 0 6px;font-size:16px">With cash and no escrow, trust is built by evidence. Each hand-off becomes a recorded moment (weight, photo, who, when), and the recipient joins through a link, not an app.</p>
+      <ul>
+        <li>Recipient gets a WhatsApp message with a tokenised page: status, driver photo, a QR to show on delivery.</li>
+        <li>"Report issue" is available at every stage, not only after delivery, and starts with the photo proof already attached.</li>
+        <li>Ratings are asked at the hand-off, in a two-tap sheet, while the memory is fresh.</li>
+        <li><b>Solves:</b> thin trust, recipient blind spot, late disputes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="cv"><figure class="dev"><div class="phone f" role="img" aria-label="Concept: driver trip day">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div><div class="ph-s">Trip day · leaves tomorrow 06:30</div><div class="ph-h">Paris → Tunis</div></div>
+        <div class="box"><div class="between"><span>Luggage used</span><b>31 / 40 kg</b></div><div class="bar" style="margin-top:6px"><i style="width:78%"></i></div></div>
+        <div class="ph-s">Run sheet</div>
+        <div class="box" style="border-left:4px solid var(--olive)"><div class="between"><b>1 · 18:00 Gare de Lyon</b><span class="pill g">Collected</span></div><span class="ph-s">Amine · 12.4 kg · cash due on collection</span></div>
+        <div class="box" style="border-left:4px solid var(--door)"><div class="between"><b>2 · 19:15 Belleville</b><span class="pill b">Next</span></div><span class="ph-s">Sana · 4 kg · tap to scan QR</span></div>
+        <div class="box" style="border-left:4px solid var(--line)"><div class="between"><b>3 · Tomorrow, Tunis</b><span class="pill">Deliver</span></div><span class="ph-s">3 recipients · 2 pay on delivery</span></div>
+        <div style="flex:1"></div>
+        <div class="btn-d">Scan next parcel</div>
+      </div>
+      <div class="tabbar"><i class="on">🧳<br>Today</i><i>🗺<br>Trips</i><i>💬<br>Inbox</i><i>👤<br>Profile</i></div>
+    </div><figcaption><b>Concept D</b>Driver trip day</figcaption></figure></div>
+    <div>
+      <h3>D. Drivers get a run sheet, not counters</h3>
+      <p class="lede" style="margin:0 0 6px;font-size:16px">The dashboard turns into "Today" once a trip is within 48 hours: ordered stops, kilos used against luggage, and exactly which cash to collect where.</p>
+      <ul>
+        <li>One primary action per moment: Scan next parcel, then Re-weigh, then Mark paid.</li>
+        <li>Large touch targets for use at a station or car boot, with an offline-safe queue for patchy signal.</li>
+        <li>Publishing a trip is a 60-second "Repeat last trip" path; the five-step wizard stays for new routes.</li>
+        <li>Earnings show as a trip receipt ("this trip paid €310") rather than a chart first.</li>
+        <li><b>Solves:</b> record-centric dashboard, driver retention.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="concept">
+    <div class="cv"><figure class="dev"><div class="phone f" role="img" aria-label="Concept: trust passport">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="body">
+        <div class="between"><span class="ph-s">‹ Back</span><span class="ph-s">Share</span></div>
+        <div class="box" style="background:var(--ink);color:#fff;border:0;text-align:center;padding:14px 10px">
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--jasmine);margin:0 auto 6px;display:grid;place-items:center;color:var(--ink);font-weight:800;font-size:16px">K</div>
+          <b style="font-size:14px">Karim B.</b><div class="ph-s" style="color:#8FA6BD">Paris ↔ Tunis · since 2024</div></div>
+        <div class="row2"><div class="box" style="text-align:center"><b style="font-size:16px">23</b><br><span class="ph-s">trips</span></div><div class="box" style="text-align:center"><b style="font-size:16px">4.9</b><br><span class="ph-s">rating</span></div><div class="box" style="text-align:center"><b style="font-size:16px">98%</b><br><span class="ph-s">on time</span></div></div>
+        <div class="box"><span class="pill g">✓ ID checked</span> <span class="pill g">✓ Phone</span> <span class="pill g">✓ Ticket seen</span></div>
+        <div class="box"><b>Hand-off photos</b><div class="row2" style="margin-top:6px"><div style="height:34px;background:var(--sea);border-radius:5px"></div><div style="height:34px;background:#E8DFC8;border-radius:5px"></div><div style="height:34px;background:var(--sea);border-radius:5px"></div></div></div>
+        <div class="box"><b>Amine</b> · "Delivered a day early, parcel intact."</div>
+      </div>
+    </div><figcaption><b>Concept E</b>Trust passport</figcaption></figure></div>
+    <div>
+      <h3>E. A Trust Passport on every driver</h3>
+      <p class="lede" style="margin:0 0 6px;font-size:16px">One shareable page gathers everything that makes a stranger safe to hand a parcel to. Verified facts are separated from opinions, and each verification says what was checked.</p>
+      <ul>
+        <li>Verification chips: ID checked, phone, and proof of ticket for this trip.</li>
+        <li>Real hand-off photos from past bookings, blurred for privacy where needed.</li>
+        <li>Shareable link so drivers bring their own audience from WhatsApp and Facebook groups, where the corridor already lives.</li>
+        <li>Compact version appears on every board row; the full page opens from the route.</li>
+        <li><b>Solves:</b> one-line rating, driver acquisition.</li>
+      </ul>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 6. FUTURE FLOWS ============ -->
+<section id="future-flows"><div class="wrap">
+  <h2>The future flows, shortened</h2>
+  <p class="lede">Same marketplace rules (cash, driver confirms, QR hand-off), fewer gates before value, more visibility after commitment.</p>
+
+  <div class="flow"><h3>Sender</h3>
+    <div class="chain">
+      <div class="node"><b>Open app</b><span>no account</span></div><div class="link"></div>
+      <div class="node"><b>Departures board</b><span>filter by city or date</span></div><div class="link"></div>
+      <div class="node"><b>Trust passport</b><span>driver + trip</span></div><div class="link"></div>
+      <div class="node"><b>Package</b><span>kg, category, photos</span></div><div class="link"></div>
+      <div class="node hot"><b>Sign in, then request</b><span>OTP or Apple/Google</span></div><div class="link"></div>
+      <div class="node"><b>Driver accepts</b><span>push and WhatsApp</span></div><div class="link"></div>
+      <div class="node"><b>Recipient + hand-off</b><span>saved chips</span></div><div class="link"></div>
+      <div class="node end"><b>Timeline</b><span>proof at each hand-off</span></div>
+    </div>
+    <p class="note">Nobody going your way? The board falls back to "Ask the corridor": a shipping request with the same package form, answered by driver offers.</p>
+  </div>
+
+  <div class="flow"><h3>Recipient (new, accountless)</h3>
+    <div class="chain">
+      <div class="node"><b>Sender adds recipient</b><span>phone + WhatsApp</span></div><div class="link"></div>
+      <div class="node"><b>WhatsApp message</b><span>tracking link</span></div><div class="link"></div>
+      <div class="node"><b>Live status page</b><span>no download</span></div><div class="link"></div>
+      <div class="node hot"><b>Delivery QR</b><span>shown to driver</span></div><div class="link"></div>
+      <div class="node end"><b>Confirm + rate</b></div>
+    </div>
+  </div>
+
+  <div class="flow"><h3>Driver</h3>
+    <div class="chain">
+      <div class="node"><b>Repeat last trip</b><span>or new route</span></div><div class="link"></div>
+      <div class="node hot"><b>Publish</b></div><div class="link"></div>
+      <div class="node"><b>Requests arrive</b><span>accept in the Inbox</span></div><div class="link"></div>
+      <div class="node"><b>Trip Day</b><span>run sheet, 48 h before</span></div><div class="link"></div>
+      <div class="node"><b>Scan, weigh, photo</b></div><div class="link"></div>
+      <div class="node"><b>Deliver, mark paid</b></div><div class="link"></div>
+      <div class="node end"><b>Trip receipt</b><span>earnings, ratings</span></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ============ 7. DESIGN SYSTEM ============ -->
+<section id="system"><div class="wrap">
+  <h2>A design system with a point of view</h2>
+  <p class="lede">The proposed look draws from the corridor itself: the white-and-blue doors of Sidi Bou Said, sea charts, baggage tags and airport departure boards. Black and Uber blue are retired as brand colours.</p>
+
+  <div class="sw" role="img" aria-label="Proposed palette">
+    <div style="background:#0F2238;color:#fff"><b>Chart ink</b>#0F2238<br>text, boards</div>
+    <div style="background:#1D5FD0;color:#fff"><b>Door blue</b>#1D5FD0<br>primary actions</div>
+    <div style="background:#DCEAF8"><b>Sea</b>#DCEAF8<br>selected, info</div>
+    <div style="background:#F5F7F4"><b>Whitewash</b>#F5F7F4<br>canvas</div>
+    <div style="background:#F4C542"><b>Jasmine</b>#F4C542<br>key moment, urgency</div>
+    <div style="background:#2F7D5B;color:#fff"><b>Olive</b>#2F7D5B<br>done, verified</div>
+  </div>
+
+  <div class="cmp" style="margin-top:24px">
+    <div class="panel"><h3>Type</h3>
+      <p style="font-family:var(--serif);font-size:30px;line-height:1.1;font-weight:700;margin:6px 0">Send it with someone going there.</p>
+      <p class="small">A sturdy serif for display moments (headings, city names, the board) paired with the platform sans for UI text. The pair needs an Arabic counterpart with matching weight; test with IBM Plex Sans Arabic or Noto Naskh before committing.</p></div>
+    <div class="panel"><h3>Component moves</h3>
+      <p class="small">Departure-board rows replace generic route cards. Status becomes a four-dot hand-off trail rather than a coloured badge. Emoji tab and stat icons become a single custom line-icon set. Corner radii step: 8 for inputs, 14 for cards, full for pills; never one radius on everything.</p></div>
+  </div>
+
+  <table style="margin-top:24px">
+    <tr><th>Element</th><th>Today</th><th>Proposed</th></tr>
+    <tr><td>Brand colour</td><td>Black + #276EF1</td><td>Chart ink + Door blue, Jasmine for the one key action per screen</td></tr>
+    <tr><td>Home</td><td>Country cards + 3-field form</td><td>Live departures board + soft filters</td></tr>
+    <tr><td>Booking</td><td>6-step accordion</td><td>3 steps; recipient after confirmation</td></tr>
+    <tr><td>Trust</td><td>★ rating, trip count</td><td>Trust Passport, hand-off photos</td></tr>
+    <tr><td>Recipient</td><td>Not represented</td><td>Tokenised WhatsApp tracking link</td></tr>
+    <tr><td>Driver home</td><td>Counters and lists</td><td>Trip Day run sheet; receipts</td></tr>
+    <tr><td>Navigation</td><td>5 sender tabs, 4 driver tabs, hidden Requests</td><td>Home, Trips, Inbox, Profile for both roles (driver gets Today)</td></tr>
+    <tr><td>Language</td><td>LTR layouts, 4 locales</td><td>Logical properties, mirrored route arrows, Arabic type pairing</td></tr>
+  </table>
+</div></section>
+
+<!-- ============ 8. ROADMAP ============ -->
+<section id="roadmap"><div class="wrap">
+  <h2>A sensible order to build</h2>
+  <p class="lede">Sequenced so each phase ships value on its own and reuses the stores and services already in place. Per the project rules, each feature gets <code>components / hooks / services / utils / types</code>.</p>
+  <div class="grid g3">
+    <div class="panel"><span class="chip g">Phase 1 · quick wins</span><h3 style="margin-top:10px">Trust and clarity</h3>
+      <p class="small">Public browsing before sign-up. Trust chips on route cards. Surface Requests as the empty-results fallback. Remove stale escrow copy. Reconcile docs.</p></div>
+    <div class="panel"><span class="chip">Phase 2 · core</span><h3 style="margin-top:10px">Shorter booking and hand-offs</h3>
+      <p class="small">Three-step booking, delayed recipient step. Hand-off photo proof on collect and deliver. Recipient WhatsApp link (new edge function and a token column; follows the schema workflow).</p></div>
+    <div class="panel"><span class="chip y">Phase 3 · identity</span><h3 style="margin-top:10px">Brand and drivers</h3>
+      <p class="small">New tokens, departures board home, Trust Passport page, Trip Day mode, "Repeat last trip", RTL pass, custom icon set.</p></div>
+  </div>
+  <div class="panel flat" style="margin-top:20px">
+    <h3>How to judge it</h3>
+    <p class="small">Sender: share of visitors who reach Book without an account, and share of first bookings confirmed by the driver. Driver: time to publish a repeat trip, and share of bookings completed without a dispute. Test A and B with 5 senders each in Paris and Lyon, and C and D with 5 drivers before building them in full.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap">Prepared from the repository contents on 2026-11-27. Mockups are concept art, not specifications. Verify screens against the running app before committing to scope.</div></footer>
+</body>
+</html>

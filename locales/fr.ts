@@ -32,7 +32,8 @@ export default {
     account: "Compte",
     support: "Assistance",
     editProfile: "Modifier le profil",
-    savedAddresses: "Adresses enregistrées",
+    addressBook: "Carnet d'adresses",
+    myAddresses: "Mes adresses",
     contacts: "Contacts",
   },
 

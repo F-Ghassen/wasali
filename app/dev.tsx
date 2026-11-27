@@ -116,8 +116,8 @@ const SECTIONS: Section[] = [
     color: '#6B7280',
     routes: [
       { label: 'Edit Profile', path: '/profile/edit' },
-      { label: 'Saved Addresses', path: '/profile/addresses' },
-      { label: 'Add Address', path: '/profile/add-address' },
+      { label: 'Address Book', path: '/profile/address-book' },
+      { label: 'My addresses', path: '/profile/my-addresses' },
       { label: 'Notifications', path: '/profile/notifications' },
     ],
   },

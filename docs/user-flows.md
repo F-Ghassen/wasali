@@ -342,19 +342,29 @@ Language: picking a language on the hub saves it on the device and to `profiles.
   ├── [Privacy]          →  /profile/privacy
   │     usage analytics toggle, marketing emails toggle
   │
-  ├── [Saved Addresses]   →  /profile/addresses
-  │     list of saved addresses (contact-linked addresses hidden)
+  ├── [My addresses]      →  /profile/my-addresses  (profile row)
+  │     the sender's own addresses; booking offers these as pickup
   │     ├── [Set as default]  →  set_default_address RPC (one default per user)
-  │     ├── [Edit]            →  /profile/add-address?id=…  (same form, prefilled)
+  │     ├── [Edit]            →  /profile/address-form?type=place&id=…  (prefilled)
   │     ├── [Delete]          →  confirm, then delete
-  │     └── [Add address]  →  /profile/add-address
-  │           label, street, city, postcode, country
+  │     └── [+ Add address]   →  /profile/address-form?type=place
+  │           label (optional; the address is shown instead), country (picker), city (only cities in that country; changing country clears a city from another one), street and postcode (both required)
   │
-  ├── [Contacts]          →  /profile/contacts
-  │     people saved from bookings (name, phone, WhatsApp, optional address)
-  │     ├── [Edit]    →  /profile/contact?id=…  (name, country code + number, WhatsApp, address)
-  │     └── [Delete]  →  confirm; also deletes the contact's address
+  ├── [Address Book]      →  /profile/address-book  (people only, 20 per page; scroll to load more)
+  │     ├── [+ Add Person]    →  /profile/address-form?type=person  (button at the top of the list)
+  │     │     name, country code + number, WhatsApp, Addresses (+ Add address)
+  │     │     → Save: back to the list
+  │     │     → + Add address: saves the person, then opens their address form
+  │     ├── [Edit person]     →  /profile/address-form?type=person&id=…
+  │     │     name, country code + number, WhatsApp, and the person's Addresses list
+  │     │     ├── [+ Add address]   →  /profile/person-address?personId=…
+  │     │     ├── [Edit]            →  /profile/person-address?personId=…&id=…
+  │     │     ├── [Set as default]  →  set_default_person_address RPC (one per person)
+  │     │     └── [Delete]          →  confirm; if it was the default, the next one becomes default
+  │     │     → Save Changes
+  │     └── [Delete]          →  confirm; also deletes all of the person's addresses
   │
+  ├── [Contacts]          →  /profile/contacts  (redirects to Address Book)
   ├── [Notifications]     →  /profile/notifications
   │     push toggle per category (bookings, requests, P2P, marketing)
   │
@@ -786,11 +796,11 @@ Sender taps **"Book slot →"** on a `RouteCard`. The app navigates to `/(sender
 
 ### Step 3 — Recipient
 
-- Saved contacts shown as chips — tapping one auto-fills all fields (contact + its address)
+- Saved contacts shown as chips — tapping one auto-fills all fields (contact + their default address)
 - Address fields always shown; label adapts: "Delivery address" vs "Recipient's collection address"
 - When delivery method = `recipient_collects`: shows read-only drop-off stop location above address
 - **Valid when:** recipient name + phone + full address (street + city + postal code)
-- Optionally saves to `contacts` (and its address to `addresses`) via `saveFromBooking`
+- Optionally saves the recipient to `contacts` via `saveFromBooking`; the booking address is added to their addresses if they don't already have it
 - Driver notes free-text field
 
 ### Step 4 — Package
@@ -810,7 +820,7 @@ _Unchanged — see `components/booking/PackageStep.tsx`._
 
 1. Validate all steps → highlight first invalid step
 2. `INSERT bookings` (all new columns including stop IDs, sender fields, total_price)
-3. If `saveRecipient` → upsert `contacts` by `(user_id, phone)`, writing the address to `addresses`
+3. If `saveRecipient` → upsert `contacts` by `(user_id, phone)`, adding the address to their `addresses` when it is new
 4. If `updateMyProfile` → `UPDATE profiles`
 5. `decrement_route_capacity(routeId, weightKg)` RPC
 6. Clear AsyncStorage draft key `booking_draft_{routeId}`

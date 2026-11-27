@@ -183,8 +183,14 @@ app/
 │   └── dispute/[bookingId].tsx ← open a dispute
 └── profile/
     ├── edit.tsx
-    ├── addresses.tsx
-    ├── add-address.tsx
+    ├── address-book.tsx        ← people (each card lists that person's addresses)
+    ├── my-addresses.tsx        ← the sender's own addresses (pickup in booking)
+    ├── address-form.tsx        ← add/edit a place or person (?type=&id=)
+    ├── person-address.tsx      ← add/edit one of a person's addresses (?personId=&id=)
+    ├── addresses.tsx           ← redirect → my-addresses
+    ├── add-address.tsx         ← redirect → address-form
+    ├── contacts.tsx            ← redirect → address-book (people)
+    ├── contact.tsx             ← redirect → address-form
     └── notifications.tsx
 ```
 
@@ -324,9 +330,11 @@ profiles ───────────────────────�
     │     └──▶ p2p_carries  (carrier_id)
     │               delivery confirmed → points credited
     │
-    └──▶ addresses  (user_id)       ← sender address book (is_default: one per user)
-              └──▶ contacts  (address_id, ON DELETE SET NULL)
-                     people to send to; a contact may point at one address
+    └──▶ addresses  (user_id, contact_id NULL)   ← places (one default per user)
+    └──▶ contacts  (user_id)
+              people to send to
+              └──▶ addresses  (contact_id, ON DELETE CASCADE)
+                     a person's addresses (one default per person)
 ```
 
 > Analytics (2026-11-27). PostHog (EU host) is the only analytics provider.
@@ -355,6 +363,15 @@ profiles ───────────────────────�
 > is still present (marked legacy) and is dropped in a later migration.
 > The address book hides addresses that belong to a contact
 > (`services/addressService.ts`, `fetchSavedAddresses`).
+>
+> Migration 062 (2026-11-27). A person's addresses are rows in `addresses` with
+> `contact_id` set; `contacts.address_id` is gone. Places keep `contact_id` NULL.
+> The person edit form (`app/profile/address-form.tsx`, type=person) lists them
+> through `components/profile/PersonAddressList.tsx`. The person card shows no addresses. Each address is edited through
+> `app/profile/person-address.tsx`. Booking adds its recipient address to
+> the person when it is new, and the person's default address prefills the recipient.
+> The sender's own addresses stay as `addresses` rows with `contact_id` NULL. They are
+> managed on My addresses (`app/profile/my-addresses.tsx`) and offered as pickup in booking.
 
 ### Migration History
 
@@ -616,21 +633,21 @@ app/(sender)/booking/confirmation.tsx
 | Form fields across all 6 steps | `useBookingForm` hook (useReducer + AsyncStorage) |
 | Saved recipients list | `useSavedRecipients` hook, built on `useContacts` (local state) |
 | Pickup address options | `useSavedAddresses` + `getPickupCandidates` (utils), filtered by the stop city |
-| Profile address book / contacts | `useSavedAddresses` / `useContacts` (refetch on focus and after each mutation) |
+| Profile address book / contacts | `useAddressBook` composes `useSavedAddresses` / `useContacts` (refetch on focus and after each mutation) |
 
 ### Address book and contacts layering
 
 | Layer | Files |
 |-------|-------|
 | Services (Supabase) | `services/addressService.ts`, `services/contactService.ts` |
-| Hooks (state) | `hooks/useSavedAddresses.ts`, `hooks/useContacts.ts`, `hooks/useSavedRecipients.ts`, `hooks/usePickupAddressPrefill.ts` |
-| Utils (pure) | `utils/addressFormat.ts`, `utils/pickupAddress.ts`, `utils/addressForm.ts`, `utils/contacts.ts`, `utils/validators.ts` (`savedAddressSchema`, `contactSchema`) |
-| Components | `components/profile/AddressCard.tsx`, `components/profile/ContactCard.tsx`, `components/booking/creation/SavedPickupChips.tsx` |
-| Screens | `app/profile/addresses.tsx`, `add-address.tsx` (add/edit via `?id=`), `contacts.tsx`, `contact.tsx` (edit via `?id=`) |
+| Hooks (state) | `hooks/useAddressBook.ts` (composition), `hooks/useSavedAddresses.ts`, `hooks/useContacts.ts`, `hooks/useSavedRecipients.ts`, `hooks/usePickupAddressPrefill.ts` |
+| Utils (pure) | `utils/addressFormat.ts` (`formatAddress`, `formatAddressLine`), `utils/addressBookForm.ts` (form type, mappers, type-aware resolver), `utils/pickupAddress.ts`, `utils/addressForm.ts`, `utils/contacts.ts` (`pickDefaultAddress`, `hasSameAddress`), `utils/validators.ts` (`savedAddressSchema`, `contactSchema`) |
+| Components | `components/profile/AddressBookCard.tsx` (places), `components/profile/PersonCard.tsx` (a person and their addresses), `components/shared/ui/primitives/SegmentedControl.tsx`, `components/shared/ui/forms/AddressFieldGroup.tsx` (country, street, postcode, city; used by the place and person-address forms), `components/shared/ui/forms/AddressFields.tsx` (booking steps), `components/booking/creation/SavedPickupChips.tsx` |
+| Screens | `app/profile/my-addresses.tsx` (sender's own addresses), `app/profile/address-book.tsx` (people), `app/profile/address-form.tsx` (`?type=place\|person&id=`), `app/profile/person-address.tsx` (`?personId=&id=`). `addresses.tsx`, `add-address.tsx`, `contacts.tsx`, `contact.tsx` are redirects kept for old links |
 
-Deleting a contact also deletes its address. Clearing a contact's address
-removes the orphaned row. Setting the default address goes through the
-`set_default_address` RPC, which is atomic.
+Deleting a contact deletes its addresses too (ON DELETE CASCADE). Each person's
+address has its own default, set through the `set_default_person_address` RPC;
+place defaults use `set_default_address`. Both RPCs are atomic.
 | Submit loading / error / lastBooking | `bookingStore` (Zustand) |
 | Selected route (passed from search) | `bookingStore.selectedRoute` (Zustand) |
 

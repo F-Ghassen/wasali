@@ -5,3 +5,4 @@ export { Skeleton } from './Skeleton';
 export { StatusBadge } from './StatusBadge';
 export { ToastContainer } from './Toast';
 export { ServiceOption } from './ServiceOption';
+export { SegmentedControl } from './SegmentedControl';

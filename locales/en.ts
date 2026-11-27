@@ -32,7 +32,8 @@ export default {
     account: "Account",
     support: "Support",
     editProfile: "Edit Profile",
-    savedAddresses: "Saved Addresses",
+    addressBook: "Address Book",
+    myAddresses: "My addresses",
     contacts: "Contacts",
   },
 

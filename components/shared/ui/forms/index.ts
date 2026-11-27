@@ -5,3 +5,5 @@ export { CityPickerInput } from './CityPickerInput';
 export { AddressFields } from './AddressFields';
 export { URLInput } from './URLInput';
 export { DateRangePicker } from './DateRangePicker';
+export { CountryPickerInput } from './CountryPickerInput';
+export { AddressFieldGroup } from './AddressFieldGroup';

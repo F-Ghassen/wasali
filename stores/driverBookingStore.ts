@@ -4,6 +4,7 @@ import type { BookingWithSender } from '@/types/models';
 import { isCashPaymentType } from '@/constants/bookingStatus';
 import { computeShippingPrice } from '@/utils/pricing';
 import { splitBookingMoney } from '@/utils/money';
+import { posthog } from '@/lib/posthog';
 
 type BookingFilter = 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'cancelled' | 'all';
 
@@ -209,6 +210,9 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
         ),
       });
       get().computeStats();
+      posthog?.capture('booking_confirmed', {
+        package_weight_kg: booking.package_weight_kg ?? 0,
+      });
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;
@@ -269,6 +273,7 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
         ),
       });
       get().computeStats();
+      posthog?.capture('booking_rejected', { was_previously_confirmed: wasConfirmed });
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;
@@ -297,6 +302,7 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
         ),
       });
       get().computeStats();
+      posthog?.capture('booking_delivered');
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;
@@ -332,6 +338,7 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
           b.id === id ? { ...b, payment_status: 'paid', paid_at: now } : b
         ),
       });
+      posthog?.capture('manual_payment_recorded', { payment_type: booking.payment_type });
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;
@@ -454,6 +461,10 @@ export const useDriverBookingStore = create<DriverBookingState & DriverBookingAc
         ),
       });
       get().computeStats();
+      posthog?.capture('package_weight_adjusted', {
+        previous_weight_kg: oldWeightKg,
+        package_weight_kg: newWeightKg,
+      });
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;
@@ -526,6 +537,9 @@ async function updateBookingStatus(
       ),
     });
     get().computeStats();
+    if (status === 'in_transit') {
+      posthog?.capture('booking_marked_in_transit');
+    }
   } catch (err) {
     set({ error: (err as Error).message });
     throw err;

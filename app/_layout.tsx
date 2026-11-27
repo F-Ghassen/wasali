@@ -4,12 +4,14 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PostHogProvider } from 'posthog-react-native';
 import { useAuthStore } from '@/stores/authStore';
 import { useCitiesStore } from '@/stores/citiesStore';
 import { ToastContainer } from '@/components/shared/ui/primitives/Toast';
 import { DevRoleSwitcher } from '@/components/dev/DevRoleSwitcher';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/stripe';
 import { initI18n } from '@/lib/i18n';
+import { posthog } from '@/lib/posthog';
 
 const isStripeReady = Boolean(
   Platform.OS !== 'web' &&
@@ -101,7 +103,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        {isStripeReady ? (
+        {posthog ? (
+          <PostHogProvider client={posthog}>
+            {isStripeReady ? (
+              <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+                {stackAndToast}
+              </StripeProvider>
+            ) : stackAndToast}
+          </PostHogProvider>
+        ) : isStripeReady ? (
           <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
             {stackAndToast}
           </StripeProvider>

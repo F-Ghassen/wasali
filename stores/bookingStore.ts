@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { RouteWithStops } from '@/types/models';
 import { bookingSubmitSchema } from '@/utils/validators';
 import { splitBookingMoney } from '@/utils/money';
+import { posthog } from '@/lib/posthog';
 
 // ─── Last booking snapshot (for confirmation screen) ─────────────────────────
 
@@ -128,6 +129,15 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
       }
 
       const id = (booking as { id: string }).id;
+      posthog?.capture('booking_created', {
+        package_weight_kg: parsed.data.package_weight_kg,
+        payment_type: parsed.data.payment_type,
+        total_price: money.totalPrice,
+      });
+      posthog?.logger.info('booking_created', {
+        package_weight_kg: parsed.data.package_weight_kg,
+        payment_type: parsed.data.payment_type,
+      });
       return id;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create booking';
@@ -149,6 +159,8 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
       status: 'open',
     });
     if (error) throw error;
+    posthog?.capture('dispute_submitted', { reason });
+    posthog?.logger.info('dispute_submitted');
   },
 
   reset: () => set({

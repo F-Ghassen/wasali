@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { ShippingRequestWithOffers } from '@/types/models';
+import { posthog } from '@/lib/posthog';
 
 interface RequestDraft {
   originCityId: string;
@@ -70,6 +71,11 @@ export const useRequestStore = create<RequestState & RequestActions>((set, get) 
         .single();
 
       if (error) throw error;
+      posthog?.capture('shipping_request_created', {
+        has_max_budget: draft.maxBudgetEur != null,
+        package_category: draft.packageCategory!,
+        package_weight_kg: draft.packageWeightKg!,
+      });
       set({ draft: {} });
       return (data as unknown as { id: string }).id;
     } finally {
@@ -115,6 +121,7 @@ export const useRequestStore = create<RequestState & RequestActions>((set, get) 
       });
       if (error) throw error;
       await get().loadRequest(requestId);
+      posthog?.capture('shipping_offer_accepted');
     } finally {
       set({ isLoading: false });
     }
@@ -126,5 +133,6 @@ export const useRequestStore = create<RequestState & RequestActions>((set, get) 
       .update({ status: 'declined' })
       .eq('id', offerId);
     if (error) throw error;
+    posthog?.capture('shipping_offer_declined');
   },
 }));

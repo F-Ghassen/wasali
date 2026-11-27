@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
+import { posthog } from '@/lib/posthog';
 import type { Profile, UserRole } from '@/types/models';
 
 export interface SavedAddressInput {
@@ -131,7 +132,9 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   signOut: async () => {
     set({ isLoading: true });
     try {
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      posthog?.reset();
       set({ session: null, profile: null, isOtpPending: false, pendingEmail: null });
     } finally {
       set({ isLoading: false });
@@ -224,7 +227,18 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
     const { setSession, loadProfile } = get();
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, s) => {
       setSession(s);
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && s?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && s?.user) {
+        const fullName = s.user.user_metadata.full_name;
+        const role = s.user.user_metadata.role;
+        const personProperties: Record<string, string> = {};
+
+        if (s.user.email) personProperties.email = s.user.email;
+        if (typeof fullName === 'string') personProperties.name = fullName;
+        if (typeof role === 'string') personProperties.role = role;
+
+        posthog?.identify(s.user.id, personProperties);
+        if (event === 'SIGNED_IN') await loadProfile(s.user.id);
+      } else if (event === 'TOKEN_REFRESHED' && s?.user) {
         await loadProfile(s.user.id);
       }
       onEvent(event, s?.user?.id ?? null);

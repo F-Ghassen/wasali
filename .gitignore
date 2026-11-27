@@ -63,3 +63,4 @@ docs/reports/
 
 # Claude Code local settings (may contain credentials)
 .claude/
+.env

@@ -5,6 +5,7 @@ import { notifyRouteAlerts } from '@/app/route-alert/services/routeNotificationS
 import type { TablesUpdate } from '@/types/database';
 import type { WizardStep1Values, WizardStep4Values } from '@/utils/validators';
 import { STOP_TYPE } from '@/constants/stopTypes';
+import { posthog } from '@/lib/posthog';
 
 type RouteFilter = 'active' | 'completed' | 'expired' | 'cancelled' | 'all';
 
@@ -262,6 +263,12 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
       }
 
       await get().fetchRoutes(driverId, 'all', 0, true);
+      posthog?.capture('route_created', {
+        available_weight_kg: data.available_weight_kg,
+        has_promotion: data.promo_discount_pct != null,
+        payment_type_count: data.payment_types?.filter((payment) => payment.enabled).length ?? 0,
+        stop_count: data.stops?.length ?? 0,
+      });
       return routeId;
     } catch (err) {
       set({ error: (err as Error).message });
@@ -284,6 +291,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           r.id === id ? { ...r, status: 'active' } : r
         ),
       }));
+      posthog?.capture('route_published');
 
       // Notify route alert subscribers asynchronously (don't wait for it)
       notifyRouteAlerts(id).catch((err) => {
@@ -337,6 +345,7 @@ export const useDriverRouteStore = create<DriverRouteState & DriverRouteActions>
           r.id === id ? { ...r, status: 'cancelled' } : r
         ),
       }));
+      posthog?.capture('route_cancelled');
     } catch (err) {
       set({ error: (err as Error).message });
       throw err;

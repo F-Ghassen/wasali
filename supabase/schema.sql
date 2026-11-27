@@ -161,17 +161,22 @@ CREATE TABLE IF NOT EXISTS addresses (
   country     text NOT NULL,
   postal_code text,
   is_default  boolean NOT NULL DEFAULT false,
+  contact_id  uuid,  -- the person this address belongs to; NULL for places (FK below contacts)
   created_at  timestamptz NOT NULL DEFAULT now(),
   updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
--- At most one default address per user
+-- At most one default place per user, and one default address per person (see migration 062)
 CREATE UNIQUE INDEX IF NOT EXISTS addresses_one_default_per_user
-  ON addresses (user_id) WHERE is_default;
+  ON addresses (user_id) WHERE is_default AND contact_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS addresses_one_default_per_person
+  ON addresses (contact_id) WHERE is_default AND contact_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS addresses_user_id_idx ON addresses (user_id);
+CREATE INDEX IF NOT EXISTS addresses_contact_id_idx ON addresses (contact_id);
 
--- Contacts: people to send to or from, optionally with an address (see migration 059)
+-- Contacts: people to send to or from. Their addresses are rows in addresses (see migration 062)
 CREATE TABLE IF NOT EXISTS contacts (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id          uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -180,13 +185,13 @@ CREATE TABLE IF NOT EXISTS contacts (
   phone_country_code text,
   phone_number     text,
   whatsapp_enabled boolean NOT NULL DEFAULT false,
-  address_id       uuid REFERENCES addresses(id) ON DELETE SET NULL,
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_at       timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT contacts_user_phone_key UNIQUE (user_id, phone)
 );
 
-CREATE INDEX IF NOT EXISTS contacts_address_id_idx ON contacts (address_id);
+ALTER TABLE addresses
+  ADD CONSTRAINT addresses_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE;
 
 -- ============================================================
 -- Trigger: auto-create profile on signup

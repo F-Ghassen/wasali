@@ -17,6 +17,7 @@ export type Database = {
       addresses: {
         Row: {
           city: string
+          contact_id: string | null
           country: string
           created_at: string
           id: string
@@ -29,6 +30,7 @@ export type Database = {
         }
         Insert: {
           city: string
+          contact_id?: string | null
           country: string
           created_at?: string
           id?: string
@@ -41,6 +43,7 @@ export type Database = {
         }
         Update: {
           city?: string
+          contact_id?: string | null
           country?: string
           created_at?: string
           id?: string
@@ -52,6 +55,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "addresses_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "saved_addresses_user_id_fkey"
             columns: ["user_id"]
@@ -292,7 +302,6 @@ export type Database = {
       }
       contacts: {
         Row: {
-          address_id: string | null
           created_at: string
           id: string
           name: string
@@ -304,7 +313,6 @@ export type Database = {
           whatsapp_enabled: boolean
         }
         Insert: {
-          address_id?: string | null
           created_at?: string
           id?: string
           name: string
@@ -316,7 +324,6 @@ export type Database = {
           whatsapp_enabled?: boolean
         }
         Update: {
-          address_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -328,13 +335,6 @@ export type Database = {
           whatsapp_enabled?: boolean
         }
         Relationships: [
-          {
-            foreignKeyName: "contacts_address_id_fkey"
-            columns: ["address_id"]
-            isOneToOne: false
-            referencedRelation: "addresses"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "contacts_user_id_fkey"
             columns: ["user_id"]
@@ -1253,6 +1253,10 @@ export type Database = {
       normalize_phone_number: { Args: { p_number: string }; Returns: string }
       phone_country_code_for: { Args: { p_phone: string }; Returns: string }
       set_default_address: {
+        Args: { p_address_id: string }
+        Returns: undefined
+      }
+      set_default_person_address: {
         Args: { p_address_id: string }
         Returns: undefined
       }

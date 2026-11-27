@@ -4,6 +4,17 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature — several addresses per person (2026-11-27, not yet pushed)
+
+- **062_person_addresses.sql** — A person can have several addresses.
+  `addresses.contact_id` (nullable, ON DELETE CASCADE) links an address to its
+  person; NULL marks a place. Existing `contacts.address_id` links are copied to
+  `addresses.contact_id` and checked before the column is dropped. Defaults:
+  `addresses_one_default_per_user` now covers places only, and
+  `addresses_one_default_per_person` covers each person's addresses. Adds the
+  `set_default_person_address(uuid)` RPC; `set_default_address` now only touches
+  places. Drops `contacts.address_id` and `contacts_address_id_idx`.
+
 ## Feature — user consent and profile data for analytics (2026-11-27, not yet pushed)
 
 - **061_user_profile_analytics.sql** — Adds opt-in consent timestamps

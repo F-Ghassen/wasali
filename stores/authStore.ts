@@ -79,6 +79,16 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
         // Session will be picked up by the onAuthStateChange listener — no OTP needed
         return;
       }
+      // Supabase's anti-enumeration behavior: re-signing-up an existing,
+      // confirmed email returns 200 with no error and no session (instead of
+      // throwing) so callers can't probe which emails are registered. The
+      // documented signal for this case is an empty `identities` array — it
+      // sends no confirmation email, so treating this as "new signup, go to
+      // OTP" strands the user on a screen waiting for an email that never
+      // sends.
+      if (data.user && data.user.identities?.length === 0) {
+        throw new Error('User already registered');
+      }
       set({ isOtpPending: true, pendingEmail: email });
     } finally {
       set({ isLoading: false });
@@ -179,10 +189,15 @@ export const useAuthStore = create<AuthState & AuthActions>((set, get) => ({
   },
 
   resetPassword: async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'wasali://auth/reset-password',
-    });
-    if (error) throw error;
+    set({ isLoading: true });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'wasali://auth/reset-password',
+      });
+      if (error) throw error;
+    } finally {
+      set({ isLoading: false });
+    }
   },
 
   updatePassword: async (newPassword) => {

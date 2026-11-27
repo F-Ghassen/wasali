@@ -294,6 +294,83 @@ export type Database = {
           },
         ]
       }
+      email_log: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          email_type: string
+          error_detail: string | null
+          id: string
+          provider_message_id: string | null
+          recipient_email: string
+          request_id: string | null
+          route_alert_id: string | null
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          email_type: string
+          error_detail?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient_email: string
+          request_id?: string | null
+          route_alert_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          email_type?: string
+          error_detail?: string | null
+          id?: string
+          provider_message_id?: string | null
+          recipient_email?: string
+          request_id?: string | null
+          route_alert_id?: string | null
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_log_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_route_alert_id_fkey"
+            columns: ["route_alert_id"]
+            isOneToOne: false
+            referencedRelation: "route_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           booking_id: string | null
@@ -301,6 +378,7 @@ export type Database = {
           id: string
           message: string
           read: boolean
+          request_id: string | null
           type: string
           user_id: string
         }
@@ -310,6 +388,7 @@ export type Database = {
           id?: string
           message: string
           read?: boolean
+          request_id?: string | null
           type: string
           user_id: string
         }
@@ -319,6 +398,7 @@ export type Database = {
           id?: string
           message?: string
           read?: boolean
+          request_id?: string | null
           type?: string
           user_id?: string
         }
@@ -328,6 +408,13 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "shipping_requests"
             referencedColumns: ["id"]
           },
           {

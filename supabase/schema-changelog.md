@@ -4,6 +4,32 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature — consolidated transactional email service (2026-07-27)
+
+- **057_email_log.sql** — Adds `email_log`, one row per send attempt across
+  every email call site (`notify-booking-event`, `notify-route-alert`,
+  `accept-offer`, the new Auth `send_email` hook): `email_type`,
+  `recipient_email`, nullable FKs (`user_id`, `booking_id`,
+  `route_alert_id`, `request_id`), `status` (`queued` → `sent`/`failed`),
+  `provider_message_id` (Resend's `id`), `error_detail`, timestamps. A row
+  is inserted `queued` before the Resend call and updated after, so a
+  mid-flight crash still leaves an observable record rather than silent
+  data loss. RLS enabled, no policies — service-role (edge functions) only,
+  matching the write pattern of every call site that touches it.
+  Also adds `notifications.request_id` (nullable FK to `shipping_requests`),
+  needed so `accept-offer`'s new notification coverage (previously sent
+  *no* notification of any kind when a driver accepted an offer) can link
+  back to the shipping request — same dedicated-nullable-FK-column
+  precedent as the existing `booking_id`, no polymorphic
+  `entity_type`/`entity_id` pattern introduced.
+  Paired with a new `supabase/functions/_shared/email/` module (Resend
+  `fetch()` wrapper + React Email templates) that replaces the two
+  previously-duplicated hand-rolled HTML template/fetch implementations in
+  `notify-booking-event` and `notify-route-alert`, and fixes a bug where a
+  failed email send in `notify-booking-event` threw, 500'd the DB webhook,
+  and risked a duplicate `notifications` row on Supabase's retry. See
+  `docs/email-service.md`.
+
 ## Bugfix — route alert submission always failed with PGRST204 (2026-07-27)
 
 - **056_route_alerts_guest_email.sql** — `routeAlertService.ts` inserted

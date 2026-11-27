@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { RouteWithStops } from '@/types/models';
 import { bookingSubmitSchema } from '@/utils/validators';
 import { splitBookingMoney } from '@/utils/money';
+import { track } from '@/services/analyticsService';
 
 // ─── Last booking snapshot (for confirmation screen) ─────────────────────────
 
@@ -128,6 +129,11 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
       }
 
       const id = (booking as { id: string }).id;
+      track('booking_created', {
+        package_weight_kg: parsed.data.package_weight_kg,
+        payment_type: parsed.data.payment_type,
+        total_price: money.totalPrice,
+      });
       return id;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create booking';
@@ -149,6 +155,7 @@ export const useBookingStore = create<BookingState & BookingActions>((set) => ({
       status: 'open',
     });
     if (error) throw error;
+    track('dispute_submitted', { reason });
   },
 
   reset: () => set({

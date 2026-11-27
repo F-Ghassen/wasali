@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:react@19"
+  },
+  "tasks": {
+    "test": "deno test --no-check --allow-env --allow-read --allow-net ."
+  }
+}

@@ -9,8 +9,7 @@ import { FontSize } from '@/constants/typography';
 import { PhoneInput } from '@/components/shared/ui/forms/PhoneInput';
 import { AddressFields } from '@/components/shared/ui/forms/AddressFields';
 import type { SavedRecipient } from '@/hooks/useSavedRecipients';
-import { splitPhone } from '@/utils/phone';
-import { DEFAULT_PHONE_COUNTRY_CODE } from '@/utils/phoneCountries';
+import { isSavedRecipientSelected, savedRecipientPhone } from '@/utils/contacts';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -52,12 +51,11 @@ export function RecipientStep({
     : "Recipient's address (optional)";
 
   function fillFromRecipient(r: SavedRecipient) {
-    // Rows saved before migration 060 have no parts yet, so fall back to splitting the combined phone.
-    const parts = splitPhone(r.phone);
+    const phone = savedRecipientPhone(r);
     onSet({
       recipientName:               r.name,
-      recipientCC:                 r.phone_country_code ?? parts.countryCode ?? DEFAULT_PHONE_COUNTRY_CODE,
-      recipientPhone:              r.phone_number ?? parts.number,
+      recipientCC:                 phone.countryCode,
+      recipientPhone:              phone.number,
       recipientWhatsapp:           r.whatsapp_enabled,
       recipientAddressStreet:      r.address_street ?? '',
       recipientAddressCity:        r.address_city ?? '',
@@ -79,18 +77,21 @@ export function RecipientStep({
         <>
           <Text style={s.sectionTitle}>Saved recipients</Text>
           <View style={s.savedRow}>
-            {savedRecipients.map((r) => (
-              <TouchableOpacity
-                key={r.id}
-                style={[s.savedChip, recipientName === r.name && s.savedChipActive]}
-                onPress={() => fillFromRecipient(r)}
-                activeOpacity={0.75}
-              >
-                <Text style={[s.savedChipText, recipientName === r.name && s.savedChipTextActive]}>
-                  {r.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {savedRecipients.map((r) => {
+              const active = isSavedRecipientSelected(r, { countryCode: recipientCC, number: recipientPhone });
+              return (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[s.savedChip, active && s.savedChipActive]}
+                  onPress={() => fillFromRecipient(r)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[s.savedChipText, active && s.savedChipTextActive]}>
+                    {r.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </>
       )}

@@ -146,9 +146,16 @@ export async function handleVerifiedPayload(
 
 export function buildActionUrl(emailData: SendEmailHookPayload['email_data']): string {
   const params = new URLSearchParams({
-    token_hash: emailData.token_hash,
+    // GoTrue's GET /verify reads the hash from `token` (not `token_hash`) —
+    // the same param name Supabase's own default templates use. Sending
+    // `token_hash` returns 400 "Verify requires a token or a token hash".
+    token: emailData.token_hash,
     type: emailData.email_action_type,
     redirect_to: emailData.redirect_to,
   });
-  return `${emailData.site_url}/auth/v1/verify?${params.toString()}`;
+  // GoTrue sends site_url with the /auth/v1 prefix already included in some
+  // setups, so strip it before appending the verify path — otherwise the
+  // link becomes /auth/v1/auth/v1/verify and 404s.
+  const projectUrl = emailData.site_url.replace(/\/+$/, '').replace(/\/auth\/v1$/, '');
+  return `${projectUrl}/auth/v1/verify?${params.toString()}`;
 }

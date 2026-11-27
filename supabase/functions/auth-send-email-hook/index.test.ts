@@ -167,7 +167,7 @@ Deno.test('handleVerifiedPayload returns 500 when the send itself fails', async 
 
 // --- buildActionUrl ---
 
-Deno.test('buildActionUrl builds a verify URL with token_hash, type, and redirect_to', () => {
+Deno.test('buildActionUrl builds a verify URL with token, type, and redirect_to', () => {
   const url = buildActionUrl({
     token: '123456',
     token_hash: 'hash_abc',
@@ -178,6 +178,20 @@ Deno.test('buildActionUrl builds a verify URL with token_hash, type, and redirec
     token_hash_new: '',
   });
   assertStringIncludes(url, 'https://cxlxlisfvbfqtysgnklu.supabase.co/auth/v1/verify?');
-  assertStringIncludes(url, 'token_hash=hash_abc');
+  assertStringIncludes(url, 'token=hash_abc');
   assertStringIncludes(url, 'type=signup');
+});
+
+Deno.test('buildActionUrl does not double the /auth/v1 prefix when site_url already includes it', () => {
+  const url = buildActionUrl({
+    token: '123456',
+    token_hash: 'hash_abc',
+    redirect_to: 'https://wasali.app/',
+    email_action_type: 'signup',
+    site_url: 'https://cxlxlisfvbfqtysgnklu.supabase.co/auth/v1',
+    token_new: '',
+    token_hash_new: '',
+  });
+  assertStringIncludes(url, 'https://cxlxlisfvbfqtysgnklu.supabase.co/auth/v1/verify?');
+  assertEquals(url.includes('/auth/v1/auth/v1'), false);
 });

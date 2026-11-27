@@ -8,8 +8,18 @@ CREATE TABLE IF NOT EXISTS profiles (
   id            uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name     text,
   phone         text UNIQUE,
+  phone_country_code text,
+  phone_number  text,
   phone_verified boolean NOT NULL DEFAULT false,
   avatar_url    text,
+  analytics_consent_at timestamptz,
+  marketing_consent_at timestamptz,
+  terms_version text,
+  terms_accepted_at timestamptz,
+  country_code  text,
+  preferred_locale text CHECK (preferred_locale IS NULL OR preferred_locale IN ('en', 'fr', 'ar', 'darija')),
+  acquisition_source text,
+  last_active_at timestamptz,
   stripe_customer_id text,
   created_at    timestamptz NOT NULL DEFAULT now(),
   updated_at    timestamptz NOT NULL DEFAULT now()
@@ -141,8 +151,8 @@ CREATE TABLE IF NOT EXISTS disputes (
   updated_at    timestamptz NOT NULL DEFAULT now()
 );
 
--- Saved addresses
-CREATE TABLE IF NOT EXISTS saved_addresses (
+-- Addresses: reusable places owned by a user (see migrations 058, 059)
+CREATE TABLE IF NOT EXISTS addresses (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   label       text NOT NULL,
@@ -151,8 +161,32 @@ CREATE TABLE IF NOT EXISTS saved_addresses (
   country     text NOT NULL,
   postal_code text,
   is_default  boolean NOT NULL DEFAULT false,
-  created_at  timestamptz NOT NULL DEFAULT now()
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
 );
+
+-- At most one default address per user
+CREATE UNIQUE INDEX IF NOT EXISTS addresses_one_default_per_user
+  ON addresses (user_id) WHERE is_default;
+
+CREATE INDEX IF NOT EXISTS addresses_user_id_idx ON addresses (user_id);
+
+-- Contacts: people to send to or from, optionally with an address (see migration 059)
+CREATE TABLE IF NOT EXISTS contacts (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  name             text NOT NULL,
+  phone            text NOT NULL,
+  phone_country_code text,
+  phone_number     text,
+  whatsapp_enabled boolean NOT NULL DEFAULT false,
+  address_id       uuid REFERENCES addresses(id) ON DELETE SET NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT contacts_user_phone_key UNIQUE (user_id, phone)
+);
+
+CREATE INDEX IF NOT EXISTS contacts_address_id_idx ON contacts (address_id);
 
 -- ============================================================
 -- Trigger: auto-create profile on signup
@@ -191,7 +225,8 @@ ALTER TABLE shipping_requests     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shipping_request_offers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ratings               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE disputes              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE saved_addresses       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE addresses             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE contacts              ENABLE ROW LEVEL SECURITY;
 
 -- profiles
 CREATE POLICY "Users can view own profile"   ON profiles FOR SELECT USING (auth.uid() = id);
@@ -287,8 +322,13 @@ CREATE POLICY "Anyone can read ratings" ON ratings FOR SELECT TO authenticated U
 CREATE POLICY "Sender can view own disputes"   ON disputes FOR SELECT USING (auth.uid() = sender_id);
 CREATE POLICY "Sender can insert disputes"     ON disputes FOR INSERT WITH CHECK (auth.uid() = sender_id);
 
--- saved_addresses
-CREATE POLICY "Users can manage own addresses" ON saved_addresses FOR ALL USING (auth.uid() = user_id);
+-- addresses
+CREATE POLICY "Users can manage own addresses" ON addresses FOR ALL
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- contacts
+CREATE POLICY "Users can manage own contacts" ON contacts FOR ALL
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================
 -- Storage buckets (run in Supabase dashboard or CLI)

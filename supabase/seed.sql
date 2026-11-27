@@ -157,7 +157,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- ─── 5. Saved addresses (driver pickup/dropoff addresses) ────
-INSERT INTO saved_addresses (id, user_id, label, street, city, country, postal_code, is_default)
+INSERT INTO addresses (id, user_id, label, street, city, country, postal_code, is_default)
 VALUES
   ('d1000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 'Home', 'Torstraße 45', 'Berlin', 'Germany', '10119', true),
   ('d1000000-0000-0000-0000-000000000002', 'a1000000-0000-0000-0000-000000000002', 'Home', 'Maximilianstraße 12', 'Munich', 'Germany', '80539', true),

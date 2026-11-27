@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      addresses: {
+        Row: {
+          city: string
+          country: string
+          created_at: string
+          id: string
+          is_default: boolean
+          label: string
+          postal_code: string | null
+          street: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city: string
+          country: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label: string
+          postal_code?: string | null
+          street: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string
+          country?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          postal_code?: string | null
+          street?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           cancellation_reason: string | null
@@ -243,6 +290,60 @@ export type Database = {
         }
         Relationships: []
       }
+      contacts: {
+        Row: {
+          address_id: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          phone_country_code: string | null
+          phone_number: string | null
+          updated_at: string
+          user_id: string
+          whatsapp_enabled: boolean
+        }
+        Insert: {
+          address_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone: string
+          phone_country_code?: string | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id: string
+          whatsapp_enabled?: boolean
+        }
+        Update: {
+          address_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          phone_country_code?: string | null
+          phone_number?: string | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_address_id_fkey"
+            columns: ["address_id"]
+            isOneToOne: false
+            referencedRelation: "addresses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       disputes: {
         Row: {
           booking_id: string
@@ -449,51 +550,81 @@ export type Database = {
       }
       profiles: {
         Row: {
+          acquisition_source: string | null
+          analytics_consent_at: string | null
           avatar_url: string | null
           completed_trips: number
+          country_code: string | null
           created_at: string
           full_name: string | null
           id: string
+          last_active_at: string | null
+          marketing_consent_at: string | null
           notification_email: string | null
           phone: string | null
+          phone_country_code: string | null
+          phone_number: string | null
           phone_verified: boolean
+          preferred_locale: string | null
           push_token: string | null
           rating: number
           role: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id: string | null
           stripe_customer_id: string | null
+          terms_accepted_at: string | null
+          terms_version: string | null
           updated_at: string
         }
         Insert: {
+          acquisition_source?: string | null
+          analytics_consent_at?: string | null
           avatar_url?: string | null
           completed_trips?: number
+          country_code?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          last_active_at?: string | null
+          marketing_consent_at?: string | null
           notification_email?: string | null
           phone?: string | null
+          phone_country_code?: string | null
+          phone_number?: string | null
           phone_verified?: boolean
+          preferred_locale?: string | null
           push_token?: string | null
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           updated_at?: string
         }
         Update: {
+          acquisition_source?: string | null
+          analytics_consent_at?: string | null
           avatar_url?: string | null
           completed_trips?: number
+          country_code?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          last_active_at?: string | null
+          marketing_consent_at?: string | null
           notification_email?: string | null
           phone?: string | null
+          phone_country_code?: string | null
+          phone_number?: string | null
           phone_verified?: boolean
+          preferred_locale?: string | null
           push_token?: string | null
           rating?: number
           role?: Database["public"]["Enums"]["user_role"]
           stripe_connect_account_id?: string | null
           stripe_customer_id?: string | null
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -945,50 +1076,6 @@ export type Database = {
           },
         ]
       }
-      saved_addresses: {
-        Row: {
-          city: string
-          country: string
-          created_at: string
-          id: string
-          is_default: boolean
-          label: string
-          postal_code: string | null
-          street: string
-          user_id: string
-        }
-        Insert: {
-          city: string
-          country: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          label: string
-          postal_code?: string | null
-          street: string
-          user_id: string
-        }
-        Update: {
-          city?: string
-          country?: string
-          created_at?: string
-          id?: string
-          is_default?: boolean
-          label?: string
-          postal_code?: string | null
-          street?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_addresses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       saved_routes: {
         Row: {
           created_at: string
@@ -1163,6 +1250,12 @@ export type Database = {
         Args: { p_route_id: string; p_weight_kg: number }
         Returns: number
       }
+      normalize_phone_number: { Args: { p_number: string }; Returns: string }
+      phone_country_code_for: { Args: { p_phone: string }; Returns: string }
+      set_default_address: {
+        Args: { p_address_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       stop_type_enum: "collection" | "dropoff"
@@ -1182,12 +1275,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1211,11 +1304,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1236,11 +1329,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1261,11 +1354,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1278,11 +1371,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

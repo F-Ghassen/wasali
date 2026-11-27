@@ -4,6 +4,55 @@ Chronological log of schema-affecting migrations. Newest first. See
 `docs/blueprint/trips-and-bookings.md` and `docs/adr/` for the rationale behind
 the Phase 0 reconciliation set.
 
+## Feature — user consent and profile data for analytics (2026-11-27, not yet pushed)
+
+- **061_user_profile_analytics.sql** — Adds opt-in consent timestamps
+  (`analytics_consent_at`, `marketing_consent_at`), the terms version accepted,
+  and segmentation fields (`country_code`, `preferred_locale`,
+  `acquisition_source`, `last_active_at`) to `profiles`. Existing users start
+  opted out. Terms acceptance is backfilled with the placeholder version `v1`.
+
+## Feature — phone stored as country code + number (2026-11-27)
+
+- **060_phone_parts.sql** — Adds `phone_country_code` and `phone_number` to
+  `profiles` and `contacts`. Existing `phone` values are split on the known dial
+  codes (longest prefix first). Values with no known code keep their digits in
+  `phone_number` with a null code, so the app asks for one on the next save. A
+  BEFORE INSERT/UPDATE trigger (`sync_phone_parts`) derives `phone` from the parts,
+  so `contacts_user_phone_key UNIQUE (user_id, phone)` and every reader of `phone`
+  are unchanged. The migration aborts before writing if two contacts of one user
+  would collide after normalising.
+
+## Feature — addresses and contacts split (2026-11-27)
+
+- **059_contacts_and_addresses.sql** — Separates places from people.
+  `saved_addresses` is renamed to `addresses` (policy, trigger, indexes and
+  `set_default_address` follow the rename). The contact columns added in 058
+  (`contact_name`, `contact_phone`, `whatsapp_enabled`) are dropped after a
+  guard that refuses if any row holds data. New `contacts` table: `name`,
+  `phone` (unique per user), `whatsapp_enabled`, and nullable `address_id`
+  (FK to `addresses`, `ON DELETE SET NULL`), with RLS and `updated_at`.
+  Existing `recipients` rows are copied, not moved: each recipient with an
+  address becomes an `addresses` row (id = recipient id, country `Tunisia`,
+  since recipients had no country) and a `contacts` row (id = recipient id).
+  A guard refuses to finish if any recipient failed to copy. The `recipients`
+  table is kept and marked legacy; drop it in a later migration once the app
+  is verified against `contacts`.
+
+## Feature — saved_addresses as the sender address book (2026-11-27)
+
+- **058_saved_addresses_v2.sql** — Makes `saved_addresses` the single address
+  book for senders. The table was previously defined only in `schema.sql`, so
+  this migration creates it if missing (`IF NOT EXISTS`) and then adds
+  `contact_name`, `contact_phone`, `whatsapp_enabled` (so one row can serve as
+  a pickup address or a recipient entry), and `updated_at` with its trigger.
+  Adds a partial unique index so each user has at most one `is_default` row;
+  existing duplicates are healed first, keeping the newest default. Adds
+  `set_default_address(uuid)`, a SECURITY INVOKER function that switches the
+  default atomically. The RLS policy is recreated with `WITH CHECK`, so a user
+  cannot insert or move rows under another `user_id`. `recipients` is not
+  migrated or dropped in this step.
+
 ## Feature — consolidated transactional email service (2026-07-27)
 
 - **057_email_log.sql** — Adds `email_log`, one row per send attempt across

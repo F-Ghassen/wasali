@@ -391,8 +391,9 @@ _Added: 2026-03-19_
 | `route_stops` | SELECT (via routes join) | New columns: `location_name`, `location_address`, `stop_date`, `city_id` |
 | `route_services` | SELECT (via routes join) | New column: `route_stop_id` (null = delivery, set = collection) |
 | `route_payment_methods` | SELECT (via routes join) | — |
-| `profiles` | SELECT (sender pre-fill), UPDATE (optional) | — |
-| `recipients` | SELECT (saved list), UPSERT (optional save) | `user_id,phone` unique conflict key |
+| `profiles` | SELECT (sender pre-fill), UPDATE (Edit Profile, booking save) | Writes `full_name`, `phone_country_code`, `phone_number`; the trigger from migration 060 sets `phone` |
+| `contacts` | SELECT (saved list), UPSERT (optional save), UPDATE (edit) | `user_id,phone` unique conflict key; writes `phone_country_code` + `phone_number` (trigger derives `phone`); address via `addresses` |
+| `addresses` | SELECT (sender address book + contact addresses), INSERT/UPDATE/DELETE (address book), RPC `set_default_address` | Rows linked to a contact are excluded from the address book |
 | `bookings` | INSERT | New columns: `collection_stop_id`, `dropoff_stop_id`, `sender_name`, `sender_phone`, `sender_whatsapp`, `recipient_whatsapp`, `total_price` |
 
 ### Wizard mount — parallel fetches
@@ -411,9 +412,9 @@ supabase.from('routes').select(`
   route_payment_methods(id, payment_type, enabled)
 `).eq('id', routeId).single()
 
-// Saved recipients
-supabase.from('recipients')
-  .select('id, name, phone, whatsapp_enabled, address_street, address_city, address_postal_code')
+// Saved recipients (services/contactService.ts → fetchContacts)
+supabase.from('contacts')
+  .select('id, name, phone, whatsapp_enabled, address:addresses(street, city, postal_code)')
   .eq('user_id', userId).order('created_at', { ascending: false }).limit(20)
 ```
 
@@ -451,6 +452,6 @@ All fields listed in `BOOKING_WIZARD_PLAN.md §c`. Key new fields:
 ### RLS notes
 
 - `bookings` RLS: `sender_id = auth.uid()` — new columns covered automatically (row-level not column-level)
-- `recipients` RLS: `user_id = auth.uid()` FOR ALL
+- `contacts` and `addresses` RLS: `user_id = auth.uid()` FOR ALL, with `WITH CHECK` (migrations 058–059)
 - `route_stops` / `route_services`: public read (no auth required for service discovery)
 

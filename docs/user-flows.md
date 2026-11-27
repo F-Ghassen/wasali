@@ -171,8 +171,7 @@ Step 1 — Logistics
   ► Completed step summary shows human-friendly labels (not raw service_type)
 
 Step 2 — Your Details (sender)
-  "My details" (pre-fill from profile)  OR  "On behalf of someone"
-  Name, phone (+WhatsApp toggle)
+  Name, phone (+WhatsApp toggle), pre-filled from profile
   Collection address: street + postal code; city auto-filled from collection stop (read-only)
   Address only shown when collection method = driver_pickup
 
@@ -331,16 +330,30 @@ Delivery confirmed  →  points credited to carrier
 
 ### 2.5 Profile Management
 
+Analytics consent (opt-in): nothing is tracked until the user opts in. The hub shows an "Allow" prompt until analytics is on; "Not now" hides it for the session only. The toggles live under Profile → Privacy: analytics writes `analytics_consent_at`, marketing emails writes `marketing_consent_at`. Opting out clears the PostHog identity on the device.
+
+Language: picking a language on the hub saves it on the device and to `profiles.preferred_locale`. The residence country is saved to `profiles.country_code`.
+
 ```
 /(sender)/profile
   ├── [Edit Profile]      →  /profile/edit
-  │     name, avatar (image picker → Supabase Storage avatars/)
+  │     name, country code + number (saved as separate fields), country of residence (chips), avatar (image picker → Supabase Storage avatars/)
+  │
+  ├── [Privacy]          →  /profile/privacy
+  │     usage analytics toggle, marketing emails toggle
   │
   ├── [Saved Addresses]   →  /profile/addresses
-  │     list of saved addresses
-  │     ├── tap to select as default
+  │     list of saved addresses (contact-linked addresses hidden)
+  │     ├── [Set as default]  →  set_default_address RPC (one default per user)
+  │     ├── [Edit]            →  /profile/add-address?id=…  (same form, prefilled)
+  │     ├── [Delete]          →  confirm, then delete
   │     └── [Add address]  →  /profile/add-address
   │           label, street, city, postcode, country
+  │
+  ├── [Contacts]          →  /profile/contacts
+  │     people saved from bookings (name, phone, WhatsApp, optional address)
+  │     ├── [Edit]    →  /profile/contact?id=…  (name, country code + number, WhatsApp, address)
+  │     └── [Delete]  →  confirm; also deletes the contact's address
   │
   ├── [Notifications]     →  /profile/notifications
   │     push toggle per category (bookings, requests, P2P, marketing)
@@ -763,20 +776,21 @@ Sender taps **"Book slot →"** on a `RouteCard`. The app navigates to `/(sender
 
 ### Step 2 — Sender Details
 
-- Toggle: "This is for me" / "On behalf of someone"
-- **Own mode:** pre-fills `profile.full_name` + `profile.phone`
+- The sender is always the signed-in user ("On behalf of someone" was removed).
+- **Pre-fill:** `profile.full_name` + `phone_country_code` / `phone_number`. Prefill only fills empty fields, and runs again when the profile loads after the screen opens. Typed values are never overwritten.
+- **Drafts:** a draft saved before the removal is migrated (`utils/bookingDraft.ts`); a draft in behalf mode keeps its details as the sender.
 - **Address fields:** only shown when collection method = `driver_pickup`; when `sender_dropoff`, shows read-only "Drop off at: [collection stop location_name]"
-- **Valid when (own):** name + phone filled; if `driver_pickup`, also address street + city + postal code required
-- **Valid when (behalf):** behalf name + phone filled; same address requirement
+- **Valid when:** name + phone filled; if `driver_pickup`, also address street + city + postal code required
+- **Pickup address (driver_pickup):** saved addresses in the collection stop's city show as chips; the default one is prefilled on arrival. Tapping a chip fills street + postal code. The city stays locked to the stop. Typed values are never overwritten by the prefill.
 - Optionally saves back to profile (`updateMyProfile`)
 
 ### Step 3 — Recipient
 
-- Saved recipients shown as chips — tapping one auto-fills all fields
+- Saved contacts shown as chips — tapping one auto-fills all fields (contact + its address)
 - Address fields always shown; label adapts: "Delivery address" vs "Recipient's collection address"
 - When delivery method = `recipient_collects`: shows read-only drop-off stop location above address
 - **Valid when:** recipient name + phone + full address (street + city + postal code)
-- Optionally saves to `recipients` table (`saveRecipient`)
+- Optionally saves to `contacts` (and its address to `addresses`) via `saveFromBooking`
 - Driver notes free-text field
 
 ### Step 4 — Package
@@ -796,7 +810,7 @@ _Unchanged — see `components/booking/PackageStep.tsx`._
 
 1. Validate all steps → highlight first invalid step
 2. `INSERT bookings` (all new columns including stop IDs, sender fields, total_price)
-3. If `saveRecipient` → `UPSERT recipients`
+3. If `saveRecipient` → upsert `contacts` by `(user_id, phone)`, writing the address to `addresses`
 4. If `updateMyProfile` → `UPDATE profiles`
 5. `decrement_route_capacity(routeId, weightKg)` RPC
 6. Clear AsyncStorage draft key `booking_draft_{routeId}`

@@ -102,7 +102,7 @@ playwright.config.ts      # Web E2E config — boots `expo start --web`, drives 
           │  │                  PostgreSQL                         │ │
           │  │  cities · profiles · routes · route_stops · bookings│ │
           │  │  shipping_requests · offers · ratings · disputes   │ │
-          │  │  saved_addresses · route_templates · p2p_*         │ │
+          │  │  addresses       · route_templates · p2p_*         │ │
           │  │  notifications · email_log · route_alerts          │ │
           │  └────────────────────────────────────────────────────┘ │
           │                                                          │
@@ -324,8 +324,33 @@ profiles ───────────────────────�
     │     └──▶ p2p_carries  (carrier_id)
     │               delivery confirmed → points credited
     │
-    └──▶ saved_addresses  (user_id)
+    └──▶ addresses  (user_id)       ← sender address book (is_default: one per user)
+              └──▶ contacts  (address_id, ON DELETE SET NULL)
+                     people to send to; a contact may point at one address
 ```
+
+> Analytics (2026-11-27). PostHog (EU host) is the only analytics provider.
+> `services/analyticsService.ts` is the only module that imports it. Events are
+> typed in `utils/analyticsEvents.ts`. Nothing is sent without opt-in:
+> `profiles.analytics_consent_at` drives `hooks/useAnalyticsConsent.ts`, which is
+> mounted in `app/_layout.tsx`. Writes go through `hooks/useConsentSettings.ts`
+> (analytics and marketing). Language changes go through
+> `hooks/useLanguagePreference.ts`, which saves `profiles.preferred_locale`.
+> No API key means the SDK is never created.
+> Plan: `docs/plans/user-data-and-analytics.md`.
+>
+> Migration 060 (2026-11-27). `profiles` and `contacts` store the phone as
+> `phone_country_code` + `phone_number`. A trigger (`sync_phone_parts`) derives the
+> combined `phone` from the parts, so the contacts unique key and readers of `phone`
+> are unchanged. Profile and contact forms share `CountryCodeSelect`
+> (`components/shared/ui/forms/`) and the pure helpers in `utils/phone.ts`,
+> `utils/phoneCountries.ts`, and `utils/profileForm.ts`.
+>
+> Migrations 058–059 (2026-11-27). `saved_addresses` was renamed to `addresses`.
+> Contact fields moved out of it into `contacts`. The legacy `recipients` table
+> is still present (marked legacy) and is dropped in a later migration.
+> The address book hides addresses that belong to a contact
+> (`services/addressService.ts`, `fetchSavedAddresses`).
 
 ### Migration History
 
@@ -551,7 +576,9 @@ _Added: 2026-03-19_
 app/(sender)/booking/bookingCreation/index.tsx  ← wizard shell
   ├─ hooks/useRouteData.ts            ← parallel fetch: route + stops + services + payment methods
   ├─ hooks/useBookingForm.ts          ← useReducer + AsyncStorage draft, stepValidity, totalPrice
-  ├─ hooks/useSavedRecipients.ts      ← fetch/upsert recipients
+  ├─ hooks/useSavedRecipients.ts      ← contacts as recipients (prefill + save on submit)
+  ├─ hooks/useSavedAddresses.ts       ← address book (pickup default prefill)
+  ├─ hooks/usePickupAddressPrefill.ts ← prefills the default pickup address once per candidate
   ├─ stores/bookingStore.ts           ← submitBooking, isLoading, lastBooking
   │
   ├─ components/booking/creation/ItineraryStep.tsx    ← Step 0: pick collection + dropoff stop
@@ -583,7 +610,23 @@ app/(sender)/booking/confirmation.tsx
 |---------|-------|
 | Route data (stops, services, payment methods) | `useRouteData` hook (local state) |
 | Form fields across all 6 steps | `useBookingForm` hook (useReducer + AsyncStorage) |
-| Saved recipients list | `useSavedRecipients` hook (local state) |
+| Saved recipients list | `useSavedRecipients` hook, built on `useContacts` (local state) |
+| Pickup address options | `useSavedAddresses` + `getPickupCandidates` (utils), filtered by the stop city |
+| Profile address book / contacts | `useSavedAddresses` / `useContacts` (refetch on focus and after each mutation) |
+
+### Address book and contacts layering
+
+| Layer | Files |
+|-------|-------|
+| Services (Supabase) | `services/addressService.ts`, `services/contactService.ts` |
+| Hooks (state) | `hooks/useSavedAddresses.ts`, `hooks/useContacts.ts`, `hooks/useSavedRecipients.ts`, `hooks/usePickupAddressPrefill.ts` |
+| Utils (pure) | `utils/addressFormat.ts`, `utils/pickupAddress.ts`, `utils/addressForm.ts`, `utils/contacts.ts`, `utils/validators.ts` (`savedAddressSchema`, `contactSchema`) |
+| Components | `components/profile/AddressCard.tsx`, `components/profile/ContactCard.tsx`, `components/booking/creation/SavedPickupChips.tsx` |
+| Screens | `app/profile/addresses.tsx`, `add-address.tsx` (add/edit via `?id=`), `contacts.tsx`, `contact.tsx` (edit via `?id=`) |
+
+Deleting a contact also deletes its address. Clearing a contact's address
+removes the orphaned row. Setting the default address goes through the
+`set_default_address` RPC, which is atomic.
 | Submit loading / error / lastBooking | `bookingStore` (Zustand) |
 | Selected route (passed from search) | `bookingStore.selectedRoute` (Zustand) |
 
